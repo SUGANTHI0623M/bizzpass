@@ -19,7 +19,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
-
+//cors
 // Configure CORS
 const allowedOrigins = ['https://ehrms.askeva.io', 'http://ehrms.askeva.io', 'http://localhost:8080', 'http://127.0.0.1:8080'];
 app.use(cors({
