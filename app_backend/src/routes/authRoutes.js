@@ -8,6 +8,7 @@ const {
     getProfile,
     updateProfile,
     updateEducation,
+    updateExperience,
     forgotPassword,
     verifyOTP,
     resetPassword,
@@ -46,6 +47,7 @@ router.post('/reset-password', authLimiter, resetPassword);
 router.get('/profile', protect, authLimiter, getProfile);
 router.put('/profile', protect, authLimiter, updateProfile);
 router.patch('/profile/education', protect, authLimiter, updateEducation);
+router.patch('/profile/experience', protect, authLimiter, updateExperience);
 
 // Change password (old + new)
 router.post('/change-password', protect, authLimiter, changePassword);

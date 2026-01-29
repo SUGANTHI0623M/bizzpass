@@ -186,8 +186,6 @@ function calculateShiftHours(startTime, endTime) {
 
 // Helper function to calculate fine for late arrival
 function calculateLateFine(punchInTime, attendanceDate, shiftStartTime, gracePeriodMinutes, dailySalary, shiftHours) {
-    console.log(`[calculateLateFine] Input: punchInTime=${punchInTime}, shiftStartTime=${shiftStartTime}, gracePeriodMinutes=${gracePeriodMinutes}, dailySalary=${dailySalary}, shiftHours=${shiftHours}`);
-    
     const [shiftHours_val, shiftMins] = shiftStartTime.split(':').map(Number);
     const shiftStart = new Date(attendanceDate);
     shiftStart.setHours(shiftHours_val, shiftMins, 0, 0);
@@ -195,20 +193,15 @@ function calculateLateFine(punchInTime, attendanceDate, shiftStartTime, gracePer
     const graceTimeEnd = new Date(shiftStart);
     graceTimeEnd.setMinutes(graceTimeEnd.getMinutes() + gracePeriodMinutes);
     
-    console.log(`[calculateLateFine] Shift Start: ${shiftStart.toISOString()}, Grace Time End: ${graceTimeEnd.toISOString()}, Punch In: ${punchInTime.toISOString()}`);
-    
     // If punch-in is before or within grace time, no fine
     if (punchInTime <= graceTimeEnd) {
-        console.log(`[calculateLateFine] Punch-in is within grace time. No fine.`);
         return { lateMinutes: 0, fineAmount: 0 };
     }
     
     // Calculate late minutes from shift start time (not grace end)
     const lateMinutes = Math.max(0, Math.round((punchInTime.getTime() - shiftStart.getTime()) / (1000 * 60)));
-    console.log(`[calculateLateFine] Late Minutes: ${lateMinutes}`);
     
     if (lateMinutes <= 0 || !dailySalary || !shiftHours) {
-        console.log(`[calculateLateFine] Skipping fine calculation - lateMinutes: ${lateMinutes}, dailySalary: ${dailySalary}, shiftHours: ${shiftHours}`);
         return { lateMinutes, fineAmount: 0 };
     }
     
@@ -216,8 +209,6 @@ function calculateLateFine(punchInTime, attendanceDate, shiftStartTime, gracePer
     // Hourly Rate = Daily Salary / Shift Hours
     const hourlyRate = dailySalary / shiftHours;
     const fineAmount = Math.round((hourlyRate * (lateMinutes / 60)) * 100) / 100;
-    
-    console.log(`[calculateLateFine] Hourly Rate: ${hourlyRate}, Fine Amount: ${fineAmount}`);
     
     return { lateMinutes, fineAmount };
 }
@@ -250,28 +241,20 @@ function calculateEarlyFine(punchOutTime, attendanceDate, shiftEndTime, dailySal
 // Helper function to calculate combined fine (late + early)
 async function calculateCombinedFine(punchInTime, punchOutTime, attendanceDate, template, staff, company) {
     try {
-        console.log(`[Fine Calculation] Starting for Staff: ${staff.name || staff.email || staff._id}`);
-        console.log(`[Fine Calculation] PunchIn: ${punchInTime}, AttendanceDate: ${attendanceDate}`);
-        
         // Get shift timings
         const shiftStartTime = template.shiftStartTime || "09:30";
         const shiftEndTime = template.shiftEndTime || "18:30";
         const gracePeriodMinutes = template.gracePeriodMinutes || 0;
         
-        console.log(`[Fine Calculation] Shift: ${shiftStartTime} - ${shiftEndTime}, Grace: ${gracePeriodMinutes} min`);
-        
         // Calculate shift hours
         const shiftHours = calculateShiftHours(shiftStartTime, shiftEndTime);
-        console.log(`[Fine Calculation] Shift Hours: ${shiftHours}`);
         
         // Calculate daily salary
         let dailySalary = null;
         if (staff.salary) {
-            console.log(`[Fine Calculation] Staff has salary structure:`, JSON.stringify(staff.salary, null, 2));
             const salaryStructure = calculateSalaryStructure(staff.salary);
             if (salaryStructure) {
                 const monthlyGrossSalary = salaryStructure.monthly.grossSalary || 0;
-                console.log(`[Fine Calculation] Monthly Gross Salary: ${monthlyGrossSalary}`);
                 
                 // Get holidays for the month
                 const attendanceYear = attendanceDate.getFullYear();
@@ -292,57 +275,37 @@ async function calculateCombinedFine(punchInTime, punchOutTime, attendanceDate, 
                     }
                 }
                 
-                console.log(`[Fine Calculation] Month Holidays: ${monthHolidays.length}`);
-                
                 // Get weekly off pattern
                 const businessSettings = company?.settings?.business || {};
                 const weeklyOffPattern = businessSettings.weeklyOffPattern || 'standard';
                 const weeklyHolidays = businessSettings.weeklyHolidays || [{ day: 0, name: 'Sunday' }];
                 
-                console.log(`[Fine Calculation] Weekly Off Pattern: ${weeklyOffPattern}, Weekly Holidays: ${JSON.stringify(weeklyHolidays)}`);
-                
                 // Calculate working days
                 const workingDays = calculateWorkingDays(attendanceYear, attendanceMonth, monthHolidays, weeklyOffPattern, weeklyHolidays);
-                console.log(`[Fine Calculation] Working Days: ${workingDays}`);
                 
                 // Calculate daily salary
                 if (workingDays > 0) {
                     dailySalary = monthlyGrossSalary / workingDays;
-                    console.log(`[Fine Calculation] Daily Salary: ${dailySalary}`);
-                } else {
-                    console.error(`[Fine Calculation] ERROR: Working days is 0 or invalid! Cannot calculate daily salary.`);
                 }
-            } else {
-                console.error(`[Fine Calculation] ERROR: Salary structure calculation returned null/undefined`);
             }
-        } else {
-            console.error(`[Fine Calculation] ERROR: Staff does not have salary structure! staff.salary:`, staff.salary);
         }
         
         if (!dailySalary || dailySalary <= 0) {
-            console.error(`[Fine Calculation] ERROR: Daily salary is null/zero. Returning zero fine.`);
-            console.error(`[Fine Calculation] Debug - dailySalary: ${dailySalary}, staff.salary exists: ${!!staff.salary}`);
             return { lateMinutes: 0, earlyMinutes: 0, fineHours: 0, fineAmount: 0 };
         }
         
         // Calculate late fine
-        console.log(`[Fine Calculation] Calculating late fine...`);
         const lateFine = calculateLateFine(punchInTime, attendanceDate, shiftStartTime, gracePeriodMinutes, dailySalary, shiftHours);
-        console.log(`[Fine Calculation] Late Fine Result:`, lateFine);
         
         // Calculate early fine if punch-out exists
         let earlyFine = { earlyMinutes: 0, fineAmount: 0 };
         if (punchOutTime) {
-            console.log(`[Fine Calculation] Calculating early fine...`);
             earlyFine = calculateEarlyFine(punchOutTime, attendanceDate, shiftEndTime, dailySalary, shiftHours);
-            console.log(`[Fine Calculation] Early Fine Result:`, earlyFine);
         }
         
         // Combine fines
         const fineHours = lateFine.lateMinutes + earlyFine.earlyMinutes; // Total in minutes
         const fineAmount = lateFine.fineAmount + earlyFine.fineAmount;
-        
-        console.log(`[Fine Calculation] Final Result - Late: ${lateFine.lateMinutes} min, Early: ${earlyFine.earlyMinutes} min, Total Fine: ₹${fineAmount}`);
         
         return {
             lateMinutes: lateFine.lateMinutes,
@@ -352,7 +315,6 @@ async function calculateCombinedFine(punchInTime, punchOutTime, attendanceDate, 
         };
     } catch (error) {
         console.error('[Fine Calculation Error]', error);
-        console.error('[Fine Calculation Error Stack]', error.stack);
         return { lateMinutes: 0, earlyMinutes: 0, fineHours: 0, fineAmount: 0 };
     }
 }
@@ -386,8 +348,6 @@ const checkIn = async (req, res) => {
         // Re-fetch staff with populated branch and template
         const staff = await Staff.findById(staffId).populate('branchId').populate('attendanceTemplateId');
         const template = normalizeTemplate(staff.attendanceTemplateId);
-
-        console.log(`[CheckIn] Processing for Staff: ${staff.name} (${staff._id})`);
 
         // PRIORITY 1: Check if On Approved Leave (highest priority - blocks all other rules)
         // This check must happen FIRST before any other attendance validations
@@ -443,7 +403,6 @@ const checkIn = async (req, res) => {
         let shiftTiming = null;
         if (company && staff.shiftName) {
             shiftTiming = getShiftFromCompanySettings(company, staff.shiftName);
-            console.log(`[CheckIn] Shift from Company settings: ${shiftTiming ? 'Found' : 'Not Found'} for shiftName: ${staff.shiftName}`);
         }
         
         const shiftStartStr = shiftTiming?.startTime || template.shiftStartTime || "09:30";
@@ -557,16 +516,6 @@ const checkIn = async (req, res) => {
         const fineShiftEndTime = shiftTiming?.endTime || template.shiftEndTime || "18:30";
         const fineGracePeriod = shiftTiming?.gracePeriodMinutes ?? template.gracePeriodMinutes ?? 0;
         
-        console.log(`[CheckIn] Fine Calculation Setup:`);
-        console.log(`[CheckIn] Staff: ${staff.name || staff.email || staff._id}, ShiftName: ${staff.shiftName}`);
-        console.log(`[CheckIn] Shift Timing from Company: ${shiftTiming ? 'Found' : 'Not Found'}`);
-        console.log(`[CheckIn] Fine Shift: ${fineShiftStartTime} - ${fineShiftEndTime}, Grace: ${fineGracePeriod} min`);
-        console.log(`[CheckIn] Late Minutes: ${lateMinutes}`);
-        console.log(`[CheckIn] Staff Salary Exists: ${!!staff.salary}`);
-        if (staff.salary) {
-            console.log(`[CheckIn] Staff Salary:`, JSON.stringify(staff.salary, null, 2));
-        }
-        
         // Create a fine template object with shift timings
         const fineTemplate = {
             ...template,
@@ -577,11 +526,7 @@ const checkIn = async (req, res) => {
         
         let fineResult = { lateMinutes: 0, earlyMinutes: 0, fineHours: 0, fineAmount: 0 };
         if (lateMinutes > 0) {
-            console.log(`[CheckIn] Calling calculateCombinedFine because lateMinutes > 0`);
             fineResult = await calculateCombinedFine(now, null, startOfDay, fineTemplate, staff, company);
-            console.log(`[CheckIn] Fine Calculation Result:`, fineResult);
-        } else {
-            console.log(`[CheckIn] Skipping fine calculation because lateMinutes is ${lateMinutes} (not > 0)`);
         }
 
         // Create initial attendance record.
@@ -694,7 +639,6 @@ async function processCheckOut(attendance, req, res, staff, now, data, template 
     let shiftTiming = null;
     if (company && staff.shiftName) {
         shiftTiming = getShiftFromCompanySettings(company, staff.shiftName);
-        console.log(`[CheckOut] Shift from Company settings: ${shiftTiming ? 'Found' : 'Not Found'} for shiftName: ${staff.shiftName}`);
     }
     
     const shiftEndStr = shiftTiming?.endTime || template.shiftEndTime || "18:30";
@@ -1134,7 +1078,6 @@ const getMonthAttendance = async (req, res) => {
                 const date = new Date(y, m - 1, day);
                 const dayOfWeek = date.getDay();
                 if (dayOfWeek === 0) {
-                    console.log(`[getMonthAttendance] Keeping Sunday ${dateStr} as week off despite attendance`);
                     return true; // Always include Sundays
                 }
                 return false; // Exclude other week offs that have attendance

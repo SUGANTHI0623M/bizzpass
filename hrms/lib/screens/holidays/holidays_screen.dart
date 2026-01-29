@@ -51,9 +51,6 @@ class _HolidaysScreenState extends State<HolidaysScreen>
   }
 
   Future<void> _fetchHolidays() async {
-    // Log to help debug loading issues
-    debugPrint('[HolidaysScreen] _fetchHolidays called. '
-        'year=$_selectedYear search=$_searchQuery');
 
     setState(() {
       _isLoading = true;
@@ -71,10 +68,8 @@ class _HolidaysScreenState extends State<HolidaysScreen>
         if (result['success']) {
           _holidays = result['data'];
           _holidays.sort((a, b) => a.date.compareTo(b.date));
-          debugPrint('[HolidaysScreen] Loaded ${_holidays.length} holidays');
         } else {
           _errorMessage = result['message'];
-          debugPrint('[HolidaysScreen] Error: $_errorMessage');
         }
       });
     }

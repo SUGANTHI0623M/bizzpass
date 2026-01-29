@@ -12,10 +12,15 @@ class AttendanceService {
   Map<String, dynamic>? attendanceTemplate;
   Map<String, dynamic>? _cachedTodayAttendance;
   DateTime? _lastTodayAttendanceFetch;
+  
+  // Cache for month attendance: key = "year-month", value = cached data
+  final Map<String, Map<String, dynamic>> _cachedMonthAttendance = {};
+  final Map<String, DateTime> _lastMonthAttendanceFetch = {};
 
   // Simple per-endpoint throttle map (URL -> last call time)
   static final Map<String, DateTime> _lastCallTimestamps = {};
-  static const Duration _throttleDuration = Duration(seconds: 3);
+  static const Duration _throttleDuration = Duration(seconds: 2); // Reduced from 3 to allow faster retries
+  static const Duration _cacheValidDuration = Duration(minutes: 5);
 
   bool _isThrottled(String url) {
     final now = DateTime.now();
@@ -275,18 +280,47 @@ class AttendanceService {
     }
   }
 
-  Future<Map<String, dynamic>> getMonthAttendance(int year, int month) async {
-    try {
-      final headers = await _getHeaders();
-      final url = '$baseUrl/attendance/month?year=$year&month=$month';
+  Future<Map<String, dynamic>> getMonthAttendance(int year, int month, {bool forceRefresh = false}) async {
+    return _getMonthAttendanceWithRetry(year, month, forceRefresh: forceRefresh, retryCount: 0);
+  }
 
+  Future<Map<String, dynamic>> _getMonthAttendanceWithRetry(
+    int year,
+    int month, {
+    bool forceRefresh = false,
+    int retryCount = 0,
+  }) async {
+    try {
+      final cacheKey = '$year-$month';
+      final url = '$baseUrl/attendance/month?year=$year&month=$month';
+      
+      // Check cache first (unless forced refresh)
+      if (!forceRefresh && _cachedMonthAttendance.containsKey(cacheKey)) {
+        final lastFetch = _lastMonthAttendanceFetch[cacheKey];
+        if (lastFetch != null && 
+            DateTime.now().difference(lastFetch) < _cacheValidDuration) {
+          return {'success': true, 'data': _cachedMonthAttendance[cacheKey]};
+        }
+      }
+
+      // Throttle repeated calls within a short window
       if (_isThrottled(url)) {
+        // If we have cache, return it even if expired (better than nothing)
+        if (_cachedMonthAttendance.containsKey(cacheKey)) {
+          return {'success': true, 'data': _cachedMonthAttendance[cacheKey]};
+        }
+        // If no cache and first retry, wait and retry once
+        if (retryCount == 0) {
+          await Future.delayed(const Duration(milliseconds: 1500));
+          return _getMonthAttendanceWithRetry(year, month, forceRefresh: forceRefresh, retryCount: 1);
+        }
         return {
           'success': false,
           'message': 'Too many requests. Please wait a moment.',
         };
       }
 
+      final headers = await _getHeaders();
       final response = await http
           .get(
             Uri.parse(url),
@@ -296,19 +330,48 @@ class AttendanceService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {'success': true, 'data': data['data']};
+        final attendanceData = data['data'];
+        
+        // Cache the successful response
+        _cachedMonthAttendance[cacheKey] = attendanceData;
+        _lastMonthAttendanceFetch[cacheKey] = DateTime.now();
+        
+        return {'success': true, 'data': attendanceData};
       } else if (response.statusCode == 429) {
+        // On rate limit, return cached data if available
+        if (_cachedMonthAttendance.containsKey(cacheKey)) {
+          return {'success': true, 'data': _cachedMonthAttendance[cacheKey]};
+        }
+        // If no cache and first retry, wait and retry once with exponential backoff
+        if (retryCount == 0) {
+          await Future.delayed(const Duration(milliseconds: 2000));
+          return _getMonthAttendanceWithRetry(year, month, forceRefresh: forceRefresh, retryCount: 1);
+        }
         return {
           'success': false,
           'message': 'Too many requests. Please wait a moment.',
         };
       } else {
+        // On other errors, return cached data if available
+        if (_cachedMonthAttendance.containsKey(cacheKey)) {
+          return {'success': true, 'data': _cachedMonthAttendance[cacheKey]};
+        }
         return {
           'success': false,
           'message': 'Failed to fetch month attendance: ${response.statusCode}',
         };
       }
     } catch (e) {
+      // On exception, return cached data if available
+      final cacheKey = '$year-$month';
+      if (_cachedMonthAttendance.containsKey(cacheKey)) {
+        return {'success': true, 'data': _cachedMonthAttendance[cacheKey]};
+      }
+      // If no cache and first retry, wait and retry once
+      if (retryCount == 0 && e is TimeoutException) {
+        await Future.delayed(const Duration(milliseconds: 1000));
+        return _getMonthAttendanceWithRetry(year, month, forceRefresh: forceRefresh, retryCount: 1);
+      }
       return {'success': false, 'message': _handleException(e)};
     }
   }

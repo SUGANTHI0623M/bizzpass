@@ -79,7 +79,7 @@ const getLeaveTypes = async (req, res) => {
         const staffId = req.staff._id;
         const staff = await Staff.findById(staffId).populate('leaveTemplateId');
 
-        const DEFAULT_TYPES = ['Casual', 'Sick', 'Earned', 'Unpaid', 'Maternity', 'Paternity', 'Other'];
+        const DEFAULT_TYPES = ['Casual', 'Sick', 'Earned', 'Unpaid', 'Paid', 'Maternity', 'Paternity', 'Other'];
         let templateTypes = [];
 
         if (staff && staff.leaveTemplateId) {
@@ -98,41 +98,79 @@ const getLeaveTypes = async (req, res) => {
             }
         }
 
-        // Calculate used leaves for each type
-        const now = new Date();
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        // If staff has a template with leaveTypes, return template types + always include Paid and Unpaid
+        // This ensures the app shows the exact template type names (e.g., "Casual Leave", "Sick Leave")
+        // and always includes Paid/Unpaid options
+        if (templateTypes.length > 0) {
+            const now = new Date();
+            const availableTypes = await Promise.all(templateTypes.map(async (templateType) => {
+                const typeName = templateType.type;
+                const limit = templateType.limit;
 
-        const availableTypes = await Promise.all(DEFAULT_TYPES.map(async (typeName) => {
-            const templateType = templateTypes.find(t => t.type.toLowerCase() === typeName.toLowerCase());
-            const limit = templateType ? templateType.limit : null;
+                if (limit === null || limit === undefined) {
+                    // No restriction for this type
+                    return {
+                        type: typeName,
+                        limit: null,
+                        used: 0,
+                        balance: 999, // Practically unlimited
+                        isUnrestricted: true
+                    };
+                }
 
-            if (limit === null) {
-                // No restriction for this type
+                // Use calculateAvailableLeaves to handle carryForward logic
+                const leaveInfo = await calculateAvailableLeaves(staff, typeName, now);
+
                 return {
                     type: typeName,
+                    limit: leaveInfo.baseLimit,
+                    carriedForward: leaveInfo.carriedForward,
+                    totalAvailable: leaveInfo.totalAvailable,
+                    used: leaveInfo.used,
+                    balance: leaveInfo.balance,
+                    isMonthly: leaveInfo.isMonthly,
+                    carryForwardEnabled: leaveInfo.carryForwardEnabled,
+                    isUnrestricted: false
+                };
+            }));
+
+            // Always add Paid and Unpaid leave types (unrestricted)
+            // Check if they're not already in template types
+            const templateTypeNames = templateTypes.map(t => t.type.toLowerCase());
+            if (!templateTypeNames.includes('paid')) {
+                availableTypes.push({
+                    type: 'Paid',
                     limit: null,
                     used: 0,
-                    balance: 999, // Practically unlimited
+                    balance: 999,
                     isUnrestricted: true
-                };
+                });
+            }
+            if (!templateTypeNames.includes('unpaid')) {
+                availableTypes.push({
+                    type: 'Unpaid',
+                    limit: null,
+                    used: 0,
+                    balance: 999,
+                    isUnrestricted: true
+                });
             }
 
-            // Use calculateAvailableLeaves to handle carryForward logic
-            const leaveInfo = await calculateAvailableLeaves(staff, typeName, now);
+            return res.json({
+                success: true,
+                data: availableTypes
+            });
+        }
 
+        // Fallback: If no template, return DEFAULT_TYPES with no restrictions
+        const now = new Date();
+        const availableTypes = await Promise.all(DEFAULT_TYPES.map(async (typeName) => {
             return {
                 type: typeName,
-                limit: leaveInfo.baseLimit,
-                carriedForward: leaveInfo.carriedForward,
-                totalAvailable: leaveInfo.totalAvailable,
-                used: leaveInfo.used,
-                balance: leaveInfo.balance,
-                isMonthly: leaveInfo.isMonthly,
-                carryForwardEnabled: leaveInfo.carryForwardEnabled,
-                isUnrestricted: false
+                limit: null,
+                used: 0,
+                balance: 999, // Practically unlimited
+                isUnrestricted: true
             };
         }));
 
@@ -160,39 +198,145 @@ const createLeave = async (req, res) => {
         const days = calculateDays(startDate, endDate);
 
         let limit = null;
+        let leaveConfig = null;
 
+        // Validate leave type against template if staff has a template assigned
         if (staff.leaveTemplateId) {
             const template = staff.leaveTemplateId;
+            let leaveTypeFound = false;
 
-            // 1. Check leaveTypes array
-            if (template.leaveTypes && Array.isArray(template.leaveTypes)) {
-                const leaveConfig = template.leaveTypes.find(t => t.type.toLowerCase() === leaveType.toLowerCase());
-                if (leaveConfig) limit = leaveConfig.limit || leaveConfig.days;
+            // 1. Check leaveTypes array (primary check)
+            if (template.leaveTypes && Array.isArray(template.leaveTypes) && template.leaveTypes.length > 0) {
+                leaveConfig = template.leaveTypes.find(t => t.type && t.type.toLowerCase() === leaveType.toLowerCase());
+                if (leaveConfig) {
+                    limit = leaveConfig.limit || leaveConfig.days;
+                    leaveTypeFound = true;
+                }
             }
 
-            // 2. Check limits object
-            if (limit === null && template.limits) {
-                limit = template.limits[leaveType] || template.limits[leaveType.toLowerCase()];
+            // 2. Check limits object (fallback)
+            if (!leaveTypeFound && template.limits && typeof template.limits === 'object') {
+                const limitValue = template.limits[leaveType] || template.limits[leaveType.toLowerCase()];
+                if (limitValue !== undefined && limitValue !== null) {
+                    limit = limitValue;
+                    leaveConfig = { type: leaveType, days: limitValue };
+                    leaveTypeFound = true;
+                }
             }
 
-            // 3. Check individual fields (e.g., casualLimit)
-            if (limit === null) {
+            // 3. Check individual fields (e.g., casualLimit) (fallback)
+            if (!leaveTypeFound) {
                 const fieldName = leaveType.toLowerCase() + 'Limit';
-                limit = template[fieldName];
+                const fieldValue = template[fieldName];
+                if (fieldValue !== undefined && fieldValue !== null) {
+                    limit = fieldValue;
+                    leaveConfig = { type: leaveType, days: fieldValue };
+                    leaveTypeFound = true;
+                }
+            }
+
+            // IMPORTANT: If staff has a template with leaveTypes array, validate that the leave type exists
+            // Exception: Always allow "Paid" and "Unpaid" leave types even if not in template
+            const alwaysAllowedTypes = ['Paid', 'Unpaid'];
+            const isAlwaysAllowed = alwaysAllowedTypes.some(allowedType => 
+                leaveType.toLowerCase() === allowedType.toLowerCase()
+            );
+
+            // Only reject if template has leaveTypes array defined (not empty/null) AND leave type is not always allowed
+            if (!leaveTypeFound && !isAlwaysAllowed && template.leaveTypes && Array.isArray(template.leaveTypes) && template.leaveTypes.length > 0) {
+                const availableTypes = template.leaveTypes
+                    .filter(t => t.type)
+                    .map(t => t.type);
+                
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: `${leaveType} leave is not available in your leave template. Please contact HR to update your leave template.`,
+                        details: {
+                            leaveType: leaveType,
+                            availableTypes: availableTypes.length > 0 ? availableTypes : ['No leave types configured']
+                        }
+                    }
+                });
+            }
+
+            // If it's an always-allowed type (Paid/Unpaid), set limit to null (unrestricted)
+            if (isAlwaysAllowed && !leaveTypeFound) {
+                limit = null;
             }
         }
 
-        // If limit is not null, enforce it. If null, allow without restriction (as per user request)
+        // If limit is not null, enforce it. If null and no template, allow without restriction
         if (limit !== null) {
+            // Use the template type name for checking (handles "Casual Leave" vs "Casual")
+            const templateTypeName = leaveConfig && leaveConfig.type ? leaveConfig.type : leaveType;
+            
             // Use calculateAvailableLeaves to handle carryForward logic
             const leaveDate = new Date(startDate);
-            const leaveInfo = await calculateAvailableLeaves(staff, leaveType, leaveDate);
+            const leaveInfo = await calculateAvailableLeaves(staff, templateTypeName, leaveDate);
 
-            if (leaveInfo.totalAvailable !== null && leaveInfo.used + days > leaveInfo.totalAvailable) {
+            // Check if leave type exists in template and has a limit
+            if (leaveInfo.baseLimit === null) {
+                // This shouldn't happen if limit is not null, but handle edge case
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: `Leave type ${leaveType} not found in template or has no limit configured.`,
+                    }
+                });
+            }
+
+            // Strict validation: Check if balance is already 0 or would become negative
+            // This prevents applying when limit is already fully used
+            if (leaveInfo.balance <= 0) {
+                const rangeType = leaveInfo.isMonthly ? 'month' : 'year';
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: `You have already used all available ${leaveType} leave for this ${rangeType}. Available: ${leaveInfo.totalAvailable} days, Used: ${leaveInfo.used} days.`,
+                        details: {
+                            baseLimit: leaveInfo.baseLimit,
+                            carriedForward: leaveInfo.carriedForward,
+                            totalAvailable: leaveInfo.totalAvailable,
+                            used: leaveInfo.used,
+                            requested: days,
+                            balance: leaveInfo.balance,
+                            range: rangeType
+                        }
+                    }
+                });
+            }
+
+            // Check if requested days exceed available balance
+            if (days > leaveInfo.balance) {
                 const rangeType = leaveInfo.isMonthly ? 'month' : 'year';
                 const message = leaveInfo.carryForwardEnabled
-                    ? `Leave limit exceeded for ${leaveType}. Max ${leaveInfo.totalAvailable} days available (${leaveInfo.baseLimit} base + ${leaveInfo.carriedForward} carried forward) per ${rangeType}.`
-                    : `Leave limit exceeded for ${leaveType}. Max ${leaveInfo.baseLimit} days allowed per ${rangeType}.`;
+                    ? `Leave request exceeds available balance for ${leaveType}. Available: ${leaveInfo.balance} days, Requested: ${days} days. Max ${leaveInfo.totalAvailable} days per ${rangeType} (${leaveInfo.baseLimit} base + ${leaveInfo.carriedForward} carried forward).`
+                    : `Leave request exceeds available balance for ${leaveType}. Available: ${leaveInfo.balance} days, Requested: ${days} days. Max ${leaveInfo.baseLimit} days allowed per ${rangeType}.`;
+
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        message: message,
+                        details: {
+                            baseLimit: leaveInfo.baseLimit,
+                            carriedForward: leaveInfo.carriedForward,
+                            totalAvailable: leaveInfo.totalAvailable,
+                            used: leaveInfo.used,
+                            requested: days,
+                            balance: leaveInfo.balance,
+                            range: rangeType
+                        }
+                    }
+                });
+            }
+
+            // Final check: Ensure used + requested doesn't exceed total available
+            if (leaveInfo.used + days > leaveInfo.totalAvailable) {
+                const rangeType = leaveInfo.isMonthly ? 'month' : 'year';
+                const message = leaveInfo.carryForwardEnabled
+                    ? `Leave limit exceeded for ${leaveType}. Max ${leaveInfo.totalAvailable} days available (${leaveInfo.baseLimit} base + ${leaveInfo.carriedForward} carried forward) per ${rangeType}. Used: ${leaveInfo.used} days, Requested: ${days} days.`
+                    : `Leave limit exceeded for ${leaveType}. Max ${leaveInfo.baseLimit} days allowed per ${rangeType}. Used: ${leaveInfo.used} days, Requested: ${days} days.`;
 
                 return res.status(400).json({
                     success: false,

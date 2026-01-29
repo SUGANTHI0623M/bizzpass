@@ -65,8 +65,8 @@ class AppBottomNavigationBar extends StatelessWidget {
           label: 'Requests',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.monetization_on_outlined),
-          activeIcon: Icon(Icons.monetization_on),
+          icon: Icon(Icons.account_balance_wallet_outlined),
+          activeIcon: Icon(Icons.account_balance_wallet),
           label: 'Salary',
         ),
         BottomNavigationBarItem(

@@ -334,6 +334,67 @@ class AuthService {
     }
   }
 
+  /// Update experience details. [experience] is a list of maps with keys:
+  /// company, role, designation, durationFrom, durationTo, keyResponsibilities, reasonForLeaving
+  Future<Map<String, dynamic>> updateExperience(List<Map<String, dynamic>> experience) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('token');
+      if (token == null) {
+        return {'success': false, 'message': 'Not authenticated'};
+      }
+
+      // Sanitize token
+      if (token.startsWith('"') || token.endsWith('"')) {
+        token = token.replaceAll('"', '');
+      }
+
+      final response = await http
+          .patch(
+            Uri.parse('$baseUrl/auth/profile/experience'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'experience': experience}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      print('[AuthService] updateExperience Response Status: ${response.statusCode}');
+      print('[AuthService] updateExperience Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        try {
+          final body = jsonDecode(response.body);
+          return {
+            'success': true,
+            'data': body['data'],
+            'message': body['message'] ?? 'Experience updated successfully',
+          };
+        } catch (e) {
+          return {'success': false, 'message': 'Invalid response format from server'};
+        }
+      } else {
+        String message = 'Failed to update experience';
+        try {
+          final body = jsonDecode(response.body);
+          if (body['error'] != null && body['error']['message'] != null) {
+            message = body['error']['message'];
+          } else if (body['message'] != null) {
+            message = body['message'];
+          }
+        } catch (e) {
+          // Response is not JSON (likely HTML error page)
+          message = 'Server error (${response.statusCode}). Please check if the endpoint exists.';
+        }
+        return {'success': false, 'message': message};
+      }
+    } catch (e) {
+      print('[AuthService] updateExperience Exception: $e');
+      return {'success': false, 'message': _handleException(e)};
+    }
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();

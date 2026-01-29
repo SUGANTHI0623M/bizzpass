@@ -36,7 +36,13 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 3, vsync: this)
+      ..addListener(() {
+        // Rebuild so AppBar actions can react to tab changes
+        if (mounted) {
+          setState(() {});
+        }
+      });
     _loadProfile();
     _loadDocuments();
   }
@@ -53,18 +59,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       setState(() {
         if (result['success']) {
           _userData = result['data'];
-          // Debug: Print the data structure
-          print('=== PROFILE DATA ===');
-          print('Profile: ${_userData?['profile']}');
-          print('StaffData keys: ${_userData?['staffData']?.keys}');
-          print('CandidateId: ${_userData?['staffData']?['candidateId']}');
-          print(
-            'Education: ${_userData?['staffData']?['candidateId']?['education']}',
-          );
-          print(
-            'Experience: ${_userData?['staffData']?['candidateId']?['experience']}',
-          );
-          print('===================');
         } else {
           SnackBarUtils.showSnackBar(
             context,
@@ -88,86 +82,31 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _loadDocuments() async {
     setState(() => _isLoadingDocs = true);
-    print('═══════════════════════════════════════════════════════');
-    print('[ProfileScreen] _loadDocuments() called');
-    print('═══════════════════════════════════════════════════════');
 
     final result = await _onboardingService.getMyOnboarding();
 
     if (mounted) {
       setState(() {
-        print('[ProfileScreen] API result success: ${result['success']}');
-
         if (result['success'] && result['data'] != null) {
           final data = result['data'];
-          print('[ProfileScreen] result[\'data\'] type: ${data.runtimeType}');
-          print(
-            '[ProfileScreen] result[\'data\'] keys: ${data is Map ? (data as Map).keys.toList() : 'N/A'}',
-          );
 
           if (data is Map && data.containsKey('onboarding')) {
             final onboarding = data['onboarding'];
             _onboardingData = onboarding;
-            print('[ProfileScreen] onboarding type: ${onboarding.runtimeType}');
-            print(
-              '[ProfileScreen] onboarding keys: ${onboarding is Map ? (onboarding as Map).keys.toList() : 'N/A'}',
-            );
 
             if (onboarding is Map && onboarding.containsKey('documents')) {
               _documents = onboarding['documents'] as List? ?? [];
-              print('[ProfileScreen] ✅ Documents found: ${_documents.length}');
-
-              // Log each document's details
-              for (var i = 0; i < _documents.length; i++) {
-                final doc = _documents[i] as Map<String, dynamic>;
-                print('[ProfileScreen] Document $i:');
-                print('  - Name: ${doc['name']}');
-                print('  - Status: ${doc['status']}');
-                print('  - Required: ${doc['required']}');
-                print(
-                  '  - Has URL: ${doc['url'] != null && doc['url'].toString().isNotEmpty}',
-                );
-                print('  - Type: ${doc['type']}');
-                print('  - _id: ${doc['_id']}');
-
-                // Check if upload button should show
-                final status = doc['status'] ?? 'NOT_STARTED';
-                final hasUrl =
-                    doc['url'] != null && doc['url'].toString().isNotEmpty;
-                final isNotStarted = status == 'NOT_STARTED' || status == null;
-                final shouldShowUpload = isNotStarted || !hasUrl;
-                print(
-                  '  - Should show Upload button: $shouldShowUpload (isNotStarted: $isNotStarted, !hasUrl: ${!hasUrl})',
-                );
-              }
             } else {
-              print(
-                '[ProfileScreen] ❌ "documents" key missing in onboarding object',
-              );
-              print('[ProfileScreen] onboarding content: $onboarding');
               _documents = [];
             }
           } else {
-            print(
-              '[ProfileScreen] ❌ "onboarding" key missing in result[\'data\']',
-            );
-            print('[ProfileScreen] data content: $data');
             _documents = [];
           }
         } else {
-          print('[ProfileScreen] ❌ Fetch failed or data null');
-          print('[ProfileScreen] result message: ${result['message']}');
-          print('[ProfileScreen] Full result: $result');
           _documents = [];
         }
 
         _isLoadingDocs = false;
-        print('[ProfileScreen] ✅ Finished _loadDocuments');
-        print('[ProfileScreen] Final _documents count: ${_documents.length}');
-        print(
-          '[ProfileScreen] _onboardingData exists: ${_onboardingData != null}',
-        );
-        print('═══════════════════════════════════════════════════════');
       });
     }
   }
@@ -331,12 +270,16 @@ class _ProfileScreenState extends State<ProfileScreen>
         elevation: 0,
         centerTitle: true,
         actions: [
-          IconButton(
-            onPressed: () => _showEditProfileDialog(),
-            icon: Icon(Icons.edit_note, size: 28, color: AppColors.primary),
-            tooltip: 'Edit Profile',
-          ),
-          const SizedBox(width: 8),
+          // Only show Edit Profile on Personal tab (index 0),
+          // hide it for Exp & Edu and Documents tabs as requested.
+          if (_tabController.index == 0) ...[
+            IconButton(
+              onPressed: () => _showEditProfileDialog(),
+              icon: Icon(Icons.edit_note, size: 28, color: AppColors.primary),
+              tooltip: 'Edit Profile',
+            ),
+            const SizedBox(width: 8),
+          ],
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -735,6 +678,11 @@ class _ProfileScreenState extends State<ProfileScreen>
             _buildCardSection(
               icon: Icons.business_center_outlined,
               title: 'Experience',
+              trailing: IconButton(
+                onPressed: () => _showEditExperienceSheet(),
+                icon: Icon(Icons.edit_outlined, color: AppColors.primary),
+                tooltip: 'Edit Experience',
+              ),
               content: experience.isEmpty
                   ? const Center(
                       child: Padding(
@@ -1090,10 +1038,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     final isUploading = _uploadingDocumentId == documentId;
 
     // Log document state for debugging
-    print('[ProfileScreen] Building doc tile for: $docName');
-    print('  - Status: $status (isNotStarted: $isNotStarted)');
-    print('  - Has URL: $hasUrl');
-    print('  - Will show Upload: ${isNotStarted || !hasUrl}');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1210,13 +1154,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                   onPressed: isUploading
                       ? null
                       : () {
-                          print(
-                            '[ProfileScreen] Upload button pressed for: $docName',
-                          );
-                          print('[ProfileScreen] Document ID: $documentId');
-                          print(
-                            '[ProfileScreen] Onboarding ID: ${_onboardingData?['_id']}',
-                          );
                           _uploadDocument(doc);
                         },
                   icon: isUploading
@@ -1508,9 +1445,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (date == null) return 'N/A';
     try {
       if (date is String) {
-        return DateFormat('MMM dd, yyyy').format(DateTime.parse(date));
+        return DateFormat('dd-MM-yyyy').format(DateTime.parse(date));
       }
-      if (date is DateTime) return DateFormat('MMM dd, yyyy').format(date);
+      if (date is DateTime) return DateFormat('dd-MM-yyyy').format(date);
       return date.toString();
     } catch (e) {
       return date.toString();
@@ -1643,6 +1580,40 @@ class _ProfileScreenState extends State<ProfileScreen>
             SnackBarUtils.showSnackBar(
               context,
               result['message'] ?? 'Failed to update education',
+              isError: true,
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  void _showEditExperienceSheet() {
+    final experience = _candidateData?['experience'] as List? ?? [];
+    final list = experience
+        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _EditExperienceSheet(
+        initialExperience: list,
+        onSave: (updated) async {
+          final result = await _authService.updateExperience(updated);
+          if (!mounted) return;
+          Navigator.of(context).pop();
+          if (result['success']) {
+            SnackBarUtils.showSnackBar(
+              context,
+              'Experience updated successfully',
+              backgroundColor: AppColors.success,
+            );
+            _loadProfile();
+          } else {
+            SnackBarUtils.showSnackBar(
+              context,
+              result['message'] ?? 'Failed to update experience',
               isError: true,
             );
           }
@@ -2283,6 +2254,699 @@ class _EditEducationTileState extends State<_EditEducationTile> {
   }
 }
 
+class _EditExperienceSheet extends StatefulWidget {
+  final List<Map<String, dynamic>> initialExperience;
+  final Function(List<Map<String, dynamic>>) onSave;
+
+  const _EditExperienceSheet({
+    required this.initialExperience,
+    required this.onSave,
+  });
+
+  @override
+  State<_EditExperienceSheet> createState() => _EditExperienceSheetState();
+}
+
+class _EditExperienceSheetState extends State<_EditExperienceSheet> {
+  late List<Map<String, dynamic>> _experience;
+
+  @override
+  void initState() {
+    super.initState();
+    _experience = widget.initialExperience.isEmpty
+        ? [_emptyExpEntry()]
+        : widget.initialExperience
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+  }
+
+  void _onExperienceChanged(int index, Map<String, dynamic> updated) {
+    setState(() {
+      _experience[index] = updated;
+    });
+  }
+
+  Map<String, dynamic> _emptyExpEntry() {
+    return {
+      'company': '',
+      'role': '',
+      'designation': '',
+      'durationFrom': '',
+      'durationTo': '',
+      'keyResponsibilities': '',
+      'reasonForLeaving': '',
+    };
+  }
+
+  void _addEntry() {
+    // Check if previous entry has all required fields filled
+    if (_experience.isNotEmpty) {
+      final lastEntry = _experience.last;
+      final company = (lastEntry['company'] ?? '').toString().trim();
+      final role = (lastEntry['role'] ?? '').toString().trim();
+      final designation = (lastEntry['designation'] ?? '').toString().trim();
+      final durationFrom = (lastEntry['durationFrom'] ?? '').toString().trim();
+      final durationTo = (lastEntry['durationTo'] ?? '').toString().trim();
+
+      // Company and role are required
+      if (company.isEmpty || role.isEmpty) {
+        SnackBarUtils.showSnackBar(
+          context,
+          'Please fill Company and Role in Experience ${_experience.length} before adding a new entry',
+          isError: true,
+        );
+        return;
+      }
+
+      // Check if other required fields are empty
+      if (designation.isEmpty ||
+          durationFrom.isEmpty ||
+          durationTo.isEmpty) {
+        SnackBarUtils.showSnackBar(
+          context,
+          'Please fill all fields in Experience ${_experience.length} before adding a new entry',
+          isError: true,
+        );
+        return;
+      }
+    }
+    setState(() => _experience.add(_emptyExpEntry()));
+  }
+
+  void _removeAt(int index) {
+    setState(() {
+      _experience.removeAt(index);
+      if (_experience.isEmpty) _experience.add(_emptyExpEntry());
+    });
+  }
+
+  bool _validateExperience() {
+    for (var i = 0; i < _experience.length; i++) {
+      final e = _experience[i];
+      final company = (e['company'] ?? '').toString().trim();
+      final role = (e['role'] ?? '').toString().trim();
+      final designation = (e['designation'] ?? '').toString().trim();
+      final durationFrom = (e['durationFrom'] ?? '').toString().trim();
+      final durationTo = (e['durationTo'] ?? '').toString().trim();
+
+      // Company and role are required
+      if (company.isEmpty || role.isEmpty) {
+        SnackBarUtils.showSnackBar(
+          context,
+          'Company and Role are required for Experience ${i + 1}',
+          isError: true,
+        );
+        return false;
+      }
+
+      // Date fields must be filled
+      if (designation.isEmpty ||
+          durationFrom.isEmpty ||
+          durationTo.isEmpty) {
+        SnackBarUtils.showSnackBar(
+          context,
+          'Please fill all fields for Experience ${i + 1}',
+          isError: true,
+        );
+        return false;
+      }
+
+      // Validate date formats
+      try {
+        DateFormat('yyyy-MM-dd').parseStrict(durationFrom);
+      } catch (e) {
+        SnackBarUtils.showSnackBar(
+          context,
+          'Invalid date format for "From Date" in Experience ${i + 1}. Use YYYY-MM-DD format',
+          isError: true,
+        );
+        return false;
+      }
+      try {
+        DateFormat('yyyy-MM-dd').parseStrict(durationTo);
+      } catch (e) {
+        SnackBarUtils.showSnackBar(
+          context,
+          'Invalid date format for "To Date" in Experience ${i + 1}. Use YYYY-MM-DD format',
+          isError: true,
+        );
+        return false;
+      }
+    }
+    return true;
+  }
+
+  List<Map<String, dynamic>> _collectExperience() {
+    return _experience
+        .map((e) => {
+              'company': (e['company'] ?? '').toString().trim(),
+              'role': (e['role'] ?? '').toString().trim(),
+              'designation': (e['designation'] ?? '').toString().trim(),
+              'durationFrom': (e['durationFrom'] ?? '').toString().trim(),
+              'durationTo': (e['durationTo'] ?? '').toString().trim(),
+              'keyResponsibilities': (e['keyResponsibilities'] ?? '').toString().trim(),
+              'reasonForLeaving': (e['reasonForLeaving'] ?? '').toString().trim(),
+            })
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Keep a stable, tall sheet so it doesn't visually
+    // shrink when the keyboard opens; instead we let the
+    // content scroll and add bottom padding for the keyboard.
+    final formHeight = screenHeight * 0.95;
+
+    return Container(
+      height: formHeight,
+      padding: EdgeInsets.only(
+        bottom: keyboardHeight + 16,
+        left: 24,
+        right: 24,
+        top: 24,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Edit Experience',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: _addEntry,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text(
+                      'Add',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, size: 24),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const Divider(),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...List.generate(_experience.length, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: _EditExperienceTile(
+                        index: index + 1,
+                        entry: _experience[index],
+                        onChanged: (updated) => _onExperienceChanged(index, updated),
+                        onRemove: _experience.length > 1 ? () => _removeAt(index) : null,
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 20), // Extra bottom spacing for scrolling
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+              top: 8,
+              bottom: keyboardHeight > 0 ? 8 : 0,
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  if (_validateExperience()) {
+                    widget.onSave(_collectExperience());
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Save Experience',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditExperienceTile extends StatefulWidget {
+  final int index;
+  final Map<String, dynamic> entry;
+  final ValueChanged<Map<String, dynamic>> onChanged;
+  final VoidCallback? onRemove;
+
+  const _EditExperienceTile({
+    required this.index,
+    required this.entry,
+    required this.onChanged,
+    this.onRemove,
+  });
+
+  @override
+  State<_EditExperienceTile> createState() => _EditExperienceTileState();
+}
+
+class _EditExperienceTileState extends State<_EditExperienceTile> {
+  late TextEditingController _companyController;
+  late TextEditingController _roleController;
+  late TextEditingController _designationController;
+  late TextEditingController _fromController;
+  late TextEditingController _toController;
+  late TextEditingController _responsibilitiesController;
+  late TextEditingController _reasonController;
+  
+  DateTime? _selectedFromDate;
+  DateTime? _selectedToDate;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.entry;
+    
+    // Handle dates - convert Date objects to strings for display
+    String formatDate(dynamic date) {
+      if (date == null) return '';
+      if (date is String) return date;
+      if (date is DateTime) {
+        return DateFormat('yyyy-MM-dd').format(date);
+      }
+      return date.toString();
+    }
+
+    _companyController = TextEditingController(text: (e['company'] ?? '').toString());
+    _roleController = TextEditingController(text: (e['role'] ?? '').toString());
+    _designationController = TextEditingController(text: (e['designation'] ?? '').toString());
+    
+    // Parse dates
+    final fromDateStr = formatDate(e['durationFrom']);
+    final toDateStr = formatDate(e['durationTo']);
+    
+    _fromController = TextEditingController(text: fromDateStr);
+    _toController = TextEditingController(text: toDateStr);
+    
+    // Parse dates to DateTime objects if available
+    if (fromDateStr.isNotEmpty && fromDateStr != 'Present') {
+      try {
+        _selectedFromDate = DateFormat('yyyy-MM-dd').parse(fromDateStr);
+      } catch (e) {
+        // Invalid date format, leave as null
+      }
+    }
+    
+    if (toDateStr.isNotEmpty && toDateStr != 'Present') {
+      try {
+        _selectedToDate = DateFormat('yyyy-MM-dd').parse(toDateStr);
+      } catch (e) {
+        // Invalid date format, leave as null
+      }
+    }
+    
+    _responsibilitiesController = TextEditingController(text: (e['keyResponsibilities'] ?? '').toString());
+    _reasonController = TextEditingController(text: (e['reasonForLeaving'] ?? '').toString());
+  }
+
+  @override
+  void dispose() {
+    _companyController.dispose();
+    _roleController.dispose();
+    _designationController.dispose();
+    _fromController.dispose();
+    _toController.dispose();
+    _responsibilitiesController.dispose();
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  void _notify() {
+    widget.onChanged({
+      'company': _companyController.text,
+      'role': _roleController.text,
+      'designation': _designationController.text,
+      'durationFrom': _fromController.text,
+      'durationTo': _toController.text,
+      'keyResponsibilities': _responsibilitiesController.text,
+      'reasonForLeaving': _reasonController.text,
+    });
+  }
+
+  /// Display date in DD-MM-YYYY (controller stores YYYY-MM-DD for API).
+  String _formatDateDisplay(String value) {
+    if (value.isEmpty) return 'Tap to select date';
+    try {
+      final dt = DateFormat('yyyy-MM-dd').parse(value);
+      return DateFormat('dd-MM-yyyy').format(dt);
+    } catch (e) {
+      return value;
+    }
+  }
+
+  Future<void> _selectFromDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedFromDate ?? DateTime.now(),
+      firstDate: DateTime(1950),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedFromDate = picked;
+        _fromController.text = DateFormat('yyyy-MM-dd').format(picked);
+        _notify();
+      });
+    }
+  }
+
+  Future<void> _selectToDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedToDate ?? DateTime.now(),
+      firstDate: _selectedFromDate ?? DateTime(1950),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedToDate = picked;
+        _toController.text = DateFormat('yyyy-MM-dd').format(picked);
+        _notify();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Experience ${widget.index}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                if (widget.onRemove != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                    onPressed: widget.onRemove,
+                    tooltip: 'Remove',
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _companyController,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Company *',
+                prefixIcon: Icon(Icons.business, size: 20, color: AppColors.primary),
+                labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              onChanged: (_) => _notify(),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _roleController,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Role *',
+                prefixIcon: Icon(Icons.work_outline, size: 20, color: AppColors.primary),
+                labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              onChanged: (_) => _notify(),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _designationController,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Designation',
+                prefixIcon: Icon(Icons.badge_outlined, size: 20, color: AppColors.primary),
+                labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              onChanged: (_) => _notify(),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: _selectFromDate,
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'From Date *',
+                        prefixIcon: Icon(Icons.calendar_today, size: 20, color: AppColors.primary),
+                        labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: AppColors.primary, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                      child: Text(
+                        _formatDateDisplay(_fromController.text),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                          color: _fromController.text.isEmpty ? Colors.grey : Colors.black,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: _selectToDate,
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'To Date *',
+                        prefixIcon: Icon(Icons.calendar_month, size: 20, color: AppColors.primary),
+                        labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: AppColors.primary, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                      child: Text(
+                        _formatDateDisplay(_toController.text),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                          color: _toController.text.isEmpty ? Colors.grey : Colors.black,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _responsibilitiesController,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Key Responsibilities',
+                prefixIcon: Icon(Icons.list_alt, size: 20, color: AppColors.primary),
+                labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              onChanged: (_) => _notify(),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _reasonController,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+              maxLines: 2,
+              decoration: InputDecoration(
+                labelText: 'Reason for Leaving',
+                prefixIcon: Icon(Icons.exit_to_app, size: 20, color: AppColors.primary),
+                labelStyle: const TextStyle(color: Colors.black, fontSize: 13),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              onChanged: (_) => _notify(),
+            ),
+            const SizedBox(height: 4), // Small spacing after last field
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EditProfileSheet extends StatefulWidget {
   final Map<String, dynamic> userData;
   final Function(Map<String, dynamic>) onSave;
@@ -2866,7 +3530,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
           ),
           child: Text(
             _selectedDob != null
-                ? DateFormat('yyyy-MM-dd').format(_selectedDob!)
+                ? DateFormat('dd-MM-yyyy').format(_selectedDob!)
                 : 'Select Date',
             style: TextStyle(
               fontWeight: FontWeight.w500,

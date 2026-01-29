@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
 import '../../config/app_colors.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/menu_icon_button.dart';
@@ -8,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../services/attendance_service.dart';
 import '../../utils/salary_structure_calculator.dart';
 import '../../utils/fine_calculation_util.dart';
+import '../../utils/app_event_bus.dart';
 import 'salary_structure_detail_screen.dart';
 
 class SalaryOverviewScreen extends StatefulWidget {
@@ -21,8 +23,11 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
   final SalaryService _salaryService = SalaryService();
   final AuthService _authService = AuthService();
   final AttendanceService _attendanceService = AttendanceService();
+  late final StreamSubscription<AppEvent> _attendanceEventSub;
   bool _isLoading = true;
   String _error = '';
+  bool _isFetching = false; // Prevent concurrent fetches
+  Timer? _debounceTimer; // Debounce timer for rapid calls
 
   String _selectedMonth = DateFormat('MMMM').format(DateTime.now());
   String _selectedYear = DateFormat('yyyy').format(DateTime.now());
@@ -65,18 +70,47 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
   @override
   void initState() {
     super.initState();
+    // Auto-refresh salary when attendance changes (e.g. punch in/out)
+    // Use debounce to prevent rapid calls
+    _attendanceEventSub = AppEventBus.on(
+      AppEventType.attendanceChanged,
+    ).listen((_) => _fetchSalaryData(debounce: true));
     _fetchSalaryData();
   }
 
-  Future<void> _fetchSalaryData() async {
-    // Log to help debug loading / refresh issues
-    debugPrint('[SalaryOverview] _fetchSalaryData called. '
-        'month=$_selectedMonth year=$_selectedYear');
+  @override
+  void dispose() {
+    _attendanceEventSub.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
 
-    setState(() {
-      _isLoading = true;
-      _error = '';
-    });
+  Future<void> _fetchSalaryData({bool debounce = false}) async {
+    // Prevent concurrent fetches
+    if (_isFetching) {
+      debugPrint('[SalaryOverview] Fetch already in progress, skipping duplicate call');
+      return;
+    }
+
+    // Debounce rapid calls (e.g., from event bus + dropdown changes)
+    if (debounce) {
+      debugPrint('[SalaryOverview] Debouncing fetch request');
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+        _fetchSalaryData(debounce: false);
+      });
+      return;
+    }
+
+    // Set fetching flag immediately to prevent concurrent calls
+    _isFetching = true;
+    debugPrint('[SalaryOverview] Starting salary data fetch for $_selectedMonth $_selectedYear');
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = '';
+      });
+    }
 
     try {
       int monthIndex = _months.indexOf(_selectedMonth) + 1;
@@ -90,10 +124,16 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
 
       final staffData = profileResult['data']?['staffData'];
       if (staffData == null || staffData['salary'] == null) {
-        throw Exception('No salary structure found');
+        throw Exception('No salary structure found. Please contact HR to set up your salary structure.');
       }
 
       _staffSalary = staffData['salary'] as Map<String, dynamic>;
+      
+      // Validate that basicSalary exists and is valid
+      final basicSalary = _staffSalary!['basicSalary'];
+      if (basicSalary == null || (basicSalary is num && basicSalary <= 0)) {
+        throw Exception('Salary structure is incomplete. Basic salary is missing or invalid. Please contact HR.');
+      }
 
       // Get weekly off pattern and weekly holidays from business settings
       // Try to get from branchId.businessId first, then fallback to businessId
@@ -111,23 +151,21 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
         businessSettings = staffData['businessId'];
       }
 
-      print('DEBUG: Business Settings from profile: $businessSettings');
-      
       if (businessSettings != null &&
           businessSettings['settings'] != null &&
           businessSettings['settings']['business'] != null) {
         final business =
             businessSettings['settings']['business'] as Map<String, dynamic>;
-        print('DEBUG: Business settings.business: $business');
         // Get weeklyOffPattern - check if it exists, default to 'standard'
         final weeklyOffPatternValue = business['weeklyOffPattern'];
-        _weeklyOffPattern = (weeklyOffPatternValue != null && weeklyOffPatternValue is String) 
-            ? weeklyOffPatternValue 
+        _weeklyOffPattern =
+            (weeklyOffPatternValue != null && weeklyOffPatternValue is String)
+            ? weeklyOffPatternValue
             : 'standard';
-        print('DEBUG: Parsed weeklyOffPattern: $_weeklyOffPattern (raw: $weeklyOffPatternValue)');
-        
+
         // Get weeklyHolidays - must be a List
-        if (business['weeklyHolidays'] != null && business['weeklyHolidays'] is List) {
+        if (business['weeklyHolidays'] != null &&
+            business['weeklyHolidays'] is List) {
           final weeklyHolidaysList = business['weeklyHolidays'] as List;
           _weeklyHolidays = weeklyHolidaysList
               .map((h) {
@@ -139,13 +177,10 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
               })
               .where((day) => day >= 0 && day <= 6)
               .toList();
-          print('DEBUG: Parsed weeklyHolidays: $_weeklyHolidays (raw list length: ${weeklyHolidaysList.length})');
         } else {
-          print('DEBUG: weeklyHolidays is null or not a List (type: ${business['weeklyHolidays']?.runtimeType})');
           _weeklyHolidays = []; // Default to empty if not found
         }
       } else {
-        print('DEBUG: Business settings not found in profile response');
         // Default values
         _weeklyOffPattern = 'standard';
         _weeklyHolidays = [];
@@ -158,35 +193,60 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           month: monthIndex,
           year: year,
         );
-        print('DEBUG: Salary Stats Result: $statsResult');
         if (statsResult['stats'] != null) {
           backendStats = statsResult['stats'];
-          print('DEBUG: Backend Stats: $backendStats');
-          if (backendStats != null) {
-            print('DEBUG: Backend Attendance: ${backendStats['attendance']}');
-            final attendance = backendStats['attendance'];
-            if (attendance != null && attendance is Map<String, dynamic>) {
-              print('DEBUG: Backend Working Days: ${attendance['workingDays']}');
-              print('DEBUG: Backend Holidays: ${attendance['holidays']}');
-            }
-          }
-        } else {
-          print('DEBUG: No stats in backend response');
         }
       } catch (e) {
-        print('Error fetching payroll stats: $e');
+        // Ignore errors
       }
 
       // 3. Fetch attendance for the month
+      // Keep previous values in case new fetch fails, so UI doesn't jump to 0
+      final prevAttendanceRecords = List<dynamic>.from(_attendanceRecords);
+      final prevPresentDays = _presentDays;
+      final prevProratedSalary = _proratedSalary;
+      bool attendanceUpdated = false;
+
+      debugPrint('[SalaryOverview] Fetching attendance for $monthIndex/$year');
+      debugPrint('[SalaryOverview] Current attendance records: ${_attendanceRecords.length}');
+      
+      // Add a small delay on first load to avoid immediate rate limiting
+      // when multiple screens load simultaneously
+      if (_attendanceRecords.isEmpty && prevAttendanceRecords.isEmpty) {
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+      
       final attendanceResult = await _attendanceService.getMonthAttendance(
         year,
         monthIndex,
       );
+
+      debugPrint(
+        '[SalaryOverview] Attendance result success: ${attendanceResult['success']}',
+      );
+
       if (attendanceResult['success'] == true) {
         final attendanceData = attendanceResult['data'];
-        _attendanceRecords = attendanceData['attendance'] ?? [];
+        final fetchedRecords = attendanceData['attendance'] ?? [];
 
-        // Extract holidays from attendance data
+        debugPrint(
+          '[SalaryOverview] Fetched ${fetchedRecords.length} attendance records',
+        );
+
+        // Only update if we got valid data (non-empty array)
+        // This prevents overwriting valid data with empty data
+        if (fetchedRecords.isNotEmpty) {
+          _attendanceRecords = fetchedRecords;
+          attendanceUpdated = true;
+          debugPrint('[SalaryOverview] Updated attendance records to ${fetchedRecords.length}');
+        } else {
+          debugPrint(
+            '[SalaryOverview] WARNING: Empty attendance records array. Keeping existing data (${_attendanceRecords.length} records).',
+          );
+          // Keep existing _attendanceRecords - don't overwrite with empty data
+        }
+
+        // Extract holidays from attendance data (even if records are empty)
         if (attendanceData['holidays'] != null) {
           _holidays = (attendanceData['holidays'] as List)
               .map((h) {
@@ -199,19 +259,89 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
               .whereType<DateTime>()
               .toList();
         }
+      } else {
+        // API call failed (rate limit, network error, etc.)
+        debugPrint(
+          '[SalaryOverview] ERROR: Attendance fetch failed: ${attendanceResult['message']}',
+        );
+        debugPrint(
+          '[SalaryOverview] Keeping existing attendance records (${_attendanceRecords.length} records)',
+        );
+        // Don't modify _attendanceRecords on failure - keep existing data
+        // The service should have returned cached data if available, but if not,
+        // we preserve what we have
       }
 
       // 4. Calculate present days from attendance and fine information
-      _presentDays = _attendanceRecords.where((record) {
-        final status = record['status'] as String?;
-        return status == 'Present' || status == 'Approved';
-      }).length;
+      // Only calculate if we have records (either newly fetched or existing)
+      if (_attendanceRecords.isNotEmpty) {
+        _presentDays = _attendanceRecords.where((record) {
+          final status = record['status'] as String?;
+          return status == 'Present' || status == 'Approved';
+        }).length;
+        debugPrint(
+          '[SalaryOverview] Calculated present days: $_presentDays from ${_attendanceRecords.length} records',
+        );
+      } else {
+        // No attendance records available
+        // Only restore previous data if we had it and this wasn't a successful update
+        if (!attendanceUpdated && (prevAttendanceRecords.isNotEmpty || prevPresentDays > 0)) {
+          _attendanceRecords
+            ..clear()
+            ..addAll(prevAttendanceRecords);
+          _presentDays = prevPresentDays;
+          if (prevProratedSalary != null) {
+            _proratedSalary = prevProratedSalary;
+          }
+          debugPrint(
+            '[SalaryOverview] Restored previous data: presentDays=$_presentDays, records=${prevAttendanceRecords.length}',
+          );
+        } else {
+          // First time load or no previous data - keep as is (will show 0)
+          _presentDays = 0;
+          debugPrint(
+            '[SalaryOverview] No attendance records available (first load or no data)',
+          );
+        }
+      }
+
+      debugPrint(
+        '[SalaryOverview] Calculated present days: $_presentDays from ${_attendanceRecords.length} records',
+      );
+
+      // 4a. Working days (BEFORE fine so dailySalary can use current run)
+      if (backendStats != null && backendStats['attendance'] != null) {
+        final backendAttendance =
+            backendStats['attendance'] as Map<String, dynamic>;
+        final backendWorkingDays =
+            backendAttendance['workingDays'] as int? ?? 0;
+        final backendHolidays = backendAttendance['holidays'] as int? ?? 0;
+        _workingDaysInfo = WorkingDaysInfo(
+          totalDays: DateTime(year, monthIndex + 1, 0).day,
+          workingDays: backendWorkingDays,
+          weekends: 0,
+          holidayCount: backendHolidays,
+        );
+      } else {
+        _workingDaysInfo = calculateWorkingDays(
+          year,
+          monthIndex,
+          _holidays,
+          _weeklyOffPattern,
+          _weeklyHolidays,
+        );
+      }
+
+      // 4b. Salary structure (BEFORE fine so dailySalary can use current run)
+      if (_staffSalary != null && _staffSalary!['basicSalary'] != null) {
+        final salaryInputs = SalaryStructureInputs.fromMap(_staffSalary!);
+        _calculatedSalary = calculateSalaryStructure(salaryInputs);
+      }
 
       // Calculate fine information using grace time logic
       // Get shift timing from business settings based on staff's shiftName
       final staffShiftName = staffData['shiftName'] as String?;
-      print('DEBUG: Staff Shift Name: $staffShiftName');
-      
+
       // Create shift timing from business settings (priority: shift-specific grace time)
       ShiftTiming? shiftTiming;
       if (businessSettings != null && staffShiftName != null) {
@@ -219,61 +349,67 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           businessSettings,
           staffShiftName,
         );
-        print('DEBUG: Shift Timing from Business Settings: ${shiftTiming != null ? "Found" : "Not Found"}');
-        if (shiftTiming != null) {
-          print('DEBUG: Shift: ${shiftTiming.name}, Start: ${shiftTiming.startTime}, End: ${shiftTiming.endTime}');
-          print('DEBUG: Grace Time: ${shiftTiming.graceTime != null ? "${shiftTiming.graceTime!.value} ${shiftTiming.graceTime!.unit}" : "None"}');
-        }
       }
-      
+
       // Fallback: Try to get from attendance template if shift not found in business settings
       if (shiftTiming == null) {
         Map<String, dynamic>? attendanceTemplate;
         try {
           final todayAttendance = await _attendanceService.getTodayAttendance();
-          if (todayAttendance['success'] == true && todayAttendance['data'] != null) {
-            attendanceTemplate = todayAttendance['data']['template'] as Map<String, dynamic>?;
+          if (todayAttendance['success'] == true &&
+              todayAttendance['data'] != null) {
+            attendanceTemplate =
+                todayAttendance['data']['template'] as Map<String, dynamic>?;
           }
         } catch (e) {
-          print('Error fetching attendance template: $e');
+          // Ignore errors
         }
         shiftTiming = createShiftTimingFromTemplate(attendanceTemplate);
-        print('DEBUG: Using fallback shift timing from template');
       }
-      
+
       // Create fine settings from business settings
-      final fineSettings = createFineSettingsFromBusinessSettings(businessSettings);
-      print('DEBUG: Fine Settings - Enabled: ${fineSettings.enabled}, Calculation Type: ${fineSettings.calculationType}');
+      final fineSettings = createFineSettingsFromBusinessSettings(
+        businessSettings,
+      );
 
       // Calculate daily salary for fine calculation
       double? dailySalary;
-      if (_staffSalary != null && _calculatedSalary != null && _workingDaysInfo != null) {
+      if (_staffSalary != null &&
+          _calculatedSalary != null &&
+          _workingDaysInfo != null) {
         // Daily Salary = Monthly Gross Salary / Working Days
-        dailySalary = _calculatedSalary!.monthly.grossSalary / _workingDaysInfo!.workingDays;
+        dailySalary =
+            _calculatedSalary!.monthly.grossSalary /
+            _workingDaysInfo!.workingDays;
       }
 
       // Calculate shift hours from shift timing
       double shiftHours = 9.0; // Default 9 hours
       if (shiftTiming != null) {
-        shiftHours = calculateShiftHours(shiftTiming.startTime, shiftTiming.endTime);
-        print('DEBUG: Shift Hours calculated: $shiftHours hours (${shiftTiming.startTime} to ${shiftTiming.endTime})');
+        shiftHours = calculateShiftHours(
+          shiftTiming.startTime,
+          shiftTiming.endTime,
+        );
       } else {
         // Fallback: Try to get from attendance template
         Map<String, dynamic>? attendanceTemplate;
         try {
           final todayAttendance = await _attendanceService.getTodayAttendance();
-          if (todayAttendance['success'] == true && todayAttendance['data'] != null) {
-            attendanceTemplate = todayAttendance['data']['template'] as Map<String, dynamic>?;
+          if (todayAttendance['success'] == true &&
+              todayAttendance['data'] != null) {
+            attendanceTemplate =
+                todayAttendance['data']['template'] as Map<String, dynamic>?;
           }
         } catch (e) {
-          print('Error fetching attendance template for shift hours: $e');
+          // Ignore errors
         }
-        
+
         if (attendanceTemplate != null) {
-          final startTime = attendanceTemplate['shiftStartTime'] as String? ?? "09:30";
-          final endTime = attendanceTemplate['shiftEndTime'] as String? ?? "18:30";
+          final startTime =
+              attendanceTemplate['shiftStartTime'] as String? ?? "09:30";
+          final endTime =
+              attendanceTemplate['shiftEndTime'] as String? ?? "18:30";
           shiftHours = calculateShiftHours(startTime, endTime);
-          print('DEBUG: Shift Hours from template: $shiftHours hours');
         }
       }
 
@@ -281,19 +417,23 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
       double totalFineAmount = 0.0;
       int lateDays = 0;
       int totalLateMinutes = 0;
-      
+
       for (final record in _attendanceRecords) {
         final status = record['status'] as String?;
-        if (status == 'Present' || status == 'Approved' || status == 'Half Day') {
+        if (status == 'Present' ||
+            status == 'Approved' ||
+            status == 'Half Day') {
           // Try to get existing fineAmount first (from backend calculation)
-          final existingFineAmount = (record['fineAmount'] as num?)?.toDouble() ?? 0.0;
-          final existingLateMinutes = (record['lateMinutes'] as num?)?.toInt() ?? 0;
-          
+          final existingFineAmount =
+              (record['fineAmount'] as num?)?.toDouble() ?? 0.0;
+          final existingLateMinutes =
+              (record['lateMinutes'] as num?)?.toInt() ?? 0;
+
           // If backend already calculated fine, use it
           // Otherwise, calculate it client-side using the same logic
           double fineAmount = existingFineAmount;
           int lateMinutes = existingLateMinutes;
-          
+
           if (fineAmount == 0 && lateMinutes == 0) {
             // Calculate fine client-side if not provided by backend
             final punchInStr = record['punchIn'] as String?;
@@ -312,7 +452,7 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
                     punchInTime.day,
                   );
                 }
-                
+
                 final fineResult = calculateFine(
                   punchInTime: punchInTime,
                   attendanceDate: attendanceDate,
@@ -320,15 +460,13 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
                   fineSettings: fineSettings,
                   dailySalary: dailySalary,
                 );
-                
+
                 lateMinutes = fineResult.lateMinutes;
                 fineAmount = fineResult.fineAmount;
-              } catch (e) {
-                print('Error calculating fine for record: $e');
-              }
+              } catch (e) {}
             }
           }
-          
+
           if (fineAmount > 0 || lateMinutes > 0) {
             totalFineAmount += fineAmount;
             if (lateMinutes > 0) {
@@ -338,7 +476,7 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           }
         }
       }
-      
+
       // Alternative: Use payroll fine calculation utility for aggregation
       // This matches backend's calculatePayrollFine function
       if (dailySalary != null && dailySalary > 0) {
@@ -346,75 +484,47 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
         final attendanceRecordsList = _attendanceRecords
             .map((record) => record as Map<String, dynamic>)
             .toList();
-        
+
         final calculatedTotalFine = calculatePayrollFine(
           attendanceRecords: attendanceRecordsList,
           dailySalary: dailySalary,
           shiftHours: shiftHours,
           fineSettings: fineSettings,
         );
-        
+
         // Use the calculated total if it's greater (more accurate) or if backend didn't provide fines
         if (calculatedTotalFine > totalFineAmount || totalFineAmount == 0) {
           totalFineAmount = calculatedTotalFine;
         }
       }
-      
+
       _fineInfo = {
         'totalFineAmount': totalFineAmount,
         'lateDays': lateDays,
         'totalLateMinutes': totalLateMinutes,
       };
 
-      // 5. Calculate working days - Use dashboard API as primary source (same logic as dashboard)
-      // Dashboard API has the correct working days calculation
-      // Since dashboard calculates up to today, we need to use the same logic for full month
-      // The backend stats API should have the full month calculation, but if it fails, 
-      // we'll use the dashboard's calculation logic via frontend with correct business settings
-      
-      // Try backend stats API first (has full month calculation)
-      if (backendStats != null && backendStats['attendance'] != null) {
-        final backendAttendance =
-            backendStats['attendance'] as Map<String, dynamic>;
-        final backendWorkingDays =
-            backendAttendance['workingDays'] as int? ?? 0;
-        final backendHolidays = backendAttendance['holidays'] as int? ?? 0;
-        print('DEBUG: Using backend stats API - workingDays: $backendWorkingDays, holidays: $backendHolidays');
-        _workingDaysInfo = WorkingDaysInfo(
-          totalDays: DateTime(year, monthIndex + 1, 0).day,
-          workingDays: backendWorkingDays,
-          weekends: 0, // Not used
-          holidayCount: backendHolidays,
+      // 5. Calculate prorated salary (working days and salary structure already set above, before fine)
+      if (_calculatedSalary != null && _workingDaysInfo != null) {
+        debugPrint(
+          '[SalaryOverview] Calculating prorated salary: '
+          'workingDays=${_workingDaysInfo!.workingDays}, '
+          'presentDays=$_presentDays, '
+          'fineAmount=${_fineInfo['totalFineAmount']}',
         );
-      } else {
-        // Backend stats API failed - use frontend calculation with correct business settings
-        // The frontend calculation uses the same logic as dashboard, but for full month
-        print('WARNING: Backend stats not available, using frontend calculation');
-        print('DEBUG: Frontend params - weeklyOffPattern: $_weeklyOffPattern, weeklyHolidays: $_weeklyHolidays, holidays count: ${_holidays.length}');
-        _workingDaysInfo = calculateWorkingDays(
-          year,
-          monthIndex,
-          _holidays,
-          _weeklyOffPattern,
-          _weeklyHolidays,
+
+        _proratedSalary = calculateProratedSalary(
+          _calculatedSalary!,
+          _workingDaysInfo!.workingDays,
+          _presentDays,
+          _fineInfo['totalFineAmount'] as double,
         );
-        print('DEBUG: Frontend calculated working days: ${_workingDaysInfo?.workingDays}');
-      }
 
-      // 6. Calculate salary structure from staff salary
-      if (_staffSalary != null && _staffSalary!['basicSalary'] != null) {
-        final salaryInputs = SalaryStructureInputs.fromMap(_staffSalary!);
-        _calculatedSalary = calculateSalaryStructure(salaryInputs);
-
-        // 6. Calculate prorated salary (including fine amount)
-        if (_workingDaysInfo != null) {
-          _proratedSalary = calculateProratedSalary(
-            _calculatedSalary!,
-            _workingDaysInfo!.workingDays,
-            _presentDays,
-            _fineInfo['totalFineAmount'] as double,
-          );
-        }
+        debugPrint(
+          '[SalaryOverview] Prorated salary calculated: '
+          'gross=${_proratedSalary?.proratedGrossSalary}, '
+          'net=${_proratedSalary?.proratedNetSalary}',
+        );
       }
 
       // 8. Fetch current month payroll if available
@@ -433,18 +543,38 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
         }
       } catch (e) {
         // Ignore payroll fetch errors
-        print('Error fetching payroll: $e');
       }
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      debugPrint('[SalaryOverview] Salary data fetch completed successfully');
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-      debugPrint('[SalaryOverview] Error: $_error');
+      // Extract a user-friendly error message
+      String errorMessage = 'Your salary not updated';
+      if (e is Exception) {
+        final errorStr = e.toString();
+        if (errorStr.contains('Exception: ')) {
+          errorMessage = errorStr.replaceFirst('Exception: ', '');
+        } else {
+          errorMessage = errorStr;
+        }
+      } else {
+        errorMessage = e.toString();
+      }
+      
+      debugPrint('[SalaryOverview] Salary data fetch failed: $errorMessage');
+      if (mounted) {
+        setState(() {
+          _error = errorMessage;
+          _isLoading = false;
+        });
+      }
+    } finally {
+      _isFetching = false;
+      debugPrint('[SalaryOverview] Fetch flag reset');
     }
   }
 
@@ -486,132 +616,180 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error.isNotEmpty
           ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Error: $_error',
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                  ElevatedButton(
-                    onPressed: _fetchSalaryData,
-                    child: const Text('Retry'),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red.shade300,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _error,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _fetchSalaryData,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
               ),
             )
           : _calculatedSalary == null
           ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _error.isNotEmpty
-                        ? 'Error: $_error'
-                        : 'No salary structure found',
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _fetchSalaryData,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: _fetchSalaryData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16.0),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Month/Year Filter
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdown(_selectedMonth, _months, (val) {
-                            if (val != null) {
-                              setState(() => _selectedMonth = val);
-                              _fetchSalaryData();
-                            }
-                          }),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildDropdown(_selectedYear, _years, (val) {
-                            if (val != null) {
-                              setState(() => _selectedYear = val);
-                              _fetchSalaryData();
-                            }
-                          }),
-                        ),
-                      ],
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red.shade300,
                     ),
                     const SizedBox(height: 16),
-                    _buildSummaryCards(),
-                    const SizedBox(height: 16),
-                    _buildAttendanceSummary(),
-                    const SizedBox(height: 16),
-                    _buildEarningsDeductions(),
-                    const SizedBox(height: 16),
-                    _buildTotalCTC(),
+                    const Text(
+                      'Your salary not updated',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Please contact HR to set up your salary structure.',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 24),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppColors.primary, AppColors.primaryDark],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const SalaryStructureDetailScreen(),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.receipt_long, color: Colors.white),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'View Full Salary Structure Details',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                    ElevatedButton(
+                      onPressed: _fetchSalaryData,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 12,
                         ),
                       ),
+                      child: const Text('Retry'),
                     ),
                   ],
                 ),
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Month/Year Filter
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdown(_selectedMonth, _months, (val) {
+                          if (val != null) {
+                            setState(() => _selectedMonth = val);
+                            _fetchSalaryData(debounce: true);
+                          }
+                        }),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildDropdown(_selectedYear, _years, (val) {
+                          if (val != null) {
+                            setState(() => _selectedYear = val);
+                            _fetchSalaryData(debounce: true);
+                          }
+                        }),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSummaryCards(),
+                  const SizedBox(height: 16),
+                  _buildAttendanceSummary(),
+                  const SizedBox(height: 16),
+                  _buildEarningsDeductions(),
+                  const SizedBox(height: 16),
+                  _buildTotalCTC(),
+                  const SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryDark],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const SalaryStructureDetailScreen(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.receipt_long, color: Colors.white),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'View Full Salary Structure Details',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
     );
@@ -654,9 +832,7 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           ),
           _buildStatCard(
             'Monthly Net',
-            currencyFormat.format(
-              _calculatedSalary!.monthly.netMonthlySalary,
-            ),
+            currencyFormat.format(_calculatedSalary!.monthly.netMonthlySalary),
             isProcessed ? 'From processed payroll' : 'From salary structure',
             Colors.green.shade50,
           ),
@@ -694,10 +870,7 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey.shade200,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -729,7 +902,7 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
               value,
               style: TextStyle(
                 color: AppColors.success,
-              fontSize: 16,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -738,10 +911,7 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           Flexible(
             child: Text(
               subtitle,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 9,
-              ),
+              style: const TextStyle(color: Colors.black, fontSize: 9),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -767,9 +937,7 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey.shade200,
-        ),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -1052,11 +1220,14 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
             ),
           ),
           Flexible(
-            child: Text(
-              format.format(amount),
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-              textAlign: TextAlign.right,
-              overflow: TextOverflow.ellipsis,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                format.format(amount),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.right,
+              ),
             ),
           ),
         ],

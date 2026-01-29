@@ -198,7 +198,6 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
         _address = 'Lat: ${position.latitude}, Lng: ${position.longitude}';
       }
     } catch (e) {
-      debugPrint('Error getting location: $e');
       _address = 'Location found (Address unavailable)';
     } finally {
       if (mounted) setState(() => _isLocationLoading = false);

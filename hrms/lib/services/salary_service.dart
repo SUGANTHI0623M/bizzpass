@@ -21,8 +21,6 @@ class SalaryService {
       '${AppConstants.baseUrl}/payrolls/stats',
     ).replace(queryParameters: queryParams);
 
-    print('DEBUG: Requesting Salary Stats: $uri');
-
     try {
       final response = await http.get(
         uri,
@@ -32,28 +30,33 @@ class SalaryService {
         },
       );
 
-      print('DEBUG: Salary Stats Status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
-          return data['data'];
+          final result = data['data'];
+          // Debug: log payroll stats response for dashboard salary
+          if (result is Map && result['stats'] != null) {
+            final stats = result['stats'] as Map<String, dynamic>;
+            final att = stats['attendance'];
+            final net = stats['thisMonthNet'];
+            print('[SalaryService] payrolls/stats 200: stats.thisMonthNet=$net, stats.attendance=$att');
+          } else {
+            print('[SalaryService] payrolls/stats 200: data.stats is null or missing');
+          }
+          return result is Map ? Map<String, dynamic>.from(result) : _getEmptySalaryData();
         } else {
-          // Graceful fallback
-          print('DEBUG: Salary success false: ${data['error']}');
+          print('[SalaryService] payrolls/stats 200 but success=false');
           return _getEmptySalaryData();
         }
       } else if (response.statusCode == 404) {
-        // Graceful fallback for Missing Endpoint
-        print('DEBUG: Salary Endpoint 404. Returning empty data.');
+        print('[SalaryService] payrolls/stats 404');
         return _getEmptySalaryData();
       } else {
-        // Graceful fallback for other errors
-        print('DEBUG: Salary Error ${response.statusCode}');
+        print('[SalaryService] payrolls/stats ${response.statusCode}');
         return _getEmptySalaryData();
       }
     } catch (e) {
-      print('DEBUG: Salary Exception: $e');
+      print('[SalaryService] payrolls/stats error: $e');
       return _getEmptySalaryData();
     }
   }
@@ -111,7 +114,6 @@ class SalaryService {
       }
       return null;
     } catch (e) {
-      print('Error fetching staff salary details: $e');
       return null;
     }
   }

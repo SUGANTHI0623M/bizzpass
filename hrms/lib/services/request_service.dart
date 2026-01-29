@@ -34,8 +34,6 @@ class RequestService {
     try {
       final headers = await _getHeaders();
       final url = Uri.parse('$baseUrl/dashboard/employee');
-      print('DEBUG: Requesting Dashboard from: $url');
-      print('DEBUG: Dashboard Headers: $headers');
 
       final response = await http
           .get(url, headers: headers)
@@ -155,14 +153,9 @@ class RequestService {
 
       url += '?${queryParams.join('&')}';
 
-      print('DEBUG: Requesting Leave Requests: $url');
-
       final response = await http
           .get(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 15));
-
-      print('DEBUG: Leave Requests Status: ${response.statusCode}');
-      print('DEBUG: Leave Requests Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);

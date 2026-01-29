@@ -110,7 +110,9 @@ const markAttendanceForApprovedLeave = async (leave) => {
         
         // Check if there are pending leaves that would exceed the limit
         // We need to check if current approved + pending leaves exceed the limit
-        const isCasual = leaveType.toLowerCase() === 'casual';
+        // Handle both "Casual" and "Casual Leave" formats
+        const leaveTypeLower = leaveType.toLowerCase().trim();
+        const isCasual = leaveTypeLower === 'casual' || leaveTypeLower.startsWith('casual');
         const targetYear = leaveDate.getFullYear();
         const targetMonth = leaveDate.getMonth();
         const rangeStart = isCasual
@@ -248,8 +250,10 @@ const calculateAvailableLeaves = async (staff, leaveType, targetDate = new Date(
         return { baseLimit: null, carriedForward: 0, totalAvailable: null, used: 0, balance: 999 };
     }
 
-    // Determine if this is a monthly (Casual) or yearly (Sick) leave
-    const isCasual = leaveType.toLowerCase() === 'casual';
+        // Determine if this is a monthly (Casual) or yearly (Sick) leave
+        // Handle both "Casual" and "Casual Leave" formats
+        const leaveTypeLower = leaveType.toLowerCase().trim();
+        const isCasual = leaveTypeLower === 'casual' || leaveTypeLower.startsWith('casual');
     const targetYear = targetDate.getFullYear();
     const targetMonth = targetDate.getMonth();
 
@@ -262,14 +266,31 @@ const calculateAvailableLeaves = async (staff, leaveType, targetDate = new Date(
         : new Date(targetYear, 11, 31, 23, 59, 59);
 
     // Get used leaves in current period
+    // Match leave types flexibly: "Casual Leave" matches "Casual" and vice versa
+    // Normalize the leaveType for matching (remove "Leave" suffix for comparison)
+    const normalizedType = leaveType.toLowerCase().trim().replace(/\s+leave\s*$/i, '');
+    
+    // Build query to match both exact type and normalized type
+    // This handles cases like: "Casual Leave" in template vs "Casual" in stored leaves
     const usedLeaves = await Leave.find({
         employeeId: staff._id,
-        leaveType: { $regex: new RegExp(`^${leaveType}$`, 'i') },
-        status: { $in: ['Approved', 'Pending'] },
-        $or: [
-            { startDate: { $gte: rangeStart, $lte: rangeEnd } },
-            { endDate: { $gte: rangeStart, $lte: rangeEnd } },
-            { startDate: { $lte: rangeStart }, endDate: { $gte: rangeEnd } }
+        $and: [
+            {
+                $or: [
+                    { leaveType: { $regex: new RegExp(`^${leaveType}$`, 'i') } },
+                    { leaveType: { $regex: new RegExp(`^${normalizedType}(\\s+leave)?$`, 'i') } }
+                ]
+            },
+            {
+                status: { $in: ['Approved', 'Pending'] }
+            },
+            {
+                $or: [
+                    { startDate: { $gte: rangeStart, $lte: rangeEnd } },
+                    { endDate: { $gte: rangeStart, $lte: rangeEnd } },
+                    { startDate: { $lte: rangeStart }, endDate: { $gte: rangeEnd } }
+                ]
+            }
         ]
     });
 
@@ -289,12 +310,23 @@ const calculateAvailableLeaves = async (staff, leaveType, targetDate = new Date(
 
             const prevMonthLeaves = await Leave.find({
                 employeeId: staff._id,
-                leaveType: { $regex: new RegExp(`^${leaveType}$`, 'i') },
-                status: 'Approved',
-                $or: [
-                    { startDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
-                    { endDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
-                    { startDate: { $lte: prevRangeStart }, endDate: { $gte: prevRangeEnd } }
+                $and: [
+                    {
+                        $or: [
+                            { leaveType: { $regex: new RegExp(`^${leaveType}$`, 'i') } },
+                            { leaveType: { $regex: new RegExp(`^${normalizedType}(\\s+leave)?$`, 'i') } }
+                        ]
+                    },
+                    {
+                        status: 'Approved'
+                    },
+                    {
+                        $or: [
+                            { startDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
+                            { endDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
+                            { startDate: { $lte: prevRangeStart }, endDate: { $gte: prevRangeEnd } }
+                        ]
+                    }
                 ]
             });
 
@@ -309,12 +341,23 @@ const calculateAvailableLeaves = async (staff, leaveType, targetDate = new Date(
 
             const prevYearLeaves = await Leave.find({
                 employeeId: staff._id,
-                leaveType: { $regex: new RegExp(`^${leaveType}$`, 'i') },
-                status: 'Approved',
-                $or: [
-                    { startDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
-                    { endDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
-                    { startDate: { $lte: prevRangeStart }, endDate: { $gte: prevRangeEnd } }
+                $and: [
+                    {
+                        $or: [
+                            { leaveType: { $regex: new RegExp(`^${leaveType}$`, 'i') } },
+                            { leaveType: { $regex: new RegExp(`^${normalizedType}(\\s+leave)?$`, 'i') } }
+                        ]
+                    },
+                    {
+                        status: 'Approved'
+                    },
+                    {
+                        $or: [
+                            { startDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
+                            { endDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
+                            { startDate: { $lte: prevRangeStart }, endDate: { $gte: prevRangeEnd } }
+                        ]
+                    }
                 ]
             });
 

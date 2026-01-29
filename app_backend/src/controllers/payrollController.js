@@ -118,6 +118,8 @@ const getPayrollStats = async (req, res) => {
             const presentDays = attendanceStats.presentDays || 0;
             const prorationFactor = workingDays > 0 ? presentDays / workingDays : 1;
             
+            console.log(`[getPayrollStats] Payroll exists path: workingDays=${workingDays}, presentDays=${presentDays}, prorationFactor=${prorationFactor}`);
+            
             // Get fine amount from attendance records
             const Attendance = require('../models/Attendance');
             const startOfMonth = new Date(currentYear, currentMonth - 1, 1);
@@ -133,12 +135,14 @@ const getPayrollStats = async (req, res) => {
                 return sum + (record.fineAmount || 0);
             }, 0);
             
-            // Get staff salary structure for correct proration
+            // Get staff salary structure for correct proration (must select +salary)
             let thisMonthGross = 0;
             let thisMonthNet = 0;
-            
-            const staffForProration = await Staff.findById(staffId);
+
+            const staffForProration = await Staff.findById(staffId).select('+salary');
+            console.log(`[getPayrollStats] staffForProration found: ${!!staffForProration}, has salary: ${!!(staffForProration && staffForProration.salary)}`);
             if (staffForProration && staffForProration.salary) {
+                console.log(`[getPayrollStats] Using salary structure for proration`);
                 const s = staffForProration.salary;
                 const basicSalary = s.basicSalary || 0;
                 const dearnessAllowance = s.dearnessAllowance || 0;
@@ -166,10 +170,13 @@ const getPayrollStats = async (req, res) => {
                 
                 // STEP 5: Calculate Prorated Net Salary (fines are NOT prorated)
                 thisMonthNet = thisMonthGross - proratedDeductions - totalFineAmount;
+                console.log(`[getPayrollStats] Calculated from salary structure: thisMonthGross=${thisMonthGross}, thisMonthNet=${thisMonthNet}, proratedDeductions=${proratedDeductions}, totalFineAmount=${totalFineAmount}`);
             } else {
                 // Fallback to simple proration if salary structure not available
+                console.log(`[getPayrollStats] FALLBACK: Using payroll.netPay=${payroll.netPay} * prorationFactor=${prorationFactor}`);
                 thisMonthGross = payroll.grossSalary * prorationFactor;
                 thisMonthNet = (payroll.netPay * prorationFactor) - totalFineAmount;
+                console.log(`[getPayrollStats] Fallback result: thisMonthGross=${thisMonthGross}, thisMonthNet=${thisMonthNet}`);
             }
 
             // Calculate CTC from payroll components if available, otherwise estimate
@@ -488,11 +495,8 @@ const calculateAttendanceStats = async (employeeId, month, year) => {
     console.log(`[calculateAttendanceStats] Working days calculation: ${daysInMonth} - ${weeklyOffDays} - ${holidays} = ${workingDays}`);
     console.log(`[calculateAttendanceStats] ======================================`);
 
-    // Calculate Present Days - Include 'Pending' status (same as dashboard)
-    const presentDays = attendanceRecords.filter(a => {
-        const status = a.status;
-        return status === 'Present' || status === 'Approved' || status === 'Half Day' || status === 'Pending';
-    }).length;
+    // Calculate Present Days - Only 'Present' status (same as dashboard calendar/summary)
+    const presentDays = attendanceRecords.filter(a => a.status === 'Present').length;
     
     console.log(`[calculateAttendanceStats] Attendance Records Found: ${attendanceRecords.length}`);
     console.log(`[calculateAttendanceStats] Status breakdown:`, {

@@ -302,7 +302,6 @@ class AssetService {
       await prefs.setInt(_cacheTimestampKey, DateTime.now().millisecondsSinceEpoch);
     } catch (e) {
       // Silently fail caching
-      print('Failed to cache asset types: $e');
     }
   }
 
@@ -324,7 +323,6 @@ class AssetService {
       }
     } catch (e) {
       // Silently fail cache retrieval
-      print('Failed to get cached asset types: $e');
     }
     return null;
   }
@@ -358,7 +356,6 @@ class AssetService {
       }
     } catch (e) {
       // Silently fail cache retrieval
-      print('Failed to get cached branches: $e');
     }
     return null;
   }

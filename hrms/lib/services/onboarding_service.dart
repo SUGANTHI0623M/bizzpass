@@ -10,16 +10,13 @@ class OnboardingService {
 
   Future<Map<String, dynamic>> getMyOnboarding() async {
     try {
-      print('[OnboardingService] getMyOnboarding() called');
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
       if (token == null) {
-        print('[OnboardingService] ❌ No token found');
         return {'success': false, 'message': 'Not authenticated'};
       }
 
-      print('[OnboardingService] Fetching from: $baseUrl/onboarding/my-onboarding');
       final response = await http
           .get(
             Uri.parse('$baseUrl/onboarding/my-onboarding'),
@@ -30,40 +27,13 @@ class OnboardingService {
           )
           .timeout(const Duration(seconds: 15));
 
-      print('[OnboardingService] Response status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
-        print('[OnboardingService] ✅ Success response received');
-        
-        if (body['data'] != null && body['data']['onboarding'] != null) {
-          final onboarding = body['data']['onboarding'];
-          final documents = onboarding['documents'] as List? ?? [];
-          print('[OnboardingService] Onboarding ID: ${onboarding['_id']}');
-          print('[OnboardingService] Documents count: ${documents.length}');
-          
-          if (documents.isNotEmpty) {
-            print('[OnboardingService] Document list:');
-            for (var i = 0; i < documents.length; i++) {
-              final doc = documents[i];
-              print('  [$i] ${doc['name']} - Status: ${doc['status']} - Has URL: ${doc['url'] != null}');
-            }
-          } else {
-            print('[OnboardingService] ⚠️ Documents array is empty!');
-          }
-        } else {
-          print('[OnboardingService] ⚠️ Onboarding data structure unexpected');
-          print('[OnboardingService] Response body: $body');
-        }
-        
         return {'success': true, 'data': body['data']};
       } else if (response.statusCode == 404) {
-        print('[OnboardingService] ⚠️ 404 - Onboarding not found');
         // Graceful fallback: If endpoint missing, return null data so UI just shows empty/nothing
         return {'success': true, 'data': null};
       } else {
-        print('[OnboardingService] ❌ API Error. Status: ${response.statusCode}');
-        print('[OnboardingService] Response body: ${response.body}');
         final body = jsonDecode(response.body);
         String message = 'Failed to fetch onboarding data';
         if (body['error'] != null && body['error']['message'] != null) {
@@ -74,7 +44,6 @@ class OnboardingService {
         return {'success': false, 'message': message};
       }
     } catch (e) {
-      print('[OnboardingService] ❌ Exception: $e');
       return {'success': false, 'message': e.toString()};
     }
   }

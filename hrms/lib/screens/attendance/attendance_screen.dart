@@ -99,7 +99,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
   Future<void> _fetchHistory({bool refresh = false, int? page}) async {
     if (_isLoadingHistory) return;
-    
+
     final pageToFetch = page ?? (refresh ? 1 : _page);
 
     setState(() => _isLoadingHistory = true);
@@ -123,7 +123,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         }
         _page = pageToFetch;
         _totalRecords = pagination['total'] ?? 0;
-        _totalPages = ((_totalRecords / _limit).ceil()).clamp(1, double.infinity).toInt();
+        _totalPages = ((_totalRecords / _limit).ceil())
+            .clamp(1, double.infinity)
+            .toInt();
         _isLoadingHistory = false;
       });
     } else {
@@ -175,7 +177,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     if (dateValue == null) return DateTime.now();
     try {
       String dateStr = dateValue.toString();
-      
+
       // Parse the full ISO string (handles both with and without time)
       DateTime parsed;
       if (dateStr.contains('T')) {
@@ -195,7 +197,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           parsed = DateTime.parse(dateStr).toLocal();
         }
       }
-      
+
       // Extract date components from local time and create a new DateTime
       // This ensures the date is preserved in the user's local timezone
       return DateTime(parsed.year, parsed.month, parsed.day);
@@ -267,33 +269,36 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     final isLateOut = _isLateCheckOut(punchOut);
     final isEarlyOut = _isEarlyCheckOut(punchOut);
     final isLowHours = _isLowWorkHours(workHours);
-    
+
     // Fine information
     final lateMinutes = record['lateMinutes'] as num?;
     final earlyMinutes = record['earlyMinutes'] as num?;
     final fineHours = record['fineHours'] as num?;
     final fineAmount = record['fineAmount'] as num?;
-    final hasFineInfo = (lateMinutes != null && lateMinutes > 0) || 
-                        (earlyMinutes != null && earlyMinutes > 0) || 
-                        (fineAmount != null && fineAmount > 0);
+    final hasFineInfo =
+        (lateMinutes != null && lateMinutes > 0) ||
+        (earlyMinutes != null && earlyMinutes > 0) ||
+        (fineAmount != null && fineAmount > 0);
 
     // Extract location details
     String? punchInAddress;
     String? punchOutAddress;
     String? branchName;
-    
+
     if (record['location'] != null) {
       final location = record['location'];
       if (location['punchIn'] != null) {
         final punchInLoc = location['punchIn'];
-        punchInAddress = punchInLoc['address'] ?? 
-          '${punchInLoc['area'] ?? ''}, ${punchInLoc['city'] ?? ''}, ${punchInLoc['pincode'] ?? ''}';
+        punchInAddress =
+            punchInLoc['address'] ??
+            '${punchInLoc['area'] ?? ''}, ${punchInLoc['city'] ?? ''}, ${punchInLoc['pincode'] ?? ''}';
         branchName = punchInLoc['branchName'] ?? record['branchName'];
       }
       if (location['punchOut'] != null) {
         final punchOutLoc = location['punchOut'];
-        punchOutAddress = punchOutLoc['address'] ?? 
-          '${punchOutLoc['area'] ?? ''}, ${punchOutLoc['city'] ?? ''}, ${punchOutLoc['pincode'] ?? ''}';
+        punchOutAddress =
+            punchOutLoc['address'] ??
+            '${punchOutLoc['area'] ?? ''}, ${punchOutLoc['city'] ?? ''}, ${punchOutLoc['pincode'] ?? ''}';
         if (branchName == null) {
           branchName = punchOutLoc['branchName'] ?? record['branchName'];
         }
@@ -303,14 +308,20 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     // Selfie URLs
     final punchInSelfieUrl = record['punchInSelfie'];
     final punchOutSelfieUrl = record['punchOutSelfie'];
-    final bool hasPunchInSelfie = punchInSelfieUrl != null && punchInSelfieUrl.toString().startsWith('http');
-    final bool hasPunchOutSelfie = punchOutSelfieUrl != null && punchOutSelfieUrl.toString().startsWith('http');
+    final bool hasPunchInSelfie =
+        punchInSelfieUrl != null &&
+        punchInSelfieUrl.toString().startsWith('http');
+    final bool hasPunchOutSelfie =
+        punchOutSelfieUrl != null &&
+        punchOutSelfieUrl.toString().startsWith('http');
 
     // Status color
     Color statusColor = Colors.green;
     if (status == 'Pending') {
       statusColor = Colors.orange;
-    } else if (status == 'Absent' || status == 'Rejected' || status == 'On Leave') {
+    } else if (status == 'Absent' ||
+        status == 'Rejected' ||
+        status == 'On Leave') {
       statusColor = Colors.red;
     } else if (status == 'Half Day') {
       statusColor = Colors.purple;
@@ -326,7 +337,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         builder: (context, setModalState) {
           final pageController = PageController();
           int currentPage = 0;
-          
+
           return DraggableScrollableSheet(
             initialChildSize: 0.9,
             minChildSize: 0.5,
@@ -371,25 +382,46 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Date
-                              _buildDetailRow('Date', formattedDate, Icons.calendar_today),
+                              _buildDetailRow(
+                                'Date',
+                                formattedDate,
+                                Icons.calendar_today,
+                              ),
                               const SizedBox(height: 16),
-                              
+
                               // Status
-                              _buildDetailRow('Status', status, Icons.info_outline, statusColor),
+                              _buildDetailRow(
+                                'Status',
+                                status,
+                                Icons.info_outline,
+                                statusColor,
+                              ),
                               const SizedBox(height: 16),
-                              
+
                               // Branch Name
-                              if (branchName != null && branchName.isNotEmpty) ...[
-                                _buildDetailRow('Branch Name', branchName, Icons.business),
+                              if (branchName != null &&
+                                  branchName.isNotEmpty) ...[
+                                _buildDetailRow(
+                                  'Branch Name',
+                                  branchName,
+                                  Icons.business,
+                                ),
                                 const SizedBox(height: 16),
                               ],
-                              
+
                               // Punch In
-                              _buildDetailRow('Punch In', _formatTime(punchIn), Icons.login_rounded),
+                              _buildDetailRow(
+                                'Punch In',
+                                _formatTime(punchIn),
+                                Icons.login_rounded,
+                              ),
                               if (isLateIn) ...[
                                 const SizedBox(height: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.orange.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
@@ -398,21 +430,39 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.warning, size: 16, color: Colors.orange),
+                                      Icon(
+                                        Icons.warning,
+                                        size: 16,
+                                        color: Colors.orange,
+                                      ),
                                       const SizedBox(width: 4),
-                                      Text('Late Check-in', style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      Text(
+                                        'Late Check-in',
+                                        style: TextStyle(
+                                          color: Colors.orange,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                               ],
                               const SizedBox(height: 16),
-                              
+
                               // Punch Out
-                              _buildDetailRow('Punch Out', _formatTime(punchOut), Icons.logout_rounded),
+                              _buildDetailRow(
+                                'Punch Out',
+                                _formatTime(punchOut),
+                                Icons.logout_rounded,
+                              ),
                               if (isLateOut) ...[
                                 const SizedBox(height: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.blue.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
@@ -421,9 +471,20 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.schedule, size: 16, color: Colors.blue),
+                                      Icon(
+                                        Icons.schedule,
+                                        size: 16,
+                                        color: Colors.blue,
+                                      ),
                                       const SizedBox(width: 4),
-                                      Text('Late Check-out', style: TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      Text(
+                                        'Late Check-out',
+                                        style: TextStyle(
+                                          color: Colors.blue,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -431,7 +492,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               if (isEarlyOut) ...[
                                 const SizedBox(height: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.red.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
@@ -440,21 +504,41 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.exit_to_app, size: 16, color: Colors.red),
+                                      Icon(
+                                        Icons.exit_to_app,
+                                        size: 16,
+                                        color: Colors.red,
+                                      ),
                                       const SizedBox(width: 4),
-                                      Text('Early Exit', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      Text(
+                                        'Early Exit',
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                               ],
                               const SizedBox(height: 16),
-                              
+
                               // Work Hours
-                              _buildDetailRow('Work Hours', workHours != null ? '${workHours.toStringAsFixed(2)} hrs' : 'N/A', Icons.access_time),
+                              _buildDetailRow(
+                                'Work Hours',
+                                workHours != null
+                                    ? '${workHours.toStringAsFixed(2)} hrs'
+                                    : 'N/A',
+                                Icons.access_time,
+                              ),
                               if (isLowHours) ...[
                                 const SizedBox(height: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.red.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
@@ -463,15 +547,26 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.timer_off, size: 16, color: Colors.red),
+                                      Icon(
+                                        Icons.timer_off,
+                                        size: 16,
+                                        color: Colors.red,
+                                      ),
                                       const SizedBox(width: 4),
-                                      Text('Low Work Hours', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      Text(
+                                        'Low Work Hours',
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                               ],
                               const SizedBox(height: 16),
-                              
+
                               // Fine Information Section
                               if (hasFineInfo) ...[
                                 Container(
@@ -479,14 +574,21 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey.shade300),
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(Icons.money_off, color: Colors.red.shade700, size: 20),
+                                          Icon(
+                                            Icons.money_off,
+                                            color: Colors.red.shade700,
+                                            size: 20,
+                                          ),
                                           const SizedBox(width: 8),
                                           Text(
                                             'Fine Details',
@@ -499,26 +601,50 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                         ],
                                       ),
                                       const SizedBox(height: 12),
-                                      if (lateMinutes != null && lateMinutes > 0) ...[
-                                        _buildFineRow('Late Minutes', '${lateMinutes.toInt()} min', Icons.schedule, Colors.orange),
+                                      if (lateMinutes != null &&
+                                          lateMinutes > 0) ...[
+                                        _buildFineRow(
+                                          'Late Minutes',
+                                          '${lateMinutes.toInt()} min',
+                                          Icons.schedule,
+                                          Colors.orange,
+                                        ),
                                         const SizedBox(height: 8),
                                       ],
-                                      if (earlyMinutes != null && earlyMinutes > 0) ...[
-                                        _buildFineRow('Early Minutes', '${earlyMinutes.toInt()} min', Icons.exit_to_app, Colors.red),
+                                      if (earlyMinutes != null &&
+                                          earlyMinutes > 0) ...[
+                                        _buildFineRow(
+                                          'Early Minutes',
+                                          '${earlyMinutes.toInt()} min',
+                                          Icons.exit_to_app,
+                                          Colors.red,
+                                        ),
                                         const SizedBox(height: 8),
                                       ],
-                                      if (fineHours != null && fineHours > 0) ...[
-                                        _buildFineRow('Fine Hours', '${(fineHours.toDouble() / 60).toStringAsFixed(2)} hrs', Icons.timer, Colors.purple),
+                                      if (fineHours != null &&
+                                          fineHours > 0) ...[
+                                        _buildFineRow(
+                                          'Fine Hours',
+                                          '${(fineHours.toDouble() / 60).toStringAsFixed(2)} hrs',
+                                          Icons.timer,
+                                          Colors.purple,
+                                        ),
                                         const SizedBox(height: 8),
                                       ],
-                                      if (fineAmount != null && fineAmount > 0) ...[
+                                      if (fineAmount != null &&
+                                          fineAmount > 0) ...[
                                         const Divider(height: 20),
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Row(
                                               children: [
-                                                Icon(Icons.currency_rupee, color: Colors.red.shade700, size: 20),
+                                                Icon(
+                                                  Icons.currency_rupee,
+                                                  color: Colors.red.shade700,
+                                                  size: 20,
+                                                ),
                                                 const SizedBox(width: 8),
                                                 Text(
                                                   'Fine Amount',
@@ -546,16 +672,26 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                 ),
                                 const SizedBox(height: 16),
                               ],
-                              
+
                               // Location - Punch In
-                              if (punchInAddress != null && punchInAddress.isNotEmpty) ...[
-                                _buildDetailRow('Check-in Location', punchInAddress, Icons.location_on),
+                              if (punchInAddress != null &&
+                                  punchInAddress.isNotEmpty) ...[
+                                _buildDetailRow(
+                                  'Check-in Location',
+                                  punchInAddress,
+                                  Icons.location_on,
+                                ),
                                 const SizedBox(height: 16),
                               ],
-                              
+
                               // Location - Punch Out
-                              if (punchOutAddress != null && punchOutAddress.isNotEmpty) ...[
-                                _buildDetailRow('Check-out Location', punchOutAddress, Icons.location_on),
+                              if (punchOutAddress != null &&
+                                  punchOutAddress.isNotEmpty) ...[
+                                _buildDetailRow(
+                                  'Check-out Location',
+                                  punchOutAddress,
+                                  Icons.location_on,
+                                ),
                                 const SizedBox(height: 16),
                               ],
                             ],
@@ -569,18 +705,27 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               children: [
                                 const Text(
                                   'Selfies',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
                                 if (hasPunchInSelfie) ...[
                                   GestureDetector(
-                                    onTap: () => _showSelfieDialog(punchInSelfieUrl, "Check-in Selfie"),
+                                    onTap: () => _showSelfieDialog(
+                                      punchInSelfieUrl,
+                                      "Check-in Selfie",
+                                    ),
                                     child: Container(
                                       width: double.infinity,
                                       height: 300,
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.green, width: 2),
+                                        border: Border.all(
+                                          color: Colors.green,
+                                          width: 2,
+                                        ),
                                         image: DecorationImage(
                                           image: NetworkImage(punchInSelfieUrl),
                                           fit: BoxFit.cover,
@@ -591,22 +736,33 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   const SizedBox(height: 12),
                                   const Text(
                                     'Check-in Selfie',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 24),
                                 ],
                                 if (hasPunchOutSelfie) ...[
                                   GestureDetector(
-                                    onTap: () => _showSelfieDialog(punchOutSelfieUrl, "Check-out Selfie"),
+                                    onTap: () => _showSelfieDialog(
+                                      punchOutSelfieUrl,
+                                      "Check-out Selfie",
+                                    ),
                                     child: Container(
                                       width: double.infinity,
                                       height: 300,
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.red, width: 2),
+                                        border: Border.all(
+                                          color: Colors.red,
+                                          width: 2,
+                                        ),
                                         image: DecorationImage(
-                                          image: NetworkImage(punchOutSelfieUrl),
+                                          image: NetworkImage(
+                                            punchOutSelfieUrl,
+                                          ),
                                           fit: BoxFit.cover,
                                         ),
                                       ),
@@ -615,7 +771,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                   const SizedBox(height: 12),
                                   const Text(
                                     'Check-out Selfie',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -628,7 +787,11 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.camera_alt_outlined, size: 64, color: Colors.grey.shade400),
+                                Icon(
+                                  Icons.camera_alt_outlined,
+                                  size: 64,
+                                  color: Colors.grey.shade400,
+                                ),
                                 const SizedBox(height: 16),
                                 Text(
                                   'No Selfies Available',
@@ -657,7 +820,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               height: 8,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(4),
-                                color: currentPage == 0 ? AppColors.primary : Colors.grey.shade300,
+                                color: currentPage == 0
+                                    ? AppColors.primary
+                                    : Colors.grey.shade300,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -666,7 +831,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               height: 8,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(4),
-                                color: currentPage == 1 ? AppColors.primary : Colors.grey.shade300,
+                                color: currentPage == 1
+                                    ? AppColors.primary
+                                    : Colors.grey.shade300,
                               ),
                             ),
                           ],
@@ -691,7 +858,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       ),
     );
   }
-  
+
   Widget _buildFineRow(String label, String value, IconData icon, Color color) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -722,7 +889,12 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     );
   }
 
-  Widget _buildDetailRow(String label, String value, IconData icon, [Color? valueColor]) {
+  Widget _buildDetailRow(
+    String label,
+    String value,
+    IconData icon, [
+    Color? valueColor,
+  ]) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -764,11 +936,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         return AlertDialog(
           title: Row(
             children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange,
-                size: 28,
-              ),
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
               const SizedBox(width: 8),
               const Text('Notice'),
             ],
@@ -1057,7 +1225,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     // Build a small status map from attendance records (for Half Day / On Leave etc.)
     String? statusFromRecord;
     num? workHours;
-    
+
     // Try to find record in _monthAttendance
     dynamic record;
     try {
@@ -1073,11 +1241,11 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     } catch (_) {
       record = null;
     }
-    
+
     if (record != null) {
       statusFromRecord = record['status'] as String?;
       workHours = record['workHours'] as num?;
-      
+
       // Calculate workHours from punchIn and punchOut if not available
       if (workHours == null || workHours == 0) {
         final punchIn = record['punchIn'];
@@ -1114,24 +1282,25 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
     final bool isPresentFromBackend = presentDates.contains(dateStr);
     final bool isAbsentFromBackend = absentDates.contains(dateStr);
-    
+
     // If we have a present date but no workHours from record, try to get it from _monthData
-    if ((isPresentFromBackend || statusFromRecord == 'Present' || statusFromRecord == 'Approved') && 
-        workHours == null && _monthData != null && _monthData!['attendance'] != null) {
+    if ((isPresentFromBackend ||
+            statusFromRecord == 'Present' ||
+            statusFromRecord == 'Approved') &&
+        workHours == null &&
+        _monthData != null &&
+        _monthData!['attendance'] != null) {
       try {
-        final entry = (_monthData!['attendance'] as List).firstWhere(
-          (e) {
-            try {
-              final d = _extractDateOnly(e['date']);
-              final eDateStr = DateFormat('yyyy-MM-dd').format(d);
-              return eDateStr == dateStr;
-            } catch (_) {
-              return false;
-            }
-          },
-          orElse: () => null,
-        );
-        
+        final entry = (_monthData!['attendance'] as List).firstWhere((e) {
+          try {
+            final d = _extractDateOnly(e['date']);
+            final eDateStr = DateFormat('yyyy-MM-dd').format(d);
+            return eDateStr == dateStr;
+          } catch (_) {
+            return false;
+          }
+        }, orElse: () => null);
+
         if (entry != null) {
           workHours = entry['workHours'] as num?;
           // Calculate from punchIn/punchOut if still not available
@@ -1140,8 +1309,12 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             final punchOut = entry['punchOut'];
             if (punchIn != null && punchOut != null) {
               try {
-                final punchInTime = DateTime.parse(punchIn.toString()).toLocal();
-                final punchOutTime = DateTime.parse(punchOut.toString()).toLocal();
+                final punchInTime = DateTime.parse(
+                  punchIn.toString(),
+                ).toLocal();
+                final punchOutTime = DateTime.parse(
+                  punchOut.toString(),
+                ).toLocal();
                 final duration = punchOutTime.difference(punchInTime);
                 if (duration.inMinutes > 0) {
                   workHours = duration.inMinutes / 60.0;
@@ -1156,7 +1329,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         // If lookup fails, leave workHours as is
       }
     }
-    
+
     // Calculate isLowHours after all workHours lookups
     bool isLowHours = workHours != null && _isLowWorkHours(workHours);
 
@@ -1337,9 +1510,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader(
-              DateFormat('MMM dd, yyyy').format(_focusedDay),
-            ),
+            _buildSectionHeader(DateFormat('MMM dd, yyyy').format(_focusedDay)),
             const SizedBox(height: 12),
             _buildAttendanceCard(),
             const SizedBox(height: 24),
@@ -1448,9 +1619,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           // Previous button
           IconButton(
             icon: const Icon(Icons.chevron_left),
-            onPressed: _page > 1
-                ? () => _fetchHistory(page: _page - 1)
-                : null,
+            onPressed: _page > 1 ? () => _fetchHistory(page: _page - 1) : null,
             color: _page > 1 ? AppColors.primary : Colors.grey,
           ),
           const SizedBox(width: 8),
@@ -1591,7 +1760,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         ),
         actions: [
           //hide this icon
-          if (1==1)
+          if (false)
             IconButton(
               icon: const Icon(Icons.settings),
               onPressed: _showAttendanceSettings,
@@ -1958,7 +2127,8 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
                     // Check Late Entry - show alert if NOT allowed
                     if (!isCheckedIn) {
-                      final allowLateEntry = _attendanceTemplate?['allowLateEntry'] ??
+                      final allowLateEntry =
+                          _attendanceTemplate?['allowLateEntry'] ??
                           _attendanceTemplate?['lateEntryAllowed'] ??
                           true; // Default to true if not specified
 
@@ -1979,7 +2149,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                       ).add(Duration(minutes: gracePeriod));
 
                       if (now.isAfter(shiftStart)) {
-                        final lateMinutes = now.difference(shiftStart).inMinutes;
+                        final lateMinutes = now
+                            .difference(shiftStart)
+                            .inMinutes;
                         if (allowLateEntry == false) {
                           // Show alert but still allow check-in
                           alertMessage =
@@ -1991,7 +2163,8 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
                     // Check Early Exit - show alert if NOT allowed
                     if (isCheckedIn && alertMessage == null) {
-                      final allowEarlyExit = _attendanceTemplate?['allowEarlyExit'] ??
+                      final allowEarlyExit =
+                          _attendanceTemplate?['allowEarlyExit'] ??
                           _attendanceTemplate?['earlyExitAllowed'] ??
                           true; // Default to true if not specified
 
@@ -2233,7 +2406,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         ),
       );
     }
-    
+
     // Apply local filtering based on _activeFilter
     List<dynamic> filteredList = _historyList;
     if (_activeFilter == 'Late Check-in' || _activeFilter == 'Late') {
@@ -2403,205 +2576,212 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                     border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Left Side: Selfie + Info
-                    Expanded(
-                      child: Row(
-                        children: [
-                          // Selfie Images
-                          Row(
-                            children: [
-                              // Punch In
-                              GestureDetector(
-                                onTap: () {
-                                  if (hasPunchInSelfie) {
-                                    _showSelfieDialog(
-                                      punchInSelfieUrl,
-                                      "Check-in Selfie",
-                                    );
-                                  }
-                                },
-                                child: Container(
-                                  width: 45,
-                                  height: 45,
-                                  margin: const EdgeInsets.only(right: 6),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.green.withOpacity(0.5),
-                                      width: 2,
-                                    ),
-                                    image: hasPunchInSelfie
-                                        ? DecorationImage(
-                                            image: NetworkImage(
-                                              punchInSelfieUrl,
-                                            ),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : null,
-                                    color: hasPunchInSelfie
-                                        ? null
-                                        : AppColors.primary.withOpacity(0.1),
-                                  ),
-                                  child: !hasPunchInSelfie
-                                      ? Icon(
-                                          Icons.person,
-                                          size: 20,
-                                          color: AppColors.primary,
-                                        )
-                                      : null,
-                                ),
-                              ),
-
-                              // Punch Out (if exists)
-                              if (hasPunchOutSelfie)
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Left Side: Selfie + Info
+                      Expanded(
+                        child: Row(
+                          children: [
+                            // Selfie Images
+                            Row(
+                              children: [
+                                // Punch In
                                 GestureDetector(
                                   onTap: () {
-                                    _showSelfieDialog(
-                                      punchOutSelfieUrl,
-                                      "Check-out Selfie",
-                                    );
+                                    if (hasPunchInSelfie) {
+                                      _showSelfieDialog(
+                                        punchInSelfieUrl,
+                                        "Check-in Selfie",
+                                      );
+                                    }
                                   },
                                   child: Container(
                                     width: 45,
                                     height: 45,
-                                    margin: const EdgeInsets.only(right: 12),
+                                    margin: const EdgeInsets.only(right: 6),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: Colors.red.withOpacity(0.5),
+                                        color: Colors.green.withOpacity(0.5),
                                         width: 2,
                                       ),
-                                      image: DecorationImage(
-                                        image: NetworkImage(punchOutSelfieUrl),
-                                        fit: BoxFit.cover,
-                                      ),
+                                      image: hasPunchInSelfie
+                                          ? DecorationImage(
+                                              image: NetworkImage(
+                                                punchInSelfieUrl,
+                                              ),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : null,
+                                      color: hasPunchInSelfie
+                                          ? null
+                                          : AppColors.primary.withOpacity(0.1),
                                     ),
-                                  ),
-                                )
-                              else
-                                const SizedBox(
-                                  width: 6,
-                                ), // Spacer if no second image
-                            ],
-                          ),
-
-                          // Text Info
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  dateStr,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
+                                    child: !hasPunchInSelfie
+                                        ? Icon(
+                                            Icons.person,
+                                            size: 20,
+                                            color: AppColors.primary,
+                                          )
+                                        : null,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
 
-                                // Location
-                                if (locationAddress != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 4.0),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.location_on,
-                                          size: 10,
-                                          color: Colors.grey[600],
+                                // Punch Out (if exists)
+                                if (hasPunchOutSelfie)
+                                  GestureDetector(
+                                    onTap: () {
+                                      _showSelfieDialog(
+                                        punchOutSelfieUrl,
+                                        "Check-out Selfie",
+                                      );
+                                    },
+                                    child: Container(
+                                      width: 45,
+                                      height: 45,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.red.withOpacity(0.5),
+                                          width: 2,
                                         ),
-                                        const SizedBox(width: 2),
-                                        Expanded(
-                                          child: Text(
-                                            locationAddress,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.grey[600],
-                                            ),
+                                        image: DecorationImage(
+                                          image: NetworkImage(
+                                            punchOutSelfieUrl,
                                           ),
+                                          fit: BoxFit.cover,
                                         ),
-                                      ],
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  const SizedBox(
+                                    width: 6,
+                                  ), // Spacer if no second image
+                              ],
+                            ),
+
+                            // Text Info
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    dateStr,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                                  const SizedBox(height: 4),
 
-                                // Status Badge & Tags
-                                Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
+                                  // Location
+                                  if (locationAddress != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 4.0,
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: statusColor.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        displayStatus,
-                                        style: TextStyle(
-                                          color: statusColor,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.location_on,
+                                            size: 10,
+                                            color: Colors.grey[600],
+                                          ),
+                                          const SizedBox(width: 2),
+                                          Expanded(
+                                            child: Text(
+                                              locationAddress,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    ...tags.map(
-                                      (tag) => Container(
+
+                                  // Status Badge & Tags
+                                  Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    children: [
+                                      Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 6,
                                           vertical: 2,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.orange.withOpacity(0.1),
+                                          color: statusColor.withOpacity(0.1),
                                           borderRadius: BorderRadius.circular(
                                             4,
                                           ),
                                         ),
                                         child: Text(
-                                          tag,
-                                          style: const TextStyle(
-                                            color: Colors.orange,
+                                          displayStatus,
+                                          style: TextStyle(
+                                            color: statusColor,
                                             fontSize: 10,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                      ...tags.map(
+                                        (tag) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.withOpacity(
+                                              0.1,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            tag,
+                                            style: const TextStyle(
+                                              color: Colors.orange,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
+                          ],
+                        ),
+                      ),
+
+                      // Right Side: Time
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            "In: ${_formatTime(record['punchIn'])}",
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          Text(
+                            "Out: ${_formatTime(record['punchOut'])}",
+                            style: const TextStyle(fontSize: 12),
                           ),
                         ],
                       ),
-                    ),
-
-                    // Right Side: Time
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          "In: ${_formatTime(record['punchIn'])}",
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        Text(
-                          "Out: ${_formatTime(record['punchOut'])}",
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               );
             },
           ),
-
       ],
     );
   }

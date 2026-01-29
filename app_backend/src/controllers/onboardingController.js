@@ -44,7 +44,6 @@ const getDocumentRequirementsForBusiness = async (businessId) => {
 
     // If no requirements found, return default requirements matching the image
     if (requirementMap.size === 0) {
-        console.log('[getDocumentRequirementsForBusiness] No requirements found, returning defaults');
         return [
             { name: 'Personal Information Form', type: 'form', required: true, order: 1 },
             { name: 'Bank Account Details', type: 'document', required: true, order: 2 },
@@ -66,14 +65,7 @@ const getMyOnboarding = async (req, res) => {
         const userId = req.user._id;
         const staffId = req.staff?._id;
 
-        console.log('DEBUG: getMyOnboarding request for:', {
-            userId: userId,
-            staffId: staffId,
-            email: req.user.email
-        });
-
         if (!staffId) {
-            console.log('DEBUG: No staffId found in request');
             return res.status(404).json({
                 success: false,
                 error: { message: 'Staff record not found' }
@@ -95,8 +87,6 @@ const getMyOnboarding = async (req, res) => {
         if (candidate?._id) {
             query.$or.push({ candidateId: candidate._id });
         }
-
-        console.log('DEBUG: Searching for onboarding with query:', JSON.stringify(query));
         let onboarding = await Onboarding.findOne(query)
             .populate({
                 path: 'staffId',
@@ -114,8 +104,6 @@ const getMyOnboarding = async (req, res) => {
             .populate('documents.reviewedBy', 'email name');
 
         if (!onboarding && staff) {
-            console.log('[getMyOnboarding] Onboarding not found. Attempting auto-create...');
-
             // Get documents from candidate if available
             let initialDocs = [];
             if (candidate && candidate.documents && candidate.documents.length > 0) {
@@ -131,10 +119,6 @@ const getMyOnboarding = async (req, res) => {
 
             // Get document requirements from database
             const requirements = await getDocumentRequirementsForBusiness(staff.businessId);
-            console.log('[getMyOnboarding] Document requirements fetched:', {
-                requirementsCount: requirements.length,
-                requirementNames: requirements.map(r => r.name)
-            });
 
             // If candidate documents are empty, use requirements from database
             if (initialDocs.length === 0 && requirements.length > 0) {
@@ -144,12 +128,10 @@ const getMyOnboarding = async (req, res) => {
                     required: req.required !== false, // Default to true if not specified
                     status: 'NOT_STARTED'
                 }));
-                console.log('[getMyOnboarding] Created initial docs from requirements:', initialDocs.length);
             }
 
             // Fallback to hardcoded defaults if no requirements found
             if (initialDocs.length === 0) {
-                console.log('[getMyOnboarding] No requirements found, using hardcoded defaults');
                 initialDocs = [
                     { name: 'Aadhar Card', type: 'document', required: true, status: 'NOT_STARTED' },
                     { name: 'PAN Card', type: 'document', required: true, status: 'NOT_STARTED' },
@@ -169,10 +151,6 @@ const getMyOnboarding = async (req, res) => {
                 });
 
                 onboarding = await newOnboarding.save();
-                console.log('[getMyOnboarding] ✅ Auto-created onboarding successfully:', {
-                    onboardingId: onboarding._id,
-                    documentsCount: initialDocs.length
-                });
 
                 // Re-populate for consistent response
                 onboarding = await Onboarding.findById(onboarding._id)
@@ -191,13 +169,7 @@ const getMyOnboarding = async (req, res) => {
                     .populate('createdBy', 'email name')
                     .populate('documents.reviewedBy', 'email name');
             } catch (createErr) {
-                console.error('[getMyOnboarding] ❌ Onboarding creation failed:', {
-                    message: createErr.message,
-                    name: createErr.name,
-                    code: createErr.code,
-                    keyPattern: createErr.keyPattern,
-                    keyValue: createErr.keyValue
-                });
+                console.error('[getMyOnboarding] Onboarding creation failed:', createErr);
                 
                 // Case: record was created by another process in parallel, or unique constraint violation
                 onboarding = await Onboarding.findOne(query)
@@ -215,18 +187,11 @@ const getMyOnboarding = async (req, res) => {
                     })
                     .populate('createdBy', 'email name')
                     .populate('documents.reviewedBy', 'email name');
-                
-                if (!onboarding) {
-                    console.error('[getMyOnboarding] ❌ Could not find onboarding after creation failure');
-                } else {
-                    console.log('[getMyOnboarding] Found existing onboarding after creation failure');
-                }
             }
         }
 
 
         if (!onboarding) {
-            console.log('[getMyOnboarding] Final check - Onboarding still not found for staffId:', staffId);
             return res.status(404).json({
                 success: false,
                 error: { message: 'Onboarding record not found and could not be created' }
@@ -237,10 +202,6 @@ const getMyOnboarding = async (req, res) => {
         // This also back-fills older records that were created before
         // we started seeding default documents.
         const requirements = await getDocumentRequirementsForBusiness(onboarding.businessId);
-        console.log('[getMyOnboarding] Document requirements for merge:', {
-            requirementsCount: requirements.length,
-            requirementNames: requirements.map(r => r.name)
-        });
 
         // Build a quick lookup of existing docs by name
         const existingByName = new Map();
@@ -248,62 +209,29 @@ const getMyOnboarding = async (req, res) => {
             for (const d of onboarding.documents) {
                 if (d?.name) {
                     existingByName.set(d.name, d);
-                    console.log('[getMyOnboarding] Existing document:', {
-                        name: d.name,
-                        status: d.status,
-                        hasUrl: !!d.url,
-                        required: d.required
-                    });
                 }
             }
         } else {
-            console.log('[getMyOnboarding] No documents array, initializing empty array');
             onboarding.documents = [];
         }
 
         // Add any missing required / default docs
         let needsSave = false;
-        const addedDocuments = [];
         for (const req of requirements) {
             if (!existingByName.has(req.name)) {
-                console.log('[getMyOnboarding] Adding missing document:', {
-                    name: req.name,
-                    type: req.type,
-                    required: req.required
-                });
                 onboarding.documents.push({
                     name: req.name,
                     type: req.type,
                     required: req.required !== false,
                     status: 'NOT_STARTED'
                 });
-                addedDocuments.push(req.name);
                 needsSave = true;
-            } else {
-                console.log('[getMyOnboarding] Document already exists:', req.name);
             }
         }
 
         if (needsSave) {
-            console.log('[getMyOnboarding] Saving onboarding with added documents:', addedDocuments);
             await onboarding.save();
-            console.log('[getMyOnboarding] Onboarding saved successfully. Total documents:', onboarding.documents?.length);
-        } else {
-            console.log('[getMyOnboarding] No documents to add, all requirements already present');
         }
-
-        // Log final state
-        console.log('[getMyOnboarding] Final document list:', {
-            totalDocuments: onboarding.documents?.length || 0,
-            documents: onboarding.documents?.map(d => ({
-                name: d.name,
-                status: d.status,
-                required: d.required,
-                hasUrl: !!d.url
-            }))
-        });
-
-        console.log('[getMyOnboarding] Returning onboarding for staffId:', staffId, 'docs count:', onboarding.documents?.length || 0);
 
         return res.status(200).json({
             success: true,
@@ -356,13 +284,6 @@ const uploadDocument = async (req, res) => {
         const { onboardingId, documentId } = req.params;
         const file = req.file;
 
-        console.log('[uploadDocument] Upload request:', {
-            onboardingId,
-            documentId,
-            userId: req.user?._id,
-            hasFile: !!file,
-            fileName: file?.originalname
-        });
 
         // Validate IDs
         if (!mongoose.Types.ObjectId.isValid(onboardingId)) {
@@ -408,11 +329,6 @@ const uploadDocument = async (req, res) => {
             });
         }
 
-        console.log('[uploadDocument] Found document:', {
-            name: document.name,
-            currentStatus: document.status,
-            hasUrl: !!document.url
-        });
 
         // Upload to Cloudinary
         let uploadResult;
@@ -466,11 +382,6 @@ const uploadDocument = async (req, res) => {
 
         await onboarding.save();
 
-        console.log('[uploadDocument] ✅ Document updated successfully:', {
-            documentId,
-            url: fileUrl,
-            status: document.status
-        });
 
         // Re-populate for response
         const updatedOnboarding = await Onboarding.findById(onboarding._id)

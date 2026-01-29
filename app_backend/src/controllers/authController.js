@@ -81,20 +81,13 @@ const login = async (req, res) => {
             });
         }
 
-        console.log(`[Login] Attempting login for email: ${email}`);
-
         // 1. Try to find User (explicitly select password field to ensure it's included)
         let user = await User.findOne({ email: email.toLowerCase().trim() })
             .select('+password')
             .populate('roleId');
         let staff = null;
 
-        console.log(`[Login] User found: ${user ? 'Yes' : 'No'}`);
-
         if (user) {
-            console.log(`[Login] User ID: ${user._id}, Role: ${user.role}, IsActive: ${user.isActive}`);
-            console.log(`[Login] Password field exists: ${user.password ? 'Yes' : 'No'}`);
-            
             // Check if user is active
             if (!user.isActive) {
                 return res.status(401).json({ success: false, error: { message: 'Account is inactive' } });
@@ -106,32 +99,25 @@ const login = async (req, res) => {
             }
 
             const passwordMatch = await user.matchPassword(password);
-            console.log(`[Login] Password match: ${passwordMatch}`);
             
             if (passwordMatch) {
                 staff = await Staff.findOne({ userId: user._id })
                     .populate('branchId')
                     .populate('businessId');
-                console.log(`[Login] Staff found: ${staff ? 'Yes' : 'No'}`);
             } else {
-                console.log(`[Login] Invalid password for user: ${email}`);
                 return res.status(401).json({ success: false, error: { message: 'Invalid credentials' } });
             }
         } else {
             // 2. Fallback: Try to find Staff directly (explicitly select password field)
-            console.log(`[Login] User not found, trying Staff...`);
             staff = await Staff.findOne({ email: email.toLowerCase().trim() })
                 .select('+password')
                 .populate('branchId')
                 .populate('businessId');
 
             if (staff) {
-                console.log(`[Login] Staff found, checking password...`);
-                
                 // If staff has no password, check linked User's password
                 if (!staff.password) {
                     if (staff.userId) {
-                        console.log(`[Login] Staff has no password, checking linked User password...`);
                         user = await User.findById(staff.userId)
                             .select('+password')
                             .populate('roleId');
@@ -146,10 +132,7 @@ const login = async (req, res) => {
                         }
                         
                         const userPasswordMatch = await user.matchPassword(password);
-                        if (userPasswordMatch) {
-                            console.log(`[Login] Linked User password correct`);
-                        } else {
-                            console.log(`[Login] Invalid password for linked User`);
+                        if (!userPasswordMatch) {
                             return res.status(401).json({ success: false, error: { message: 'Invalid credentials' } });
                         }
                     } else {
@@ -160,14 +143,11 @@ const login = async (req, res) => {
                     const staffPasswordMatch = await staff.matchPassword(password);
                     if (staffPasswordMatch) {
                         user = await User.findById(staff.userId).populate('roleId');
-                        console.log(`[Login] Staff password correct, User found: ${user ? 'Yes' : 'No'}`);
                     } else {
-                        console.log(`[Login] Invalid password for staff: ${email}`);
                         return res.status(401).json({ success: false, error: { message: 'Invalid credentials' } });
                     }
                 }
             } else {
-                console.log(`[Login] Neither User nor Staff found for email: ${email}`);
                 return res.status(401).json({ success: false, error: { message: 'Invalid credentials' } });
             }
         }
@@ -192,6 +172,7 @@ const login = async (req, res) => {
             role: user.role,
             phone: user.phone,
             companyId: company?._id || company,
+            companyName: company && company.name ? company.name : undefined,
             permissions: formattedPermissions,
             staffId: staff?._id,
             avatar: staff?.avatar || user.avatar
@@ -264,6 +245,7 @@ const googleLogin = async (req, res) => {
             role: user.role,
             phone: user.phone,
             companyId: company?._id || company,
+            companyName: company && company.name ? company.name : undefined,
             permissions: formattedPermissions,
             staffId: staff?._id,
             avatar: staff?.avatar || user.avatar
@@ -525,6 +507,99 @@ const updateEducation = async (req, res) => {
         });
     } catch (error) {
         console.error('updateEducation Error:', error);
+        res.status(500).json({ success: false, error: { message: error.message } });
+    }
+};
+
+/**
+ * Update experience details for current user's candidate record.
+ * Experience is stored on Candidate model; finds or creates candidate linked to staff.
+ */
+const updateExperience = async (req, res) => {
+    try {
+        const staff = req.staff;
+        if (!staff) {
+            return res.status(404).json({ success: false, error: { message: 'Staff record not found' } });
+        }
+
+        const experience = req.body.experience;
+        if (!Array.isArray(experience)) {
+            return res.status(400).json({
+                success: false,
+                error: { message: 'experience must be an array' }
+            });
+        }
+
+        // Normalize experience entries to match Candidate schema
+        const normalizedExperience = experience.map((exp) => {
+            const result = {
+                company: exp.company || '',
+                role: exp.role || '',
+                designation: exp.designation || '',
+                keyResponsibilities: exp.keyResponsibilities || '',
+                reasonForLeaving: exp.reasonForLeaving || ''
+            };
+
+            // Handle dates - convert string to Date if provided
+            if (exp.durationFrom) {
+                const fromDate = new Date(exp.durationFrom);
+                result.durationFrom = isNaN(fromDate.getTime()) ? null : fromDate;
+            } else {
+                result.durationFrom = null;
+            }
+
+            if (exp.durationTo) {
+                const toDate = new Date(exp.durationTo);
+                result.durationTo = isNaN(toDate.getTime()) ? null : toDate;
+            } else {
+                result.durationTo = null;
+            }
+
+            return result;
+        });
+
+        let candidate = await Candidate.findById(staff.candidateId);
+        if (!candidate && staff.email) {
+            candidate = await Candidate.findOne({
+                email: staff.email.toLowerCase(),
+                businessId: staff.businessId
+            });
+        }
+
+        if (!candidate) {
+            // Create a minimal candidate for this staff so we can store experience
+            candidate = await Candidate.create({
+                firstName: (staff.name || 'Staff').split(' ')[0] || 'Staff',
+                lastName: (staff.name || '').split(' ').slice(1).join(' ') || 'User',
+                email: staff.email,
+                phone: staff.phone || '',
+                position: staff.designation || 'Employee',
+                primarySkill: 'General',
+                status: 'Applied',
+                businessId: staff.businessId,
+                experience: normalizedExperience
+            });
+            // Update staff.candidateId without triggering full validation
+            await Staff.findByIdAndUpdate(
+                staff._id,
+                { candidateId: candidate._id },
+                { runValidators: false, new: false }
+            );
+        } else {
+            candidate.experience = normalizedExperience;
+            await candidate.save();
+        }
+
+        const updatedCandidate = await Candidate.findById(candidate._id).lean();
+        res.json({
+            success: true,
+            message: 'Experience updated successfully',
+            data: {
+                experience: updatedCandidate.experience || []
+            }
+        });
+    } catch (error) {
+        console.error('updateExperience Error:', error);
         res.status(500).json({ success: false, error: { message: error.message } });
     }
 };
@@ -810,6 +885,7 @@ module.exports = {
     getProfile,
     updateProfile,
     updateEducation,
+    updateExperience,
     forgotPassword,
     verifyOTP,
     resetPassword,

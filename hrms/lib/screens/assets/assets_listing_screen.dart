@@ -85,10 +85,6 @@ class _AssetsListingScreenState extends State<AssetsListingScreen> {
               _assetTypes = [];
             }
           } else {
-            // Only log error if not from cache
-            if (assetTypesResult['fromCache'] != true) {
-              print('DEBUG: Failed to fetch asset types: ${assetTypesResult['message'] ?? 'Unknown error'}');
-            }
             // Keep existing data if fetch failed and no cache
             if (_assetTypes.isEmpty) {
               _assetTypes = [];
@@ -104,10 +100,6 @@ class _AssetsListingScreenState extends State<AssetsListingScreen> {
               _branches = [];
             }
           } else {
-            // Only log error if not from cache
-            if (branchesResult['fromCache'] != true) {
-              print('DEBUG: Failed to fetch branches: ${branchesResult['message'] ?? 'Unknown error'}');
-            }
             // Keep existing data if fetch failed and no cache
             if (_branches.isEmpty) {
               _branches = [];
@@ -125,7 +117,6 @@ class _AssetsListingScreenState extends State<AssetsListingScreen> {
           _isLoadingFilters = false;
         });
       }
-      print('DEBUG: Error fetching filters: $e');
     } finally {
       _isFetchingFilters = false;
     }
