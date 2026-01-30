@@ -1113,53 +1113,60 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                todayLabel,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF475569),
-                  fontSize: 14,
+              Expanded(
+                child: Text(
+                  todayLabel,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF475569),
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _todayAttendance != null
-                      ? (_todayAttendance?['status'] == 'Pending'
-                            ? Colors.orange.withOpacity(0.1)
-                            : (_todayAttendance?['status'] == 'Rejected' ||
-                                      _todayAttendance?['status'] == 'Absent'
-                                  ? Colors.red.withOpacity(0.1)
-                                  : _todayAttendance?['status'] == 'On Leave'
-                                  ? Colors.blue.withOpacity(0.1)
-                                  : Colors.green.withOpacity(0.1)))
-                      : Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _todayAttendance != null
-                      ? (_todayAttendance?['status'] == 'Pending'
-                            ? 'Waiting for Approval'
-                            : AttendanceDisplayUtil.formatAttendanceDisplayStatus(
-                                _todayAttendance?['status'] ?? 'Present',
-                                _todayAttendance?['leaveType']))
-                      : 'Absent',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
                     color: _todayAttendance != null
                         ? (_todayAttendance?['status'] == 'Pending'
-                              ? Colors.orange
+                              ? Colors.orange.withOpacity(0.1)
                               : (_todayAttendance?['status'] == 'Rejected' ||
                                         _todayAttendance?['status'] == 'Absent'
-                                    ? Colors.red
+                                    ? Colors.red.withOpacity(0.1)
                                     : _todayAttendance?['status'] == 'On Leave'
-                                    ? Colors.blue
-                                    : Colors.green))
-                        : Colors.red,
+                                    ? Colors.blue.withOpacity(0.1)
+                                    : Colors.green.withOpacity(0.1)))
+                        : Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _todayAttendance != null
+                        ? (_todayAttendance?['status'] == 'Pending'
+                              ? 'Waiting for Approval'
+                              : AttendanceDisplayUtil.formatAttendanceDisplayStatus(
+                                  _todayAttendance?['status'] ?? 'Present',
+                                  _todayAttendance?['leaveType']))
+                        : 'Absent',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: _todayAttendance != null
+                          ? (_todayAttendance?['status'] == 'Pending'
+                                ? Colors.orange
+                                : (_todayAttendance?['status'] == 'Rejected' ||
+                                          _todayAttendance?['status'] == 'Absent'
+                                      ? Colors.red
+                                      : _todayAttendance?['status'] == 'On Leave'
+                                      ? Colors.blue
+                                      : Colors.green))
+                          : Colors.red,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -1173,12 +1180,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 'Punch In',
                 style: TextStyle(color: Colors.black, fontSize: 13),
               ),
-              Text(
-                formatTime(punchIn),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1E293B),
-                  fontSize: 13,
+              Flexible(
+                child: Text(
+                  formatTime(punchIn),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
                 ),
               ),
             ],
@@ -1191,12 +1202,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 'Punch Out',
                 style: TextStyle(color: Colors.black, fontSize: 13),
               ),
-              Text(
-                formatTime(punchOut),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1E293B),
-                  fontSize: 13,
+              Flexible(
+                child: Text(
+                  formatTime(punchOut),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
                 ),
               ),
             ],

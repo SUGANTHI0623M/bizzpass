@@ -908,10 +908,14 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Attendance Summary',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              Expanded(
+                child: Text(
+                  'Attendance Summary',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -926,38 +930,48 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildAttStat('Working Days', '$working'),
-              _buildAttStat('Present Days', '$present', color: Colors.green),
-              _buildAttStat('Absent Days', '$absent', color: Colors.red),
-              _buildAttStat('Holidays', '$holidays', color: Colors.orange),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 320;
+              return Wrap(
+                spacing: narrow ? 8 : 16,
+                runSpacing: 8,
+                children: [
+                  _buildAttStat('Working Days', '$working'),
+                  _buildAttStat('Present Days', '$present', color: Colors.green),
+                  _buildAttStat('Absent Days', '$absent', color: Colors.red),
+                  _buildAttStat('Holidays', '$holidays', color: Colors.orange),
+                ],
+              );
+            },
           ),
           // Fine Summary
           if (_fineInfo['totalFineAmount'] > 0) ...[
             const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Late Login Fine',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.red[700],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Late Login Fine',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red[700],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_fineInfo['lateDays']} late day(s) • ${_fineInfo['totalLateMinutes']} min late',
-                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_fineInfo['lateDays']} late day(s) • ${_fineInfo['totalLateMinutes']} min late',
+                        style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
                 Text(
                   NumberFormat.currency(

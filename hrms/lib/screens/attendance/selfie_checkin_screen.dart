@@ -3,13 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_colors.dart';
 import '../../services/attendance_service.dart';
 import '../../services/auth_service.dart';
 import '../../utils/face_detection_helper.dart';
 import '../../utils/snackbar_utils.dart';
-import 'selfie_camera_screen.dart';
 
 class SelfieCheckInScreen extends StatefulWidget {
   final Map<String, dynamic>? template;
@@ -238,13 +239,31 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
   }
 
   Future<void> _takeSelfie() async {
-    final File? file = await Navigator.of(context).push<File>(
-      MaterialPageRoute(
-        builder: (context) => const SelfieCameraScreen(),
-      ),
+    var status = await Permission.camera.status;
+    if (!status.isGranted) {
+      status = await Permission.camera.request();
+      if (!mounted) return;
+      if (!status.isGranted) {
+        SnackBarUtils.showSnackBar(
+          context,
+          'Camera permission is needed to take a selfie. Please allow in app settings.',
+          isError: true,
+        );
+        return;
+      }
+    }
+
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
+      imageQuality: 85,
+      maxWidth: 1024,
     );
 
-    if (file == null || !mounted) return;
+    if (pickedFile == null || !mounted) return;
+
+    final file = File(pickedFile.path);
 
     setState(() => _isDetectingFace = true);
     final result = await FaceDetectionHelper.detectFromFile(file);

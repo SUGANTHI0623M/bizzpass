@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../../config/constants.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/bottom_navigation_bar.dart';
 import '../../widgets/app_drawer.dart';
@@ -129,29 +127,6 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Privacy Policy link – required for Google Play
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading: Icon(
-                  Icons.privacy_tip_outlined,
-                  color: themeProvider.primaryColor,
-                ),
-                title: const Text('Privacy Policy'),
-                subtitle: const Text('View how we collect and use your data'),
-                trailing: const Icon(Icons.open_in_new),
-                onTap: () async {
-                  final uri = Uri.parse(AppConstants.privacyPolicyUrl);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
               ),
             ),
           ],
