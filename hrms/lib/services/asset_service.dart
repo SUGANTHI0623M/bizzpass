@@ -334,7 +334,6 @@ class AssetService {
       await prefs.setInt('${_cacheTimestampKey}_branches', DateTime.now().millisecondsSinceEpoch);
     } catch (e) {
       // Silently fail caching
-      print('Failed to cache branches: $e');
     }
   }
 

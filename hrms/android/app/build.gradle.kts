@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.hrms"
+    namespace = "io.askeva.ehrms"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,11 +20,12 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.hrms"
+        // Unique Application ID for Google Play Store (reverse domain notation)
+        // Based on your domain: ehrms.askeva.io → io.askeva.ehrms
+        applicationId = "io.askeva.ehrms"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion  // ML Kit face detection requires minSdk 21+
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -32,8 +33,10 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Note: For Play Store, use Play App Signing (recommended) or configure release signing.
+            // Play App Signing is automatic when you upload - no manual keystore needed.
+            // If you need manual signing, uncomment and configure:
+            // signingConfig = signingConfigs.getByName("release")
             signingConfig = signingConfigs.getByName("debug")
         }
     }

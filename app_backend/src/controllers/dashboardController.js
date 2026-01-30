@@ -81,9 +81,9 @@ const getEmployeeDashboardStats = async (req, res) => {
             date: { $gte: startOfMonth, $lte: endOfMonth }
         });
 
-        // Calculate Present Days - Only count days with status 'Present'
+        // Calculate Present Days - Present + Approved (for salary proration; same as salary overview)
         const presentDays = monthAttendance.filter(a =>
-            a.status === 'Present'
+            a.status === 'Present' || a.status === 'Approved'
         ).length;
 
         // Fetch Business settings for week-offs
@@ -187,10 +187,10 @@ const getEmployeeDashboardStats = async (req, res) => {
             year: now.getFullYear()
         });
 
-        // Calculate fine amount from attendance records
-        const totalFineAmount = monthAttendance.reduce((sum, record) => {
-            return sum + (record.fineAmount || 0);
-        }, 0);
+        // Fine amount only from Present (Approved not included)
+        const totalFineAmount = monthAttendance
+            .filter(r => r.status === 'Present')
+            .reduce((sum, record) => sum + (record.fineAmount || 0), 0);
 
         let currentMonthSalary = 0;
         let payrollStatus = 'Pending';

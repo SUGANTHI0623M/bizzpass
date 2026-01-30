@@ -217,10 +217,10 @@ const _generatePayrollForPayslip = async (employeeId, month, year, businessId) =
     // STEP 3: Calculate Prorated Gross Salary
     const proratedGrossSalary = proratedGrossFixed + proratedEmployerPF + proratedEmployerESI;
     
-    // Get fine amount from attendance records (already fetched above as monthAttendance)
-    const totalFineAmount = monthAttendance.reduce((sum, record) => {
-        return sum + (record.fineAmount || 0);
-    }, 0);
+    // Fine amount only from Present or Approved (same as proration)
+    const totalFineAmount = monthAttendance
+        .filter(r => r.status === 'Present' || r.status === 'Approved')
+        .reduce((sum, record) => sum + (record.fineAmount || 0), 0);
     
     console.log(`[_generatePayrollForPayslip] Fine Amount: ${totalFineAmount}`);
     

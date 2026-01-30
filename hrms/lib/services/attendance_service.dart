@@ -5,8 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/constants.dart';
 
-import 'package:flutter/foundation.dart';
-
 class AttendanceService {
   final String baseUrl = AppConstants.baseUrl;
   Map<String, dynamic>? attendanceTemplate;
@@ -62,11 +60,6 @@ class AttendanceService {
         'selfie': selfie,
       };
 
-      debugPrint('--- CHECK IN REQUEST ---');
-      debugPrint('URL: $baseUrl/attendance/checkin');
-      debugPrint('Headers: $headers');
-      debugPrint('Body: $body');
-
       final response = await http
           .post(
             Uri.parse('$baseUrl/attendance/checkin'),
@@ -74,10 +67,6 @@ class AttendanceService {
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 15));
-
-      debugPrint('--- CHECK IN RESPONSE ---');
-      debugPrint('Status: ${response.statusCode}');
-      debugPrint('Body: ${response.body}');
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
@@ -89,7 +78,6 @@ class AttendanceService {
         return _handleErrorResponse(response, 'Check-in failed');
       }
     } catch (e) {
-      debugPrint('CHECK IN EXCEPTION: $e');
       return {'success': false, 'message': _handleException(e)};
     }
   }
@@ -115,11 +103,6 @@ class AttendanceService {
         'selfie': selfie,
       };
 
-      debugPrint('--- CHECK OUT REQUEST ---');
-      debugPrint('URL: $baseUrl/attendance/checkout');
-      debugPrint('Headers: $headers');
-      debugPrint('Body: $body');
-
       final response = await http
           .put(
             Uri.parse('$baseUrl/attendance/checkout'),
@@ -138,7 +121,6 @@ class AttendanceService {
         return _handleErrorResponse(response, 'Check-out failed');
       }
     } catch (e) {
-      debugPrint('CHECK OUT EXCEPTION: $e');
       return {'success': false, 'message': _handleException(e)};
     }
   }

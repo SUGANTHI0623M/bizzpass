@@ -5,6 +5,7 @@ import '../../config/app_colors.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/menu_icon_button.dart';
 import '../../services/attendance_service.dart';
+import '../../utils/attendance_display_util.dart';
 import '../attendance/selfie_checkin_screen.dart';
 import '../../utils/snackbar_utils.dart';
 import 'package:flutter/services.dart';
@@ -265,6 +266,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     final punchOut = record['punchOut'];
     final workHours = record['workHours'];
     final status = record['status'] ?? 'Present';
+    final leaveType = record['leaveType'] as String?;
+    final displayStatus =
+        AttendanceDisplayUtil.formatAttendanceDisplayStatus(status, leaveType);
     final isLateIn = _isLateCheckIn(punchIn);
     final isLateOut = _isLateCheckOut(punchOut);
     final isEarlyOut = _isEarlyCheckOut(punchOut);
@@ -389,10 +393,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                               ),
                               const SizedBox(height: 16),
 
-                              // Status
+                              // Status (with leave type e.g. Present (CL))
                               _buildDetailRow(
                                 'Status',
-                                status,
+                                displayStatus,
                                 Icons.info_outline,
                                 statusColor,
                               ),
@@ -1385,6 +1389,16 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       bgColor = null;
     }
 
+    // Leave type abbreviation (CL/SL) for present days with leaveType – like dashboard
+    final leaveTypeAbbr =
+        (statusFromRecord == 'Present' || statusFromRecord == 'Approved') &&
+                record != null &&
+                record['leaveType'] != null &&
+                (record['leaveType'] as String).trim().isNotEmpty
+            ? AttendanceDisplayUtil.leaveTypeToAbbreviation(
+                record['leaveType'] as String?)
+            : null;
+
     // Use rectangle shape like dashboard calendar (not circle)
     // Add margin to create spacing between cells (8px like dashboard)
     return Container(
@@ -1401,15 +1415,33 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       child: Stack(
         children: [
           Center(
-            child: Text(
-              '${day.day}',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: dateOnly == todayOnly
-                    ? FontWeight.bold
-                    : FontWeight.w500,
-                color: bgColor != null ? textColor : null,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '${day.day}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: dateOnly == todayOnly
+                        ? FontWeight.bold
+                        : FontWeight.w500,
+                    color: bgColor != null ? textColor : null,
+                  ),
+                ),
+                if (leaveTypeAbbr != null && leaveTypeAbbr.isNotEmpty) ...[
+                  const SizedBox(height: 0),
+                  Text(
+                    leaveTypeAbbr,
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w600,
+                      color: (bgColor != null ? textColor : const Color(0xFF1E293B))
+                          .withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           // Red dot indicator for low work hours (top-left corner)
@@ -2533,7 +2565,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
               if (isEarlyOut && !allowEarly) tags.add('Early Exit');
               if (isLowHours && !allowEarly) tags.add('Low Hrs');
 
-              String displayStatus = status;
+              final leaveType = record['leaveType'] as String?;
+              String displayStatus =
+                  AttendanceDisplayUtil.formatAttendanceDisplayStatus(
+                      status, leaveType);
               Color statusColor = Colors.green;
 
               if (status == 'Pending') {

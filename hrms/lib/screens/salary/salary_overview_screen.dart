@@ -88,13 +88,11 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
   Future<void> _fetchSalaryData({bool debounce = false}) async {
     // Prevent concurrent fetches
     if (_isFetching) {
-      debugPrint('[SalaryOverview] Fetch already in progress, skipping duplicate call');
       return;
     }
 
     // Debounce rapid calls (e.g., from event bus + dropdown changes)
     if (debounce) {
-      debugPrint('[SalaryOverview] Debouncing fetch request');
       _debounceTimer?.cancel();
       _debounceTimer = Timer(const Duration(milliseconds: 500), () {
         _fetchSalaryData(debounce: false);
@@ -104,7 +102,6 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
 
     // Set fetching flag immediately to prevent concurrent calls
     _isFetching = true;
-    debugPrint('[SalaryOverview] Starting salary data fetch for $_selectedMonth $_selectedYear');
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -207,9 +204,6 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
       final prevProratedSalary = _proratedSalary;
       bool attendanceUpdated = false;
 
-      debugPrint('[SalaryOverview] Fetching attendance for $monthIndex/$year');
-      debugPrint('[SalaryOverview] Current attendance records: ${_attendanceRecords.length}');
-      
       // Add a small delay on first load to avoid immediate rate limiting
       // when multiple screens load simultaneously
       if (_attendanceRecords.isEmpty && prevAttendanceRecords.isEmpty) {
@@ -221,28 +215,24 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
         monthIndex,
       );
 
-      debugPrint(
-        '[SalaryOverview] Attendance result success: ${attendanceResult['success']}',
-      );
-
       if (attendanceResult['success'] == true) {
         final attendanceData = attendanceResult['data'];
         final fetchedRecords = attendanceData['attendance'] ?? [];
 
-        debugPrint(
-          '[SalaryOverview] Fetched ${fetchedRecords.length} attendance records',
-        );
+        double totalFineFromBackend = 0.0;
+        for (final r in fetchedRecords) {
+          if (r is Map) {
+            totalFineFromBackend +=
+                ((r['fineAmount'] as num?)?.toDouble() ?? 0.0);
+          }
+        }
 
         // Only update if we got valid data (non-empty array)
         // This prevents overwriting valid data with empty data
         if (fetchedRecords.isNotEmpty) {
           _attendanceRecords = fetchedRecords;
           attendanceUpdated = true;
-          debugPrint('[SalaryOverview] Updated attendance records to ${fetchedRecords.length}');
         } else {
-          debugPrint(
-            '[SalaryOverview] WARNING: Empty attendance records array. Keeping existing data (${_attendanceRecords.length} records).',
-          );
           // Keep existing _attendanceRecords - don't overwrite with empty data
         }
 
@@ -260,14 +250,7 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
               .toList();
         }
       } else {
-        // API call failed (rate limit, network error, etc.)
-        debugPrint(
-          '[SalaryOverview] ERROR: Attendance fetch failed: ${attendanceResult['message']}',
-        );
-        debugPrint(
-          '[SalaryOverview] Keeping existing attendance records (${_attendanceRecords.length} records)',
-        );
-        // Don't modify _attendanceRecords on failure - keep existing data
+        // API call failed (rate limit, network error, etc.) - keep existing data
         // The service should have returned cached data if available, but if not,
         // we preserve what we have
       }
@@ -279,9 +262,6 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           final status = record['status'] as String?;
           return status == 'Present' || status == 'Approved';
         }).length;
-        debugPrint(
-          '[SalaryOverview] Calculated present days: $_presentDays from ${_attendanceRecords.length} records',
-        );
       } else {
         // No attendance records available
         // Only restore previous data if we had it and this wasn't a successful update
@@ -293,21 +273,11 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           if (prevProratedSalary != null) {
             _proratedSalary = prevProratedSalary;
           }
-          debugPrint(
-            '[SalaryOverview] Restored previous data: presentDays=$_presentDays, records=${prevAttendanceRecords.length}',
-          );
         } else {
           // First time load or no previous data - keep as is (will show 0)
           _presentDays = 0;
-          debugPrint(
-            '[SalaryOverview] No attendance records available (first load or no data)',
-          );
         }
       }
-
-      debugPrint(
-        '[SalaryOverview] Calculated present days: $_presentDays from ${_attendanceRecords.length} records',
-      );
 
       // 4a. Working days (BEFORE fine so dailySalary can use current run)
       if (backendStats != null && backendStats['attendance'] != null) {
@@ -506,12 +476,6 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
 
       // 5. Calculate prorated salary (working days and salary structure already set above, before fine)
       if (_calculatedSalary != null && _workingDaysInfo != null) {
-        debugPrint(
-          '[SalaryOverview] Calculating prorated salary: '
-          'workingDays=${_workingDaysInfo!.workingDays}, '
-          'presentDays=$_presentDays, '
-          'fineAmount=${_fineInfo['totalFineAmount']}',
-        );
 
         _proratedSalary = calculateProratedSalary(
           _calculatedSalary!,
@@ -520,11 +484,6 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           _fineInfo['totalFineAmount'] as double,
         );
 
-        debugPrint(
-          '[SalaryOverview] Prorated salary calculated: '
-          'gross=${_proratedSalary?.proratedGrossSalary}, '
-          'net=${_proratedSalary?.proratedNetSalary}',
-        );
       }
 
       // 8. Fetch current month payroll if available
@@ -550,7 +509,6 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
           _isLoading = false;
         });
       }
-      debugPrint('[SalaryOverview] Salary data fetch completed successfully');
     } catch (e) {
       // Extract a user-friendly error message
       String errorMessage = 'Your salary not updated';
@@ -565,7 +523,6 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
         errorMessage = e.toString();
       }
       
-      debugPrint('[SalaryOverview] Salary data fetch failed: $errorMessage');
       if (mounted) {
         setState(() {
           _error = errorMessage;
@@ -574,7 +531,6 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
       }
     } finally {
       _isFetching = false;
-      debugPrint('[SalaryOverview] Fetch flag reset');
     }
   }
 
@@ -624,13 +580,13 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
                     Icon(
                       Icons.error_outline,
                       size: 64,
-                      color: Colors.red.shade300,
+                      color: Colors.grey.shade500,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       _error,
-                      style: const TextStyle(
-                        color: Colors.red,
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -663,13 +619,13 @@ class _SalaryOverviewScreenState extends State<SalaryOverviewScreen> {
                     Icon(
                       Icons.error_outline,
                       size: 64,
-                      color: Colors.red.shade300,
+                      color: Colors.grey.shade500,
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'Your salary not updated',
                       style: TextStyle(
-                        color: Colors.red,
+                        color: Colors.grey.shade700,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),

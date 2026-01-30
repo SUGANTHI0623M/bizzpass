@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_colors.dart';
 import '../../services/attendance_service.dart';
+import '../../services/auth_service.dart';
+import '../../utils/face_detection_helper.dart';
 import '../../utils/snackbar_utils.dart';
+import 'selfie_camera_screen.dart';
 
 class SelfieCheckInScreen extends StatefulWidget {
   final Map<String, dynamic>? template;
@@ -16,9 +19,11 @@ class SelfieCheckInScreen extends StatefulWidget {
   State<SelfieCheckInScreen> createState() => _SelfieCheckInScreenState();
 }
 
+const String _kAttendancePermissionDialogShown = 'attendance_permission_dialog_shown';
+
 class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
   final AttendanceService _attendanceService = AttendanceService();
-  final ImagePicker _picker = ImagePicker();
+  final AuthService _authService = AuthService();
 
   File? _imageFile;
   String? _address;
@@ -29,6 +34,7 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
 
   bool _isLoading = false;
   bool _isLocationLoading = true;
+  bool _isDetectingFace = false;
 
   // Attendance State
   Map<String, dynamic>? _attendanceData;
@@ -50,6 +56,33 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
     } else {
       setState(() => _isLocationLoading = false);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowPermissionDialog());
+  }
+
+  Future<void> _maybeShowPermissionDialog() async {
+    final requireSelfie = widget.template?['requireSelfie'] ?? true;
+    final requireGeolocation = widget.template?['requireGeolocation'] ?? true;
+    if (!requireSelfie && !requireGeolocation) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_kAttendancePermissionDialogShown) == true) return;
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Text('Camera & location'),
+        content: const Text(
+          'Camera is used for your attendance selfie; location is used to record your check-in and check-out place.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    await prefs.setBool(_kAttendancePermissionDialogShown, true);
   }
 
   Future<void> _fetchAttendanceStatus([DateTime? date]) async {
@@ -205,18 +238,29 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
   }
 
   Future<void> _takeSelfie() async {
-    final XFile? photo = await _picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
-      imageQuality: 25, // Compress more to speed up upload
-      maxWidth: 600,
+    final File? file = await Navigator.of(context).push<File>(
+      MaterialPageRoute(
+        builder: (context) => const SelfieCameraScreen(),
+      ),
     );
 
-    if (photo != null) {
-      setState(() {
-        _imageFile = File(photo.path);
-      });
+    if (file == null || !mounted) return;
+
+    setState(() => _isDetectingFace = true);
+    final result = await FaceDetectionHelper.detectFromFile(file);
+    if (!mounted) return;
+    setState(() => _isDetectingFace = false);
+
+    if (!result.valid) {
+      SnackBarUtils.showSnackBar(
+        context,
+        result.message ?? 'Please take a selfie with exactly one face visible.',
+        isError: true,
+      );
+      return;
     }
+
+    setState(() => _imageFile = file);
   }
 
   Future<void> _showWarningDialog(List<dynamic> warnings) async {
@@ -298,10 +342,40 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
       selfiePayload = 'data:image/jpeg;base64,$base64Image';
     }
 
+    // Verify selfie against profile photo when selfie is required
+    if (requireSelfie &&
+        selfiePayload != null &&
+        selfiePayload.isNotEmpty) {
+      Map<String, dynamic> verify;
+      try {
+        verify = await _authService.verifyFace(selfiePayload);
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        SnackBarUtils.showSnackBar(
+          context,
+          'Face verification failed. Please try again.',
+          isError: true,
+        );
+        return;
+      }
+      if (!mounted) return;
+      if (!verify['success'] || verify['match'] != true) {
+        setState(() => _isLoading = false);
+        final msg = verify['message']?.toString() ?? 'Face not matching. Please try again.';
+        SnackBarUtils.showSnackBar(context, msg, isError: true);
+        return;
+      }
+      SnackBarUtils.showSnackBar(
+        context,
+        'Photo matched',
+        backgroundColor: AppColors.success,
+      );
+    }
+
     Map<String, dynamic> result;
 
     if (_isCheckedIn) {
-      // Check Out
       result = await _attendanceService.checkOut(
         _position?.latitude ?? 0.0,
         _position?.longitude ?? 0.0,
@@ -312,7 +386,6 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
         selfie: selfiePayload,
       );
     } else {
-      // Check In
       result = await _attendanceService.checkIn(
         _position?.latitude ?? 0.0,
         _position?.longitude ?? 0.0,
@@ -327,8 +400,6 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
     if (mounted) {
       setState(() => _isLoading = false);
       if (result['success']) {
-        // If action was successful and allowed, proceed silently (no warnings shown)
-        // Warnings are only generated when action is blocked, which would result in error response
         SnackBarUtils.showSnackBar(
           context,
           _isCheckedIn
@@ -339,7 +410,6 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
 
         Navigator.pop(context, true); // Return success
       } else {
-        // Show error if the request failed (e.g., blocked by backend due to late entry/early exit not allowed)
         SnackBarUtils.showSnackBar(
           context,
           result['message'] ?? 'Action failed',
@@ -375,18 +445,20 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          // Handle small screens
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              // Date Display removed as per request (Today only)
-
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final screenHeight = MediaQuery.of(context).size.height;
+              final padding = 12.0;
+              final selfieCardHeight = (screenHeight * 0.52).clamp(400.0, 600.0);
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: padding, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
               // Branch Info Card
               if (_branchData != null)
                 Container(
-                  margin: const EdgeInsets.only(bottom: 24),
+                  margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -444,43 +516,81 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
                 ),
               const SizedBox(height: 10),
 
-              // Selfie Preview Area
+              // Selfie Preview Area - full-width, large height
               if (widget.template?['requireSelfie'] ?? true) ...[
                 GestureDetector(
-                  onTap: _isCompleted ? null : _takeSelfie,
-                  child: Container(
-                    height: 350,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.grey[300]!),
-                      image: _imageFile != null
-                          ? DecorationImage(
-                              image: FileImage(_imageFile!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: _imageFile == null
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.camera_alt_rounded,
-                                size: 60,
-                                color: Colors.grey[400],
+                  onTap: (_isCompleted || _isDetectingFace) ? null : _takeSelfie,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: selfieCardHeight,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.grey[300]!),
+                          image: _imageFile != null
+                              ? DecorationImage(
+                                  image: FileImage(_imageFile!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: _imageFile == null && !_isDetectingFace
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.camera_alt_rounded,
+                                    size: 60,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Tap to take selfie',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : null,
+                      ),
+                      if (_isDetectingFace)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(
+                                    width: 32,
+                                    height: 32,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Detecting face...',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Tap to take selfie',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          )
-                        : null,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -608,10 +718,12 @@ class _SelfieCheckInScreenState extends State<SelfieCheckInScreen> {
                       ),
               ),
             ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
-        ),
-      ),
     );
   }
 }

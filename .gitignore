@@ -51,6 +51,10 @@ Thumbs.db
 backend/uploads/
 app_backend/uploads/
 
+# Python venv and DeepFace (create on server; weights downloaded at runtime)
+app_backend/face_verify/venv/
+app_backend/face_verify/.deepface/
+
 # Temporary/Test files
 **/temp/
 **/tmp/

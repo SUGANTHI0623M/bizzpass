@@ -11,6 +11,7 @@ import '../../services/auth_service.dart';
 import '../../services/salary_service.dart';
 import '../../utils/salary_structure_calculator.dart';
 import '../../utils/fine_calculation_util.dart';
+import '../../utils/attendance_display_util.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
   final Function(int index, {int subTabIndex})? onNavigate;
@@ -150,7 +151,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error fetching active loans: $e');
+      // Ignore
     }
   }
 
@@ -218,47 +219,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         }
       }
 
-      // 2. Backend payroll stats (working days, present days, thisMonthNet – same source as backend)
+      // 2. Backend payroll stats (for working days only; This Month Net uses client calculation with Present + Approved)
       Map<String, dynamic>? backendStats;
-      double? backendThisMonthNet;
       try {
         final statsResult = await _salaryService.getSalaryStats(
           month: monthIndex,
           year: year,
         );
-        debugPrint(
-          '[Dashboard Salary] getSalaryStats keys: ${statsResult.keys.toList()}',
-        );
-        debugPrint(
-          '[Dashboard Salary] stats != null: ${statsResult['stats'] != null}',
-        );
         if (statsResult['stats'] != null) {
-          final statsMap = statsResult['stats'] as Map<String, dynamic>;
-          backendStats = statsMap;
-          debugPrint(
-            '[Dashboard Salary] stats keys: ${statsMap.keys.toList()}',
-          );
-          debugPrint(
-            '[Dashboard Salary] thisMonthNet: ${statsMap['thisMonthNet']}, attendance: ${statsMap['attendance']}',
-          );
-          final net = statsMap['thisMonthNet'];
-          if (net != null)
-            backendThisMonthNet = (net is num)
-                ? net.toDouble()
-                : double.tryParse(net.toString());
-          if (statsMap['attendance'] != null) {
-            final att = statsMap['attendance'] as Map<String, dynamic>;
-            debugPrint(
-              '[Dashboard Salary] backend workingDays: ${att['workingDays']}, presentDays: ${att['presentDays']}',
-            );
-          }
-        } else {
-          debugPrint(
-            '[Dashboard Salary] No stats in response – using client calculation',
-          );
+          backendStats = statsResult['stats'] as Map<String, dynamic>;
         }
       } catch (e) {
-        debugPrint('[Dashboard Salary] getSalaryStats error: $e');
+        // Ignore
       }
 
       // 3. Fetch attendance for current month
@@ -285,83 +257,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         }
       }
 
-      // When backend already returned thisMonthNet (22 working days, 1 present), use it so salary matches backend
-      if (backendThisMonthNet != null &&
-          backendStats != null &&
-          backendStats['attendance'] != null) {
-        final backendAttendance =
-            backendStats['attendance'] as Map<String, dynamic>;
-        final backendWorkingDays =
-            backendAttendance['workingDays'] as int? ?? 0;
-        debugPrint(
-          '[Dashboard Salary] Using backend thisMonthNet: $backendThisMonthNet, workingDays: $backendWorkingDays',
-        );
-        if (backendWorkingDays >= 10 && mounted) {
-          final displayNet = backendThisMonthNet < 0
-              ? 0.0
-              : backendThisMonthNet;
-          setState(() {
-            _calculatedMonthSalary = displayNet;
-            _workingDaysForSalary = backendWorkingDays;
-          });
-          debugPrint(
-            '[Dashboard Salary] Set _calculatedMonthSalary = $displayNet (from backend)',
-          );
-          return;
-        }
-      }
-
-      // 4. Present days – use dashboard’s already-calculated count (only 'Present', same as calendar)
-      // Check today's attendance status - exclude today from salary if not "Present" or "Approved"
-      final today = DateTime.now();
-      final todayDateStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-      
-      // Find today's attendance record and check if approved
-      bool todayIsApproved = false;
-      for (final record in attendanceRecords) {
-        final recordDateStr = record['date'] as String?;
-        if (recordDateStr != null) {
-          try {
-            final recordDate = DateTime.parse(recordDateStr).toLocal();
-            final recordDateStrFormatted = '${recordDate.year}-${recordDate.month.toString().padLeft(2, '0')}-${recordDate.day.toString().padLeft(2, '0')}';
-            if (recordDateStrFormatted == todayDateStr) {
-              final status = record['status'] as String?;
-              todayIsApproved = status == 'Present' || status == 'Approved';
-              break;
-            }
-          } catch (_) {}
-        }
-      }
-      
-      // Count present days - exclude today if not approved
+      // 4. Present days – same as Salary Overview: count records with status 'Present' or 'Approved' only (no today exclusion)
       int presentDays = 0;
       if (attendanceRecords.isNotEmpty) {
         presentDays = attendanceRecords.where((record) {
           final status = record['status'] as String?;
-          final isPresentOrApproved = status == 'Present' || status == 'Approved';
-          
-          // Check if this record is for today
-          final recordDateStr = record['date'] as String?;
-          if (recordDateStr != null) {
-            try {
-              final recordDate = DateTime.parse(recordDateStr).toLocal();
-              final recordDateStrFormatted = '${recordDate.year}-${recordDate.month.toString().padLeft(2, '0')}-${recordDate.day.toString().padLeft(2, '0')}';
-              if (recordDateStrFormatted == todayDateStr) {
-                // Only count today if it's approved (Present or Approved status)
-                return isPresentOrApproved && todayIsApproved;
-              }
-            } catch (_) {}
-          }
-          
-          // For other days, count normally
-          return isPresentOrApproved;
+          return status == 'Present' || status == 'Approved';
         }).length;
       }
-      
-      debugPrint(
-        '[Dashboard Salary] Today date: $todayDateStr, Today approved: $todayIsApproved, Present days (excluding unapproved today): $presentDays',
-      );
-
       // 5. Working days - use full-month working days (same as Salary Overview)
       // Prefer payroll/stats API (full month); if missing or suspiciously low (e.g. "days so far"),
       // use frontend calculateWorkingDays for full month so "This Month Net" matches Salary Overview.
@@ -452,30 +355,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         } catch (_) {}
       }
 
-      // 7. Fine calculation - exclude today's fine if today is not approved
+      // 7. Fine calculation – Present only (Approved/Half Day not included in fine)
       double totalFineAmount = 0.0;
       for (final record in attendanceRecords) {
         final status = record['status'] as String?;
-        if (status == 'Present' ||
-            status == 'Approved' ||
-            status == 'Half Day') {
-          // Check if this record is for today
-          final recordDateStr = record['date'] as String?;
-          bool isTodayRecord = false;
-          if (recordDateStr != null) {
-            try {
-              final recordDate = DateTime.parse(recordDateStr).toLocal();
-              final recordDateStrFormatted = '${recordDate.year}-${recordDate.month.toString().padLeft(2, '0')}-${recordDate.day.toString().padLeft(2, '0')}';
-              isTodayRecord = recordDateStrFormatted == todayDateStr;
-            } catch (_) {}
-          }
-          
-          // Skip today's fine if today is not approved
-          if (isTodayRecord && !todayIsApproved) {
-            debugPrint('[Dashboard Salary] Skipping today\'s fine - today not approved');
-            continue;
-          }
-          
+        if (status == 'Present') {
           double fineAmount = (record['fineAmount'] as num?)?.toDouble() ?? 0.0;
           int lateMinutes = (record['lateMinutes'] as num?)?.toInt() ?? 0;
           if (fineAmount == 0 && lateMinutes == 0 && dailySalary != null) {
@@ -507,24 +391,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         }
       }
 
-      // Calculate fine using utility - exclude today if not approved
+      // Use calculatePayrollFine only for Present records (same as loop above)
       if (dailySalary != null && dailySalary > 0) {
-        // Filter out today's record if not approved for fine calculation
-        final attendanceRecordsForFine = attendanceRecords.where((record) {
-          final recordDateStr = record['date'] as String?;
-          if (recordDateStr != null) {
-            try {
-              final recordDate = DateTime.parse(recordDateStr).toLocal();
-              final recordDateStrFormatted = '${recordDate.year}-${recordDate.month.toString().padLeft(2, '0')}-${recordDate.day.toString().padLeft(2, '0')}';
-              if (recordDateStrFormatted == todayDateStr && !todayIsApproved) {
-                return false; // Exclude today if not approved
-              }
-            } catch (_) {}
-          }
-          return true;
-        }).toList();
-        
-        final attendanceRecordsList = attendanceRecordsForFine
+        final attendanceRecordsList = attendanceRecords
+            .where((record) => record['status'] == 'Present')
             .map((record) => record as Map<String, dynamic>)
             .toList();
         final calculatedTotalFine = calculatePayrollFine(
@@ -538,7 +408,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         }
       }
 
-      // 8. Prorated salary and "This Month Net" (same as Salary Overview)
+      // 8. Prorated salary and "This Month Net" – same function and inputs as Salary Overview
       final proratedSalary = calculateProratedSalary(
         calculatedSalary,
         workingDaysInfo.workingDays,
@@ -548,10 +418,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
       final rawThisMonthNet = proratedSalary.proratedNetSalary;
       final displayThisMonthNet = rawThisMonthNet < 0 ? 0.0 : rawThisMonthNet;
-
-      debugPrint(
-        '[Dashboard Salary] Client calc: workingDays=${workingDaysInfo.workingDays}, presentDays=$presentDays, proratedNet=$rawThisMonthNet, displayNet=$displayThisMonthNet',
-      );
 
       if (mounted) {
         final workingDaysUsed = workingDaysInfo.workingDays;
@@ -566,7 +432,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error calculating salary: $e');
+      // Ignore
     }
   }
 
@@ -643,7 +509,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   ),
                   _buildSummaryCard(
                     title: 'This Month Net',
-                    value: monthSalary.isNotEmpty ? '' : '', //'₹$monthSalary' : '--',
+                    value: monthSalary.isNotEmpty ? '₹$monthSalary' : '--',
                     subValue: presentDays != '0'
                         ? '$presentDays days present'
                         : (salaryStatus == 'Pending' ? 'Pending' : ''),
@@ -1277,7 +1143,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   _todayAttendance != null
                       ? (_todayAttendance?['status'] == 'Pending'
                             ? 'Waiting for Approval'
-                            : (_todayAttendance?['status'] ?? 'Present'))
+                            : AttendanceDisplayUtil.formatAttendanceDisplayStatus(
+                                _todayAttendance?['status'] ?? 'Present',
+                                _todayAttendance?['leaveType']))
                       : 'Absent',
                   style: TextStyle(
                     fontSize: 12,
@@ -1462,6 +1330,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
     // Use date strings (yyyy-MM-dd) as keys to avoid conflicts and ensure accurate matching
     Map<String, String> dayStatusByDate = {};
+    Map<String, String?> dayLeaveTypeByDate = {};
     Map<String, num?> dayWorkHoursByDate = {};
     if (_monthData != null && _monthData!['attendance'] != null) {
       for (var entry in _monthData!['attendance']) {
@@ -1472,6 +1341,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           if (d.year == _selectedMonth.year &&
               d.month == _selectedMonth.month) {
             dayStatusByDate[dateStr] = entry['status'] ?? 'Present';
+            final leaveType = entry['leaveType'] as String?;
+            if (leaveType != null && leaveType.isNotEmpty) {
+              dayLeaveTypeByDate[dateStr] = leaveType;
+            }
             num? workHours = entry['workHours'] as num?;
 
             // Calculate workHours from punchIn and punchOut if not available
@@ -1626,6 +1499,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           itemCount: days.length,
           itemBuilder: (context, index) {
             final dayDate = days[index];
+            final dateStr = DateFormat('yyyy-MM-dd').format(dayDate);
             final bool isCurrentMonth = dayDate.month == _selectedMonth.month;
             final bool isToday =
                 isCurrentMonth &&
@@ -1637,7 +1511,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 ? const Color(0xFF1E293B)
                 : const Color(0xFFCBD5E1);
             if (isCurrentMonth) {
-              final dateStr = DateFormat('yyyy-MM-dd').format(dayDate);
               final bool isHoliday = holidayDateSet.contains(dateStr);
 
               final dayOfWeek =
@@ -1766,6 +1639,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               ).isAfter(DateTime(now.year, now.month, now.day));
             }
 
+            // Leave type abbreviation (CL/SL) for present days with leaveType
+            final statusForDay = dayStatusByDate[dateStr] ?? '';
+            final leaveTypeAbbr = (statusForDay == 'Present' ||
+                        statusForDay == 'Approved') &&
+                    dayLeaveTypeByDate.containsKey(dateStr)
+                ? AttendanceDisplayUtil.leaveTypeToAbbreviation(
+                    dayLeaveTypeByDate[dateStr])
+                : null;
+
             return Container(
               decoration: BoxDecoration(
                 color: bgColor,
@@ -1777,13 +1659,32 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               child: Stack(
                 children: [
                   Center(
-                    child: Text(
-                      '${dayDate.day}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                        color: textColor,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${dayDate.day}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight:
+                                isToday ? FontWeight.bold : FontWeight.w500,
+                            color: textColor,
+                          ),
+                        ),
+                        if (leaveTypeAbbr != null &&
+                            leaveTypeAbbr.isNotEmpty) ...[
+                          const SizedBox(height: 0),
+                          Text(
+                            leaveTypeAbbr,
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w600,
+                              color: textColor.withOpacity(0.9),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   // Red dot indicator for low work hours (top-left corner)

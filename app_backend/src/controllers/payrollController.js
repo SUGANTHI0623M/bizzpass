@@ -131,10 +131,11 @@ const getPayrollStats = async (req, res) => {
                 ],
                 date: { $gte: startOfMonth, $lte: endOfMonth }
             });
-            const totalFineAmount = attendanceRecords.reduce((sum, record) => {
-                return sum + (record.fineAmount || 0);
-            }, 0);
-            
+            // Fine amount only from Present or Approved (same as proration)
+            const totalFineAmount = attendanceRecords
+                .filter(r => r.status === 'Present' || r.status === 'Approved')
+                .reduce((sum, record) => sum + (record.fineAmount || 0), 0);
+
             // Get staff salary structure for correct proration (must select +salary)
             let thisMonthGross = 0;
             let thisMonthNet = 0;
@@ -295,10 +296,11 @@ const getPayrollStats = async (req, res) => {
             ],
             date: { $gte: startOfMonth, $lte: endOfMonth }
         });
-        const totalFineAmount = attendanceRecords.reduce((sum, record) => {
-            return sum + (record.fineAmount || 0);
-        }, 0);
-        
+        // Fine amount only from Present or Approved (same as proration)
+        const totalFineAmount = attendanceRecords
+            .filter(r => r.status === 'Present' || r.status === 'Approved')
+            .reduce((sum, record) => sum + (record.fineAmount || 0), 0);
+
         // STEP 4: Recalculate Employee Deductions on PRORATED gross
         const proratedEmployeePF = (s.employeePFRate || 0) / 100 * proratedBasicSalary;
         const proratedEmployeeESI = (s.employeeESIRate || 0) / 100 * thisMonthGross;
@@ -495,8 +497,10 @@ const calculateAttendanceStats = async (employeeId, month, year) => {
     console.log(`[calculateAttendanceStats] Working days calculation: ${daysInMonth} - ${weeklyOffDays} - ${holidays} = ${workingDays}`);
     console.log(`[calculateAttendanceStats] ======================================`);
 
-    // Calculate Present Days - Only 'Present' status (same as dashboard calendar/summary)
-    const presentDays = attendanceRecords.filter(a => a.status === 'Present').length;
+    // Calculate Present Days - Present + Approved (for proration; same as dashboard and salary overview)
+    const presentDays = attendanceRecords.filter(a =>
+        a.status === 'Present' || a.status === 'Approved'
+    ).length;
     
     console.log(`[calculateAttendanceStats] Attendance Records Found: ${attendanceRecords.length}`);
     console.log(`[calculateAttendanceStats] Status breakdown:`, {
