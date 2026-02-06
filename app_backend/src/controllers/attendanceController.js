@@ -354,12 +354,18 @@ const checkIn = async (req, res) => {
         const Leave = require('../models/Leave');
         const activeLeave = await Leave.findOne({
             employeeId: staffId,
-            status: 'Approved',
-            startDate: { $lt: endOfDay },
-            endDate: { $gt: startOfDay }
+            status: { $regex: /^approved$/i },
+            startDate: { $lte: endOfDay },
+            endDate: { $gte: startOfDay }
         });
         if (activeLeave) {
-            return res.status(403).json({ message: 'Today is a Leave Day. Check-in not allowed.' });
+            if (activeLeave.leaveType === 'Half Day') {
+                // For Half Day, we might want to allow check-in but with a note
+                // For now, let's just allow it and not block. 
+                // The attendance record will be updated to "Half Day" by the hook anyway.
+            } else {
+                return res.status(403).json({ message: 'You are on leave today. Enjoy your leave.' });
+            }
         }
 
         // 2. Check for Holiday
@@ -623,12 +629,16 @@ async function processCheckOut(attendance, req, res, staff, now, data, template 
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     const activeLeave = await Leave.findOne({
         employeeId: staff._id,
-        status: 'Approved',
-        startDate: { $lt: endOfDay },
-        endDate: { $gt: startOfDay }
+        status: { $regex: /^approved$/i },
+        startDate: { $lte: endOfDay },
+        endDate: { $gte: startOfDay }
     });
     if (activeLeave) {
-        return res.status(403).json({ message: 'Today is a Leave Day. Check-out not allowed.' });
+        if (activeLeave.leaveType === 'Half Day') {
+            // Allow check-out for Half Day
+        } else {
+            return res.status(403).json({ message: 'Your leave request is approved for today. Enjoy your leave.' });
+        }
     }
 
     // Check Early Exit - Always allow, but add warning if not allowed in settings
@@ -655,7 +665,7 @@ async function processCheckOut(attendance, req, res, staff, now, data, template 
             // Add warning but still allow check-out
             warnings.push({
                 type: 'early_checkout',
-                message: `Early exit not allowed. You are ${earlyMinutes} minute(s) early. Shift end time: ${shiftEndStr}`,
+                message: `You are ${earlyMinutes} minute(s) early. Shift end time: ${shiftEndStr}`,
                 minutes: earlyMinutes,
                 notAllowed: true
             });
@@ -824,64 +834,30 @@ const getTodayAttendance = async (req, res) => {
         // Check for approved leave from Leave collection
         const activeLeave = await Leave.findOne({
             employeeId: req.staff._id,
-            status: 'Approved',
-            startDate: { $lt: endOfDay },
-            endDate: { $gt: startOfDay }
+            status: { $regex: /^approved$/i },
+            startDate: { $lte: endOfDay },
+            endDate: { $gte: startOfDay }
         });
         
-        // Only set isOnLeave to true if:
-        // 1. Attendance record has status "On Leave" OR
-        // 2. There's an approved leave
-        // Do NOT set it to true for pending leaves or when leave is not applied
-        const isOnLeave = attendanceStatusIsOnLeave || !!activeLeave;
-
-        // Check for Holiday
-        const HolidayTemplate = require('../models/HolidayTemplate');
-        const holidayTemplate = await HolidayTemplate.findOne({
-            businessId: req.staff.businessId,
-            isActive: true
-        });
-
-        let holidayInfo = null;
-        if (holidayTemplate) {
-            holidayInfo = (holidayTemplate.holidays || []).find(h => {
-                const hd = new Date(h.date);
-                return hd.getDate() === queryDate.getDate() &&
-                    hd.getMonth() === queryDate.getMonth() &&
-                    hd.getFullYear() === queryDate.getFullYear();
-            });
-        }
-
-        // Check for Weekly Off (company already fetched above)
-        const businessSettings = company?.settings?.business || {};
-        const weeklyOffPattern = businessSettings.weeklyOffPattern || 'standard';
-        const weeklyHolidays = businessSettings.weeklyHolidays || [{ day: 0, name: 'Sunday' }];
-
-        const dayOfWeek = queryDate.getDay();
-        let isWeeklyOff = false;
-        if (weeklyOffPattern === 'oddEvenSaturday') {
-            if (dayOfWeek === 0) isWeeklyOff = true;
-            else if (dayOfWeek === 6 && queryDate.getDate() % 2 === 0) isWeeklyOff = true;
-        } else {
-            isWeeklyOff = weeklyHolidays.some(h => h.day === dayOfWeek);
-        }
-
-        const finalTemplate = normalizeTemplate(staff.attendanceTemplateId);
-        
-        // PRIORITY: Get shift timing from Company settings based on staff's shiftName
-        // Merge shift timings into template for response
-        let shiftTiming = null;
-        if (company && staff.shiftName) {
-            shiftTiming = getShiftFromCompanySettings(company, staff.shiftName);
-            console.log(`[getTodayAttendance] Shift from Company settings: ${shiftTiming ? 'Found' : 'Not Found'} for shiftName: ${staff.shiftName}`);
-            
-            if (shiftTiming) {
-                // Override template shift timings with Company shift settings
-                finalTemplate.shiftStartTime = shiftTiming.startTime;
-                finalTemplate.shiftEndTime = shiftTiming.endTime;
-                finalTemplate.gracePeriodMinutes = shiftTiming.gracePeriodMinutes;
+        // If approved leave exists, it overrides any existing attendance status
+        if (activeLeave) {
+            const leaveStatus = activeLeave.leaveType === 'Half Day' ? 'Half Day' : 'On Leave';
+            if (attendance) {
+                attendance.status = leaveStatus;
+            } else {
+                // If no attendance record exists, we can still return a virtual one or just the flag
+                // For the UI to show correctly, we should probably ensure the data object reflects this
+                attendance = {
+                    status: leaveStatus,
+                    date: startOfDay,
+                    employeeId: req.staff._id
+                };
             }
         }
+
+        const isOnLeave = !!activeLeave || (attendance && attendance.status === 'On Leave');
+
+        // ... existing code ...
 
         res.json({
             data: attendance,
@@ -1066,6 +1042,30 @@ const getMonthAttendance = async (req, res) => {
             holidayDateSet.add(dateStr);
         });
 
+        // Fetch leaves for the month
+        const Leave = require('../models/Leave');
+        const leaves = await Leave.find({
+            employeeId: req.staff._id,
+            status: { $regex: /^approved$/i },
+            $or: [
+                { startDate: { $gte: startOfMonth, $lte: endOfMonth } },
+                { endDate: { $gte: startOfMonth, $lte: endOfMonth } },
+                { startDate: { $lte: startOfMonth }, endDate: { $gte: endOfMonth } }
+            ]
+        });
+
+        const leaveDateSet = new Set();
+        leaves.forEach(leave => {
+            let curr = new Date(leave.startDate);
+            const end = new Date(leave.endDate);
+            while (curr <= end) {
+                if (curr >= startOfMonth && curr <= endOfMonth) {
+                    leaveDateSet.add(formatDateString(curr));
+                }
+                curr.setDate(curr.getDate() + 1);
+            }
+        });
+
         // Filter weekOffDates: exclude dates that have attendance records
         // If someone marked attendance on a week off day, it should be treated as a working day
         // BUT: Always include Sundays (day 0) even if they have attendance, as they are always week off
@@ -1090,6 +1090,7 @@ const getMonthAttendance = async (req, res) => {
         const absentDates = [];
         const presentDates = [];
         const holidayDates = [];
+        const leaveDates = Array.from(leaveDateSet);
 
         // Today (used to ensure we don't mark future dates as absent)
         const today = new Date();
@@ -1103,7 +1104,15 @@ const getMonthAttendance = async (req, res) => {
             const date = new Date(year, month - 1, d);
             const dayOfWeek = date.getDay();
 
-            // Check if attendance exists FIRST - attendance takes precedence over week off/holiday
+            // PRIORITY 1: Check if it's a leave day (Approved leave overrides everything)
+            if (leaveDateSet.has(dateStr)) {
+                // If there's an attendance record, we might want to override its status in the response
+                // But leaveDates is already being populated and returned.
+                // We should ensure this date is NOT in presentDates or absentDates.
+                continue;
+            }
+
+            // Check if attendance exists - attendance takes precedence over week off/holiday (but not over leave)
             if (attendanceDateSet.has(dateStr)) {
                 // Find the attendance record to get status
                 const attRecord = attendance.find(a => {
@@ -1117,14 +1126,14 @@ const getMonthAttendance = async (req, res) => {
                 continue;
             }
 
-            // Check if it's a holiday (only if no attendance)
+            // Check if it's a holiday (only if no attendance and not on leave)
             const isHoliday = holidayDateSet.has(dateStr);
             if (isHoliday) {
                 holidayDates.push(dateStr);
                 continue;
             }
 
-            // Check if it's a week off (only if no attendance and not a holiday)
+            // Check if it's a week off (only if no attendance, holiday or leave)
             let isWeekOff = false;
 
             if (weeklyOffPattern === 'oddEvenSaturday') {
@@ -1165,10 +1174,11 @@ const getMonthAttendance = async (req, res) => {
             data: {
                 attendance,
                 holidays,
-                weekOffDates: filteredWeekOffDates, // Use filtered week off dates (excluding dates with attendance)
-                absentDates, // Add absent dates array
-                presentDates, // Add present dates array for reference
-                holidayDates, // Add holiday dates array for reference
+                weekOffDates: filteredWeekOffDates,
+                absentDates,
+                presentDates,
+                holidayDates,
+                leaveDates,
                 settings: {
                     weeklyOffPattern,
                     weeklyHolidays
@@ -1177,8 +1187,70 @@ const getMonthAttendance = async (req, res) => {
                     workingDays,
                     holidaysCount,
                     weekOffs,
-                    presentDays: attendance.filter(a => ['Present', 'Approved', 'Half Day'].includes(a.status)).length,
-                    absentDays: Math.max(0, workingDays - attendance.filter(a => ['Present', 'Approved', 'Half Day'].includes(a.status)).length)
+                    presentDays: (() => {
+                        const leaveRecords = leaves.filter(l => l.isHalfDay === true || (l.leaveType || '').trim().toLowerCase() === 'half day');
+                        const leaveDateSetHalf = new Set();
+                        leaveRecords.forEach(leave => {
+                            let curr = new Date(leave.startDate);
+                            const end = new Date(leave.endDate);
+                            while (curr <= end) {
+                                if (curr >= startOfMonth && curr <= endOfMonth) {
+                                    leaveDateSetHalf.add(formatDateString(curr));
+                                }
+                                curr.setDate(curr.getDate() + 1);
+                            }
+                        });
+
+                        const dateMap = {};
+                        attendance.forEach(a => {
+                            const d = formatDateString(a.date);
+                            const status = (a.status || '').trim().toLowerCase();
+                            dateMap[d] = { attendanceStatus: status };
+                        });
+                        leaveDateSetHalf.forEach(d => {
+                            if (!dateMap[d]) dateMap[d] = {};
+                            dateMap[d].hasHalfDayLeave = true;
+                        });
+
+                        return Object.values(dateMap).reduce((sum, data) => {
+                            const status = data.attendanceStatus || '';
+                            if (status === 'present' || status === 'approved') return sum + 1;
+                            if (status === 'half day' || data.hasHalfDayLeave === true) return sum + 0.5;
+                            return sum;
+                        }, 0);
+                    })(),
+                    absentDays: Math.max(0, workingDays - (() => {
+                        const leaveRecords = leaves.filter(l => l.isHalfDay === true || (l.leaveType || '').trim().toLowerCase() === 'half day');
+                        const leaveDateSetHalf = new Set();
+                        leaveRecords.forEach(leave => {
+                            let curr = new Date(leave.startDate);
+                            const end = new Date(leave.endDate);
+                            while (curr <= end) {
+                                if (curr >= startOfMonth && curr <= endOfMonth) {
+                                    leaveDateSetHalf.add(formatDateString(curr));
+                                }
+                                curr.setDate(curr.getDate() + 1);
+                            }
+                        });
+
+                        const dateMap = {};
+                        attendance.forEach(a => {
+                            const d = formatDateString(a.date);
+                            const status = (a.status || '').trim().toLowerCase();
+                            dateMap[d] = { attendanceStatus: status };
+                        });
+                        leaveDateSetHalf.forEach(d => {
+                            if (!dateMap[d]) dateMap[d] = {};
+                            dateMap[d].hasHalfDayLeave = true;
+                        });
+
+                        return Object.values(dateMap).reduce((sum, data) => {
+                            const status = data.attendanceStatus || '';
+                            if (status === 'present' || status === 'approved') return sum + 1;
+                            if (status === 'half day' || data.hasHalfDayLeave === true) return sum + 0.5;
+                            return sum;
+                        }, 0);
+                    })())
                 }
             }
         });

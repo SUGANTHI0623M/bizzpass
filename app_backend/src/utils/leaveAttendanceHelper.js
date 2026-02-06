@@ -62,7 +62,7 @@ const calculateWorkHoursFromShift = (startTime, endTime) => {
  */
 const markAttendanceForApprovedLeave = async (leave) => {
     try {
-        if (!leave || leave.status !== 'Approved') {
+        if (!leave || !/^approved$/i.test(leave.status)) {
             return;
         }
 
@@ -187,35 +187,101 @@ const markAttendanceForApprovedLeave = async (leave) => {
             });
 
             if (attendance) {
-                // Update existing attendance record to "Present" with shift timings
-                attendance.status = 'Present';
-                attendance.punchIn = punchIn;
-                attendance.punchOut = punchOut;
-                attendance.workHours = workHours;
+                // Update existing attendance record
+                attendance.status = leave.leaveType === 'Half Day' ? 'Half Day' : 'On Leave';
+                // Clear punch times only for full day leaves
+                if (leave.leaveType !== 'Half Day') {
+                    attendance.punchIn = undefined;
+                    attendance.punchOut = undefined;
+                    attendance.workHours = 0;
+                }
                 attendance.approvedBy = leave.approvedBy;
                 attendance.approvedAt = leave.approvedAt || new Date();
+                attendance.remarks = (attendance.remarks || '') + (leave.leaveType === 'Half Day' ? ` [Half Day - ${leave.session}]` : '');
                 await attendance.save();
             } else {
-                // Create new attendance record with "Present" status and shift timings
+                // Create new attendance record
                 await Attendance.create({
                     employeeId: employeeId,
                     user: employeeId, // For backward compatibility
                     date: startOfDay,
-                    status: 'Present',
-                    punchIn: punchIn,
-                    punchOut: punchOut,
-                    workHours: workHours,
+                    status: leave.leaveType === 'Half Day' ? 'Half Day' : 'On Leave',
                     approvedBy: leave.approvedBy,
                     approvedAt: leave.approvedAt || new Date(),
-                    businessId: businessId
+                    businessId: businessId,
+                    workHours: 0,
+                    remarks: leave.leaveType === 'Half Day' ? `Half Day - ${leave.session}` : ''
                 });
             }
         }
 
-        console.log(`[LeaveAttendanceHelper] Marked attendance as Present for ${dates.length} days for leave ${leave._id} with shift timings ${startTime}-${endTime}`);
+        console.log(`[LeaveAttendanceHelper] Marked attendance as On Leave for ${dates.length} days for leave ${leave._id}`);
     } catch (error) {
         console.error('[LeaveAttendanceHelper] Error marking attendance for approved leave:', error);
         throw error;
+    }
+};
+
+/**
+ * Revert attendance for a deleted or cancelled leave
+ * @param {Object} leave - The leave document
+ */
+const revertAttendanceForDeletedLeave = async (leave) => {
+    try {
+        if (!leave) return;
+
+        const { employeeId, startDate, endDate } = leave;
+        
+        // Generate all dates between startDate and endDate (inclusive)
+        const dates = [];
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+        
+        const currentDate = new Date(start);
+        while (currentDate <= end) {
+            dates.push(new Date(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        for (const date of dates) {
+            const startOfDay = new Date(date);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(date);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const attendance = await Attendance.findOne({
+                employeeId: employeeId,
+                date: { $gte: startOfDay, $lte: endOfDay }
+            });
+
+            if (attendance && (attendance.status === 'On Leave' || attendance.status === 'Half Day')) {
+                // If it was "On Leave" or "Half Day", delete the record or mark as Absent/Pending
+                // Deleting is cleaner if there was no actual punch-in/out
+                if (!attendance.punchIn && !attendance.punchOut) {
+                     // If it was purely generated from leave, delete it
+                     await Attendance.deleteOne({ _id: attendance._id });
+                } else {
+                    // If there was actual activity, revert status
+                    // If they have punchIn, it should probably be 'Present' or 'Pending'
+                    // For now, let's use 'Pending' as it's the default for working days
+                    attendance.status = 'Pending';
+                    attendance.remarks = (attendance.remarks || '')
+                        .replace(/On Leave/i, '')
+                        .replace(/\[Half Day - Session [12]\]/i, '')
+                        .replace(/Half Day - Session [12]/i, '')
+                        .trim();
+                    attendance.approvedBy = undefined;
+                    attendance.approvedAt = undefined;
+                    await attendance.save();
+                }
+            }
+        }
+        console.log(`[LeaveAttendanceHelper] Reverted attendance for ${dates.length} days for leave ${leave._id}`);
+    } catch (error) {
+        console.error('[LeaveAttendanceHelper] Error reverting attendance for deleted leave:', error);
     }
 };
 
@@ -265,36 +331,52 @@ const calculateAvailableLeaves = async (staff, leaveType, targetDate = new Date(
         ? new Date(targetYear, targetMonth + 1, 0, 23, 59, 59)
         : new Date(targetYear, 11, 31, 23, 59, 59);
 
-    // Get used leaves in current period
-    // Match leave types flexibly: "Casual Leave" matches "Casual" and vice versa
-    // Normalize the leaveType for matching (remove "Leave" suffix for comparison)
-    const normalizedType = leaveType.toLowerCase().trim().replace(/\s+leave\s*$/i, '');
+    // Build a flexible regex that handles:
+    // 1. Case-insensitivity
+    // 2. Optional "Leave" suffix
+    // 3. Leading/trailing whitespace
+    const flexibleRegex = new RegExp(`^\\s*${normalizedType}(\\s+leave)?\\s*$`, 'i');
     
-    // Build query to match both exact type and normalized type
-    // This handles cases like: "Casual Leave" in template vs "Casual" in stored leaves
-    const usedLeaves = await Leave.find({
+    // Get ALL relevant leaves in current period (Approved and Pending)
+    const relevantLeaves = await Leave.find({
         employeeId: staff._id,
-        $and: [
-            {
-                $or: [
-                    { leaveType: { $regex: new RegExp(`^${leaveType}$`, 'i') } },
-                    { leaveType: { $regex: new RegExp(`^${normalizedType}(\\s+leave)?$`, 'i') } }
-                ]
-            },
-            {
-                status: { $in: ['Approved', 'Pending'] }
-            },
-            {
-                $or: [
-                    { startDate: { $gte: rangeStart, $lte: rangeEnd } },
-                    { endDate: { $gte: rangeStart, $lte: rangeEnd } },
-                    { startDate: { $lte: rangeStart }, endDate: { $gte: rangeEnd } }
-                ]
-            }
+        leaveType: { $regex: flexibleRegex },
+        status: { $regex: /^(approved|pending)$/i },
+        $or: [
+            { startDate: { $gte: rangeStart, $lte: rangeEnd } },
+            { endDate: { $gte: rangeStart, $lte: rangeEnd } },
+            { startDate: { $lte: rangeStart }, endDate: { $gte: rangeEnd } }
         ]
     });
 
-    const used = usedLeaves.reduce((sum, l) => sum + l.days, 0);
+    let approvedDays = 0;
+    let pendingDays = 0;
+
+    relevantLeaves.forEach(l => {
+        const lStart = new Date(l.startDate);
+        const lEnd = new Date(l.endDate);
+        
+        // Calculate overlap with target period
+        const overlapStart = lStart > rangeStart ? lStart : rangeStart;
+        const overlapEnd = lEnd < rangeEnd ? lEnd : rangeEnd;
+        
+        if (overlapEnd >= overlapStart) {
+            // Normalize to midnight for accurate day counting
+            const oStart = new Date(overlapStart.getFullYear(), overlapStart.getMonth(), overlapStart.getDate());
+            const oEnd = new Date(overlapEnd.getFullYear(), overlapEnd.getMonth(), overlapEnd.getDate());
+            const diffTime = Math.abs(oEnd - oStart);
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            
+            if (/^approved$/i.test(l.status)) {
+                approvedDays += diffDays;
+            } else if (/^pending$/i.test(l.status)) {
+                pendingDays += diffDays;
+            }
+        }
+    });
+
+    const used = approvedDays;
+    const pending = pendingDays;
 
     // Calculate carried forward leaves if carryForward is enabled
     let carriedForward = 0;
@@ -310,29 +392,28 @@ const calculateAvailableLeaves = async (staff, leaveType, targetDate = new Date(
 
             const prevMonthLeaves = await Leave.find({
                 employeeId: staff._id,
-                $and: [
-                    {
-                        $or: [
-                            { leaveType: { $regex: new RegExp(`^${leaveType}$`, 'i') } },
-                            { leaveType: { $regex: new RegExp(`^${normalizedType}(\\s+leave)?$`, 'i') } }
-                        ]
-                    },
-                    {
-                        status: 'Approved'
-                    },
-                    {
-                        $or: [
-                            { startDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
-                            { endDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
-                            { startDate: { $lte: prevRangeStart }, endDate: { $gte: prevRangeEnd } }
-                        ]
-                    }
+                leaveType: { $regex: flexibleRegex },
+                status: { $regex: /^approved$/i },
+                $or: [
+                    { startDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
+                    { endDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
+                    { startDate: { $lte: prevRangeStart }, endDate: { $gte: prevRangeEnd } }
                 ]
             });
 
-            const prevMonthUsed = prevMonthLeaves.reduce((sum, l) => sum + l.days, 0);
-            // Carried forward = base limit - used in previous month
-            carriedForward = Math.max(0, baseLimit - prevMonthUsed);
+            let prevApprovedDays = 0;
+            prevMonthLeaves.forEach(l => {
+                const lStart = new Date(l.startDate);
+                const lEnd = new Date(l.endDate);
+                const overlapStart = lStart > prevRangeStart ? lStart : prevRangeStart;
+                const overlapEnd = lEnd < prevRangeEnd ? lEnd : prevRangeEnd;
+                if (overlapEnd >= overlapStart) {
+                    const oStart = new Date(overlapStart.getFullYear(), overlapStart.getMonth(), overlapStart.getDate());
+                    const oEnd = new Date(overlapEnd.getFullYear(), overlapEnd.getMonth(), overlapEnd.getDate());
+                    prevApprovedDays += Math.round(Math.abs(oEnd - oStart) / (1000 * 60 * 60 * 24)) + 1;
+                }
+            });
+            carriedForward = Math.max(0, baseLimit - prevApprovedDays);
         } else {
             // Previous year
             const prevYear = targetYear - 1;
@@ -341,40 +422,41 @@ const calculateAvailableLeaves = async (staff, leaveType, targetDate = new Date(
 
             const prevYearLeaves = await Leave.find({
                 employeeId: staff._id,
-                $and: [
-                    {
-                        $or: [
-                            { leaveType: { $regex: new RegExp(`^${leaveType}$`, 'i') } },
-                            { leaveType: { $regex: new RegExp(`^${normalizedType}(\\s+leave)?$`, 'i') } }
-                        ]
-                    },
-                    {
-                        status: 'Approved'
-                    },
-                    {
-                        $or: [
-                            { startDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
-                            { endDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
-                            { startDate: { $lte: prevRangeStart }, endDate: { $gte: prevRangeEnd } }
-                        ]
-                    }
+                leaveType: { $regex: flexibleRegex },
+                status: { $regex: /^approved$/i },
+                $or: [
+                    { startDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
+                    { endDate: { $gte: prevRangeStart, $lte: prevRangeEnd } },
+                    { startDate: { $lte: prevRangeStart }, endDate: { $gte: prevRangeEnd } }
                 ]
             });
 
-            const prevYearUsed = prevYearLeaves.reduce((sum, l) => sum + l.days, 0);
-            // Carried forward = base limit - used in previous year
-            carriedForward = Math.max(0, baseLimit - prevYearUsed);
+            let prevApprovedDays = 0;
+            prevYearLeaves.forEach(l => {
+                const lStart = new Date(l.startDate);
+                const lEnd = new Date(l.endDate);
+                const overlapStart = lStart > prevRangeStart ? lStart : prevRangeStart;
+                const overlapEnd = lEnd < prevRangeEnd ? lEnd : prevRangeEnd;
+                if (overlapEnd >= overlapStart) {
+                    const oStart = new Date(overlapStart.getFullYear(), overlapStart.getMonth(), overlapStart.getDate());
+                    const oEnd = new Date(overlapEnd.getFullYear(), overlapEnd.getMonth(), overlapEnd.getDate());
+                    prevApprovedDays += Math.round(Math.abs(oEnd - oStart) / (1000 * 60 * 60 * 24)) + 1;
+                }
+            });
+            carriedForward = Math.max(0, baseLimit - prevApprovedDays);
         }
     }
 
     const totalAvailable = baseLimit + carriedForward;
-    const balance = Math.max(0, totalAvailable - used);
+    // Balance check should consider BOTH approved and pending to prevent over-drafting
+    const balance = Math.max(0, totalAvailable - (used + pending));
 
     return {
         baseLimit,
         carriedForward,
         totalAvailable,
-        used,
+        used, // ONLY approved (this is what "Taken" usually shows)
+        pending, // separately returned
         balance,
         isMonthly: isCasual,
         carryForwardEnabled: carryForward
@@ -383,5 +465,6 @@ const calculateAvailableLeaves = async (staff, leaveType, targetDate = new Date(
 
 module.exports = {
     markAttendanceForApprovedLeave,
-    calculateAvailableLeaves
+    calculateAvailableLeaves,
+    revertAttendanceForDeletedLeave
 };

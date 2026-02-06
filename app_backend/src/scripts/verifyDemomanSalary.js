@@ -322,12 +322,56 @@ const verifyDemomanSalary = async () => {
             date: { $gte: startOfMonth, $lte: endOfMonth }
         });
 
-        const presentDays = attendanceRecords.filter(a => 
-            ['Present', 'Approved', 'Half Day'].includes(a.status)
-        ).length;
+        // Calculate Present Days with specific Half Day logic
+        // Rule: Check both Attendance and Leave collections for Half Day
+        const Leave = require('../models/Leave');
+        const leaveRecords = await Leave.find({
+            employeeId: staff._id,
+            status: { $regex: /^approved$/i }
+        });
 
-        // Calculate total fine amount from attendance records
+        const dateMap = {};
+
+        // 1. Process Attendance Records
+        attendanceRecords.forEach(a => {
+            if (!a.date) return;
+            const d = new Date(a.date).toISOString().split('T')[0];
+            const status = (a.status || '').trim().toLowerCase();
+            dateMap[d] = { attendanceStatus: status };
+        });
+
+        // 2. Process Leave Records for Half Day
+        leaveRecords.forEach(l => {
+            const isHalfDayLeave = l.isHalfDay === true || (l.leaveType || '').trim().toLowerCase() === 'half day';
+            if (isHalfDayLeave) {
+                const start = new Date(l.startDate);
+                const end = new Date(l.endDate);
+                let curr = new Date(start);
+                while (curr <= end) {
+                    const d = curr.toISOString().split('T')[0];
+                    if (!dateMap[d]) dateMap[d] = {};
+                    dateMap[d].hasHalfDayLeave = true;
+                    curr.setDate(curr.getDate() + 1);
+                }
+            }
+        });
+
+        // 3. Calculate Weighted Present Days
+        const presentDays = Object.values(dateMap).reduce((sum, data) => {
+            const status = data.attendanceStatus || '';
+            if (status === 'present' || status === 'approved') {
+                return sum + 1;
+            }
+            if (status === 'half day' || data.hasHalfDayLeave === true) {
+                return sum + 0.5;
+            }
+            return sum;
+        }, 0);
+
+        // Calculate total fine amount - exclude Half Day (no late login fine for half day)
         const totalFineAmount = attendanceRecords.reduce((sum, record) => {
+            const s = (record.status || '').trim().toLowerCase();
+            if (s === 'half day') return sum;
             return sum + (record.fineAmount || 0);
         }, 0);
 

@@ -52,6 +52,7 @@ const getDashboardStats = async (req, res) => {
 // @route   GET /api/dashboard/employee
 const getEmployeeDashboardStats = async (req, res) => {
     try {
+        console.log(`[getEmployeeDashboardStats] API called for staff: ${req.staff?._id}`);
         if (!req.staff) {
             return res.status(404).json({ success: false, message: 'Staff record not found' });
         }
@@ -68,7 +69,7 @@ const getEmployeeDashboardStats = async (req, res) => {
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
         // 1. Staff Info
-        const staff = await Staff.findById(staffId).select('name employeeId designation department joiningDate businessId holidayTemplateId');
+        const staff = await Staff.findById(staffId).select('name employeeId designation department joiningDate businessId holidayTemplateId salary');
 
         // 2. Attendance Metrics
         const attendanceToday = await Attendance.findOne({
@@ -81,10 +82,69 @@ const getEmployeeDashboardStats = async (req, res) => {
             date: { $gte: startOfMonth, $lte: endOfMonth }
         });
 
-        // Calculate Present Days - Present + Approved (for salary proration; same as salary overview)
-        const presentDays = monthAttendance.filter(a =>
-            a.status === 'Present' || a.status === 'Approved'
-        ).length;
+        // Calculate Present Days with specific Half Day logic
+        // Rule: Check both Attendance and Leave collections for Half Day
+        // Filter leaves by date range to avoid including leaves from other months
+        const leaveRecords = await Leave.find({
+            employeeId: staffId,
+            status: { $regex: /^approved$/i },
+            $or: [
+                { startDate: { $gte: startOfMonth, $lte: endOfMonth } },
+                { endDate: { $gte: startOfMonth, $lte: endOfMonth } },
+                { startDate: { $lte: startOfMonth }, endDate: { $gte: endOfMonth } }
+            ]
+        }).lean();
+
+        const dateMap = {};
+
+        // 1. Process Attendance Records
+        monthAttendance.forEach(a => {
+            if (!a.date) return;
+            const d = new Date(a.date).toISOString().split('T')[0];
+            const status = (a.status || '').trim().toLowerCase();
+            dateMap[d] = { attendanceStatus: status };
+        });
+
+        // 2. Process Leave Records for Half Day
+        leaveRecords.forEach(l => {
+            const isHalfDayLeave = l.isHalfDay === true || (l.leaveType || '').trim().toLowerCase() === 'half day';
+            if (isHalfDayLeave) {
+                const start = new Date(Math.max(new Date(l.startDate), startOfMonth));
+                const end = new Date(Math.min(new Date(l.endDate), endOfMonth));
+                let curr = new Date(start);
+                while (curr <= end) {
+                    const d = curr.toISOString().split('T')[0];
+                    if (!dateMap[d]) dateMap[d] = {};
+                    dateMap[d].hasHalfDayLeave = true;
+                    curr.setDate(curr.getDate() + 1);
+                }
+            }
+        });
+
+        // 3. Calculate Weighted Present Days
+        // Full day present/approved -> 1.0
+        // Half day (either collection) -> 0.5
+        // Others -> 0.0
+        const presentDays = Object.values(dateMap).reduce((sum, data) => {
+            const status = data.attendanceStatus || '';
+            if (status === 'present' || status === 'approved') {
+                return sum + 1;
+            }
+            if (status === 'half day' || data.hasHalfDayLeave === true) {
+                return sum + 0.5;
+            }
+            return sum;
+        }, 0);
+
+        // --- HALF-DAY SALARY DEBUG LOGS ---
+        console.log(`[getEmployeeDashboardStats] ========== HALF-DAY SALARY DEBUG ==========`);
+        console.log(`[getEmployeeDashboardStats] staffId: ${staffId}, staff.name: ${staff?.name}`);
+        console.log(`[getEmployeeDashboardStats] month: ${month}, year: ${year}`);
+        console.log(`[getEmployeeDashboardStats] monthAttendance count: ${monthAttendance.length}`);
+        monthAttendance.forEach((a, i) => console.log(`[getEmployeeDashboardStats]   att[${i}] date: ${a.date?.toISOString?.()?.split('T')[0]}, status: "${a.status}"`));
+        console.log(`[getEmployeeDashboardStats] leaveRecords count: ${leaveRecords.length}`);
+        console.log(`[getEmployeeDashboardStats] dateMap: ${JSON.stringify(dateMap)}`);
+        console.log(`[getEmployeeDashboardStats] presentDays: ${presentDays}`);
 
         // Fetch Business settings for week-offs
         const company = await Company.findById(staff.businessId);
@@ -151,15 +211,18 @@ const getEmployeeDashboardStats = async (req, res) => {
             }
         }
 
+        console.log(`[getEmployeeDashboardStats] joiningDate: ${joiningDate?.toISOString?.() || 'null'}, lastDayToCount: ${lastDayToCount}`);
+        console.log(`[getEmployeeDashboardStats] totalWorkingDays: ${totalWorkingDays}`);
+
         // 3. Leave Metrics
         const pendingLeavesCount = await Leave.countDocuments({
             employeeId: staffId,
-            status: 'Pending'
+            status: { $regex: /^pending$/i }
         });
 
         const approvedLeavesThisMonth = await Leave.countDocuments({
             employeeId: staffId,
-            status: 'Approved',
+            status: { $regex: /^approved$/i },
             startDate: { $gte: startOfMonth, $lte: endOfMonth }
         });
 
@@ -187,9 +250,17 @@ const getEmployeeDashboardStats = async (req, res) => {
             year: now.getFullYear()
         });
 
-        // Fine amount only from Present (Approved not included)
+        console.log(`[getEmployeeDashboardStats] payroll exists: ${!!payroll}, staff.salary exists: ${!!(staff?.salary)}`);
+        if (staff?.salary) {
+            console.log(`[getEmployeeDashboardStats] staff.salary.basicSalary: ${staff.salary.basicSalary}`);
+        }
+
+        // Fine amount only from Present or Approved. Half Day must NOT incur late login fine.
         const totalFineAmount = monthAttendance
-            .filter(r => r.status === 'Present')
+            .filter(r => {
+                const s = (r.status || '').trim().toLowerCase();
+                return s === 'present' || s === 'approved';
+            })
             .reduce((sum, record) => sum + (record.fineAmount || 0), 0);
 
         let currentMonthSalary = 0;
@@ -287,6 +358,11 @@ const getEmployeeDashboardStats = async (req, res) => {
             // STEP 5: Calculate Prorated Net Salary (fines are NOT prorated)
             currentMonthSalary = proratedGrossSalary - proratedDeductions - totalFineAmount;
         }
+
+        const prorationFactor = totalWorkingDays > 0 ? presentDays / totalWorkingDays : 0;
+        console.log(`[getEmployeeDashboardStats] prorationFactor: ${prorationFactor} (presentDays=${presentDays} / totalWorkingDays=${totalWorkingDays})`);
+        console.log(`[getEmployeeDashboardStats] currentMonthSalary: ${currentMonthSalary}`);
+        console.log(`[getEmployeeDashboardStats] ========================================`);
 
         res.json({
             success: true,
