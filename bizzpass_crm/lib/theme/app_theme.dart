@@ -45,6 +45,14 @@ ThemeData buildAppTheme() {
       error: AppColors.danger,
     ),
     textTheme: textTheme,
+    iconTheme: const IconThemeData(
+      color: AppColors.textSecondary,
+      size: 24,
+    ),
+    primaryIconTheme: const IconThemeData(
+      color: AppColors.accent,
+      size: 24,
+    ),
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.bg,
       elevation: 0,

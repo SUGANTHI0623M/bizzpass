@@ -40,25 +40,27 @@ def main():
             if plan == "pro":
                 plan = "professional"
             cur.execute(
-                "SELECT id FROM subscription_plans WHERE (plan_code = %s OR plan_name ILIKE %s) AND is_active LIMIT 1",
+                "SELECT id, max_users, max_branches FROM subscription_plans WHERE (plan_code = %s OR plan_name ILIKE %s) AND is_active LIMIT 1",
                 (plan, "%" + (c.get("subscription_plan") or "Starter") + "%"),
             )
             sp = cur.fetchone()
             if not sp:
-                cur.execute("SELECT id FROM subscription_plans WHERE is_active LIMIT 1")
+                cur.execute("SELECT id, max_users, max_branches FROM subscription_plans WHERE is_active LIMIT 1")
                 sp = cur.fetchone()
             if not sp:
                 print(f"  Skip company {c['id']} ({c['name']}): no subscription plan found")
                 continue
 
+            max_users = sp.get("max_users") or 30
+            max_branches = sp.get("max_branches") or 1
             license_key = f"BP-{plan[:3].upper()}-{str(uuid.uuid4())[:8].upper()}"
             cur.execute(
                 """
                 INSERT INTO licenses (license_key, plan_id, max_users, max_branches, is_trial, created_by, status)
-                VALUES (%s, %s, 30, 1, FALSE, %s, 'unassigned')
+                VALUES (%s, %s, %s, %s, FALSE, %s, 'unassigned')
                 RETURNING id
                 """,
-                (license_key, sp["id"], admin_id),
+                (license_key, sp["id"], max_users, max_branches, admin_id),
             )
             lic = cur.fetchone()
             cur.execute(

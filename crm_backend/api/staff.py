@@ -169,6 +169,48 @@ def list_staff(
     return {"staff": staff}
 
 
+@router.get("/limits")
+def get_staff_limits(
+    current_user: dict = Depends(get_current_user),
+):
+    """Return license usage for company (staff count, branches, license active). Company Admin only. max_users = max staff allowed."""
+    company_id = current_user.get("company_id")
+    if not company_id:
+        return {"currentUsers": 0, "maxUsers": None, "currentBranches": 0, "maxBranches": None, "licenseActive": True}
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) AS cnt FROM staff WHERE company_id = %s",
+            (company_id,),
+        )
+        current_users = (cur.fetchone() or {}).get("cnt") or 0
+        cur.execute(
+            "SELECT COUNT(*) AS cnt FROM branches WHERE company_id = %s",
+            (company_id,),
+        )
+        current_branches = (cur.fetchone() or {}).get("cnt") or 0
+        cur.execute(
+            "SELECT l.max_users, l.max_branches, l.status FROM licenses l WHERE l.company_id = %s LIMIT 1",
+            (company_id,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return {
+            "currentUsers": current_users,
+            "maxUsers": 0,
+            "currentBranches": current_branches,
+            "maxBranches": 0,
+            "licenseActive": False,
+        }
+    status = (row.get("status") or "").lower()
+    return {
+        "currentUsers": current_users,
+        "maxUsers": row.get("max_users"),
+        "currentBranches": current_branches,
+        "maxBranches": row.get("max_branches"),
+        "licenseActive": status == "active",
+    }
+
+
 @router.get("/{staff_id}")
 def get_staff(
     staff_id: int,
@@ -203,43 +245,8 @@ def get_staff(
     return _staff_row(row)
 
 
-@router.get("/limits")
-def get_staff_limits(
-    current_user: dict = Depends(get_current_user),
-):
-    """Return license usage for company (current user count, max users, license active). Company Admin only."""
-    company_id = current_user.get("company_id")
-    if not company_id:
-        # Super Admin: no limits
-        return {"currentUsers": 0, "maxUsers": None, "licenseActive": True}
-    with get_cursor() as cur:
-        cur.execute(
-            "SELECT COUNT(*) AS cnt FROM users WHERE company_id_bigint = %s AND is_active IS NOT DISTINCT FROM TRUE",
-            (company_id,),
-        )
-        current = (cur.fetchone() or {}).get("cnt") or 0
-        cur.execute(
-            """
-            SELECT l.max_users, l.status
-            FROM licenses l
-            WHERE l.company_id = %s
-            LIMIT 1
-            """,
-            (company_id,),
-        )
-        row = cur.fetchone()
-    if not row:
-        return {"currentUsers": current, "maxUsers": 0, "licenseActive": False}
-    status = (row.get("status") or "").lower()
-    return {
-        "currentUsers": current,
-        "maxUsers": row.get("max_users"),
-        "licenseActive": status == "active",
-    }
-
-
 def _validate_staff_creation(current_user: dict, company_id: int, role_id: int) -> None:
-    """Raise HTTPException if license inactive, over limit, or role invalid."""
+    """Raise HTTPException if license inactive, staff limit reached, or role invalid. Limit is from plan (max_users = max staff)."""
     with get_cursor() as cur:
         cur.execute(
             """
@@ -255,18 +262,19 @@ def _validate_staff_creation(current_user: dict, company_id: int, role_id: int) 
         raise HTTPException(status_code=400, detail="Company license not found.")
     if (lic.get("status") or "").lower() not in ("active",):
         raise HTTPException(status_code=400, detail="License is not active. Cannot add staff.")
-    max_users = lic.get("max_users") or 0
-    with get_cursor() as cur:
-        cur.execute(
-            "SELECT COUNT(*) AS cnt FROM users WHERE company_id_bigint = %s AND is_active IS NOT DISTINCT FROM TRUE",
-            (company_id,),
-        )
-        current = (cur.fetchone() or {}).get("cnt") or 0
-    if current >= max_users:
-        raise HTTPException(
-            status_code=400,
-            detail=f"User limit reached ({current}/{max_users}). Upgrade your plan to add more staff.",
-        )
+    max_users = lic.get("max_users")
+    if max_users is not None:  # NULL = unlimited
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM staff WHERE company_id = %s",
+                (company_id,),
+            )
+            current = (cur.fetchone() or {}).get("cnt") or 0
+        if current >= max_users:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Staff limit reached ({current}/{max_users}). Delete a staff to add another, or upgrade your plan.",
+            )
     with get_cursor() as cur:
         cur.execute(
             "SELECT id, company_id FROM rbac_roles WHERE id = %s",

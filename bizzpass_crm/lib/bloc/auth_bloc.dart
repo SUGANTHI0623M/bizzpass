@@ -15,10 +15,11 @@ abstract class AuthEvent {}
 class AuthCheckRequested extends AuthEvent {}
 
 class AuthLoginRequested extends AuthEvent {
-  final String email;
+  /// License key, email, or phone number.
+  final String identifier;
   final String password;
 
-  AuthLoginRequested(this.email, this.password);
+  AuthLoginRequested(this.identifier, this.password);
 }
 
 class AuthLogoutRequested extends AuthEvent {}
@@ -105,10 +106,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthLoginRequested event,
     Emitter<AuthState> emit,
   ) async {
-    _log('AuthLoginRequested', 'email=${event.email}');
+    _log('AuthLoginRequested', 'identifier=${event.identifier}');
     emit(AuthLoading());
     try {
-      final res = await _authRepository.login(event.email, event.password);
+      final res = await _authRepository.login(event.identifier, event.password);
       emit(AuthAuthenticated(res.token, res.user));
       _log('Login success', 'user=${res.user['email']}');
     } on AuthException catch (e) {

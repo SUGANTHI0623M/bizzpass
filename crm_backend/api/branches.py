@@ -72,15 +72,40 @@ def list_branches(
     return {"branches": [_branch_row(r) for r in rows]}
 
 
+def _validate_branch_creation(current_user: dict, company_id: int) -> None:
+    """Raise HTTPException if license inactive or branch limit reached."""
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT l.status, l.max_branches FROM licenses l WHERE l.company_id = %s LIMIT 1",
+            (company_id,),
+        )
+        lic = cur.fetchone()
+    if not lic:
+        raise HTTPException(status_code=400, detail="Company license not found.")
+    if (lic.get("status") or "").lower() != "active":
+        raise HTTPException(status_code=400, detail="License is not active. Cannot add branches.")
+    max_branches = lic.get("max_branches")
+    if max_branches is not None:  # NULL = unlimited
+        with get_cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS cnt FROM branches WHERE company_id = %s", (company_id,))
+            current = (cur.fetchone() or {}).get("cnt") or 0
+        if current >= max_branches:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Branch limit reached ({current}/{max_branches}). Delete a branch to add another, or upgrade your plan.",
+            )
+
+
 @router.post("")
 def create_branch(
     body: CreateBranchBody,
     current_user: dict = Depends(require_permission("branch.create")),
 ):
-    """Create a branch for the company."""
+    """Create a branch for the company. Validates license and branch limit."""
     company_id = current_user.get("company_id")
     if not company_id:
         raise HTTPException(status_code=403, detail="Company context required")
+    _validate_branch_creation(current_user, company_id)
     name = (body.branchName or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Branch name is required")

@@ -11,9 +11,9 @@ router = APIRouter(prefix="/licenses", tags=["licenses"])
 
 
 class LicenseCreate(BaseModel):
-    subscription_plan: str  # starter, professional, enterprise
-    max_users: int = 25
-    max_branches: int = 1
+    subscription_plan: str  # starter, professional, enterprise, basic
+    max_users: int | None = None  # If None, use plan's max_users
+    max_branches: int | None = None  # If None, use plan's max_branches
     is_trial: bool = False
     notes: str | None = None
 
@@ -88,12 +88,16 @@ def create_license(
         plan_code = "professional"
     with get_cursor() as cur:
         cur.execute(
-            "SELECT id, plan_name FROM subscription_plans WHERE (plan_code = %s OR plan_name ILIKE %s) AND is_active LIMIT 1",
+            "SELECT id, plan_name, max_users, max_branches FROM subscription_plans WHERE (plan_code = %s OR plan_name ILIKE %s) AND is_active LIMIT 1",
             (plan_code, "%" + body.subscription_plan + "%"),
         )
         plan = cur.fetchone()
     if not plan:
         raise HTTPException(status_code=400, detail=f"Plan '{body.subscription_plan}' not found")
+
+    # Use plan's max_users/max_branches when not explicitly provided
+    max_users = body.max_users if body.max_users is not None else (plan.get("max_users") or 30)
+    max_branches = body.max_branches if body.max_branches is not None else (plan.get("max_branches") or 1)
 
     import uuid
     license_key = f"BP-{plan_code[:3].upper()}-{str(uuid.uuid4())[:8].upper()}"
@@ -105,7 +109,7 @@ def create_license(
             VALUES (%s, %s, %s, %s, %s, %s, %s, 'unassigned')
             RETURNING id, license_key, plan_id, max_users, max_branches, status, valid_from, valid_until, is_trial
             """,
-            (license_key, plan["id"], body.max_users, body.max_branches, body.is_trial, body.notes or "", current_user["id"]),
+            (license_key, plan["id"], max_users, max_branches, body.is_trial, body.notes or "", current_user["id"]),
         )
         row = cur.fetchone()
 

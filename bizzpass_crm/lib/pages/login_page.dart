@@ -19,7 +19,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool? _backendReachable;
@@ -37,23 +37,23 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   void _submit() {
-    final email = _emailController.text.trim();
+    final identifier = _identifierController.text.trim();
     final password = _passwordController.text;
     developer.log('Login submit pressed',
         name: 'LoginPage',
-        error: 'email=$email, passwordLength=${password.length}');
+        error: 'identifier=$identifier, passwordLength=${password.length}');
     if (!_formKey.currentState!.validate()) {
       developer.log('Form validation failed', name: 'LoginPage');
       return;
     }
     context.read<AuthBloc>().add(
-          AuthLoginRequested(email, password),
+          AuthLoginRequested(identifier, password),
         );
   }
 
@@ -138,17 +138,17 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 32),
                       TextFormField(
-                        controller: _emailController,
+                        controller: _identifierController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
-                          labelText: 'Email',
-                          hintText: 'Super Admin or Company Admin',
-                          prefixIcon: Icon(LucideIcons.mail, size: 20),
+                          labelText: 'License key, email or phone',
+                          hintText: 'Enter license key, email or phone number',
+                          prefixIcon: Icon(LucideIcons.mail, size: 20, color: AppColors.textMuted),
                         ),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return 'Email is required';
+                            return 'License key, email or phone is required';
                           }
                           return null;
                         },
@@ -162,13 +162,14 @@ class _LoginPageState extends State<LoginPage> {
                         decoration: InputDecoration(
                           labelText: 'Password',
                           hintText: 'Enter your password',
-                          prefixIcon: const Icon(LucideIcons.lock, size: 20),
+                          prefixIcon: const Icon(LucideIcons.lock, size: 20, color: AppColors.textMuted),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
                                   ? LucideIcons.eyeOff
                                   : LucideIcons.eye,
                               size: 20,
+                              color: AppColors.textMuted,
                             ),
                             onPressed: () {
                               setState(

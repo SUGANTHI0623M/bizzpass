@@ -259,7 +259,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                         ),
                         const SizedBox(height: 16),
                         FormFieldWrapper(
-                          label: 'LICENSE KEY (optional)',
+                          label: 'LICENSE KEY (required)',
                           child: TextFormField(
                             controller: licenseKeyCtrl,
                             style: const TextStyle(
@@ -267,8 +267,14 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                 color: AppColors.text,
                                 fontFamily: 'monospace'),
                             decoration: const InputDecoration(
-                              hintText: 'Leave empty to create without license',
+                              hintText: 'Enter an unassigned license key',
                             ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'License key is required';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -307,10 +313,18 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                   : () async {
                                       final name = nameCtrl.text.trim();
                                       final email = emailCtrl.text.trim();
+                                      final licenseKey = licenseKeyCtrl.text.trim();
                                       if (name.isEmpty || email.isEmpty) {
                                         setDialogState(() {
                                           submitError =
                                               'Company name and email are required';
+                                        });
+                                        return;
+                                      }
+                                      if (licenseKey.isEmpty) {
+                                        setDialogState(() {
+                                          submitError =
+                                              'License key is required';
                                         });
                                         return;
                                       }
@@ -333,10 +347,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                               ? null
                                               : stateCtrl.text.trim(),
                                           subscriptionPlan: selectedPlan,
-                                          licenseKey:
-                                              licenseKeyCtrl.text.trim().isEmpty
-                                                  ? null
-                                                  : licenseKeyCtrl.text.trim(),
+                                          licenseKey: licenseKey,
                                           isActive: isActive,
                                         );
                                         if (ctx.mounted) {
@@ -523,11 +534,17 @@ class _CompaniesPageState extends State<CompaniesPage> {
                         children: [
                           Expanded(
                               child: InfoMetric(
-                                  label: 'Staff', value: '${c.staffCount}')),
+                                  label: 'Staff',
+                                  value: c.maxStaff != null
+                                      ? '${c.staffCount}/${c.maxStaff}'
+                                      : '${c.staffCount}')),
                           const SizedBox(width: 12),
                           Expanded(
                               child: InfoMetric(
-                                  label: 'Branches', value: '${c.branches}')),
+                                  label: 'Branches',
+                                  value: c.maxBranches != null
+                                      ? '${c.branches}/${c.maxBranches}'
+                                      : '${c.branches}')),
                           const SizedBox(width: 12),
                           Expanded(
                               child: InfoMetric(

@@ -13,6 +13,10 @@ class Company {
       licenseKey;
   final bool isActive;
   final int staffCount, branches;
+  /// Max staff (users) from plan/license. Null = unlimited.
+  final int? maxStaff;
+  /// Max branches from plan/license. Null = unlimited.
+  final int? maxBranches;
 
   const Company({
     required this.id,
@@ -28,6 +32,8 @@ class Company {
     required this.staffCount,
     required this.branches,
     required this.licenseKey,
+    this.maxStaff,
+    this.maxBranches,
   });
 
   factory Company.fromJson(Map<String, dynamic> j) {
@@ -45,6 +51,8 @@ class Company {
       isActive: (j['isActive'] as bool?) ?? true,
       staffCount: (j['staffCount'] as num?)?.toInt() ?? 0,
       branches: (j['branches'] as num?)?.toInt() ?? 0,
+      maxStaff: (j['maxStaff'] as num?)?.toInt(),
+      maxBranches: (j['maxBranches'] as num?)?.toInt(),
     );
   }
 }

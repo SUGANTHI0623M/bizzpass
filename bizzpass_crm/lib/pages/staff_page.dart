@@ -7,26 +7,17 @@ import '../data/staff_repository.dart';
 import '../data/roles_repository.dart';
 import '../data/branches_repository.dart';
 import '../data/departments_repository.dart';
+import '../data/attendance_modals_repository.dart';
+import '../data/shift_modals_repository.dart';
+import '../data/leave_modals_repository.dart';
+import 'staff_details_page.dart';
 
-/// Option for attendance / leave / holiday modal dropdowns in staff creation.
+/// Option for attendance / shift / leave / holiday modal dropdowns in staff creation.
 class StaffModalOption {
   final int id;
   final String name;
   const StaffModalOption(this.id, this.name);
 }
-
-const _defaultAttendanceModals = [
-  StaffModalOption(1, 'Standard Attendance'),
-  StaffModalOption(2, 'Selfie & Location'),
-  StaffModalOption(3, 'Field Attendance'),
-];
-const _defaultLeaveModals = [
-  StaffModalOption(1, 'Annual Leave'),
-  StaffModalOption(2, 'Sick Leave'),
-];
-const _defaultHolidayModals = [
-  StaffModalOption(1, 'Company Holidays'),
-];
 
 class StaffPage extends StatefulWidget {
   /// When true (company admin), show Add Staff button and create dialog.
@@ -46,15 +37,21 @@ class _StaffPageState extends State<StaffPage> {
   final RolesRepository _rolesRepo = RolesRepository();
   final BranchesRepository _branchesRepo = BranchesRepository();
   final DepartmentsRepository _departmentsRepo = DepartmentsRepository();
+  final AttendanceModalsRepository _attendanceModalsRepo = AttendanceModalsRepository();
+  final ShiftModalsRepository _shiftModalsRepo = ShiftModalsRepository();
+  final LeaveModalsRepository _leaveModalsRepo = LeaveModalsRepository();
   List<Staff> _staff = [];
   List<Branch> _branches = [];
   List<Department> _departments = [];
+  List<StaffModalOption> _attendanceModals = [];
+  List<StaffModalOption> _shiftModals = [];
+  List<StaffModalOption> _leaveModals = [];
+  List<StaffModalOption> _holidayModals = [];
   bool _loading = true;
   String? _error;
   String _search = '';
   String _tab = 'all';
   bool _showCreateDialog = false;
-  Staff? _viewStaff;
   Staff? _editingStaff;
   String? _filterDepartment;
   String? _filterJoiningFrom;
@@ -79,6 +76,7 @@ class _StaffPageState extends State<StaffPage> {
     _load();
     if (widget.enableCreate) {
       _loadBranchesAndDepartments();
+      _loadModalsFromSettings();
     }
   }
 
@@ -92,6 +90,24 @@ class _StaffPageState extends State<StaffPage> {
           _departments = departments;
         });
     } catch (_) {}
+  }
+
+  Future<void> _loadModalsFromSettings() async {
+    try {
+      final att = await _attendanceModalsRepo.fetchModals();
+      final shift = await _shiftModalsRepo.fetchModals();
+      final leave = await _leaveModalsRepo.fetchModals();
+      if (mounted) {
+        setState(() {
+          _attendanceModals = att.map((m) => StaffModalOption(m.id, m.name)).toList();
+          _shiftModals = shift.map((m) => StaffModalOption(m.id, m.name)).toList();
+          _leaveModals = leave.map((m) => StaffModalOption(m.id, m.name)).toList();
+          _holidayModals = [];
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() {});
+    }
   }
 
   Future<void> _load() async {
@@ -139,6 +155,25 @@ class _StaffPageState extends State<StaffPage> {
     setState(() => _showCreateDialog = true);
   }
 
+  void _openStaffDetails(Staff s) {
+    Navigator.of(context).push<Staff?>(
+      MaterialPageRoute<Staff?>(
+        builder: (ctx) => Scaffold(
+          backgroundColor: AppColors.bg,
+          body: StaffDetailsPage(
+            staffId: s.id,
+            initialStaff: s,
+            onBack: () => Navigator.of(ctx).pop(),
+            onEdit: (staff) => Navigator.of(ctx).pop(staff),
+            onStaffUpdated: _load,
+          ),
+        ),
+      ),
+    ).then((result) {
+      if (result != null && mounted) setState(() => _editingStaff = result);
+    });
+  }
+
   Future<void> _submitCreateStaff({
     required String fullName,
     required String email,
@@ -153,6 +188,7 @@ class _StaffPageState extends State<StaffPage> {
     String status = 'active',
     int? branchId,
     int? attendanceModalId,
+    int? shiftModalId,
     int? leaveModalId,
     int? holidayModalId,
   }) async {
@@ -200,10 +236,7 @@ class _StaffPageState extends State<StaffPage> {
       branchId: branchId,
     );
     if (mounted) {
-      setState(() {
-        _editingStaff = null;
-        _viewStaff = null;
-      });
+      setState(() => _editingStaff = null);
       _load();
     }
   }
@@ -242,18 +275,10 @@ class _StaffPageState extends State<StaffPage> {
               rolesRepo: _rolesRepo,
               branches: _branches,
               initialBranchId: _effectiveBranchId,
-              attendanceModals: _defaultAttendanceModals,
-              leaveModals: _defaultLeaveModals,
-              holidayModals: _defaultHolidayModals,
-            ),
-          if (_viewStaff != null)
-            _ViewStaffDialog(
-              staff: _viewStaff!,
-              onClose: () => setState(() => _viewStaff = null),
-              onEdit: () => setState(() {
-                _editingStaff = _viewStaff;
-                _viewStaff = null;
-              }),
+              attendanceModals: _attendanceModals,
+              shiftModals: _shiftModals,
+              leaveModals: _leaveModals,
+              holidayModals: _holidayModals,
             ),
           if (_editingStaff != null)
             _EditStaffDialog(
@@ -451,7 +476,7 @@ class _StaffPageState extends State<StaffPage> {
                           DataCell(
                             InkWell(
                               onTap: widget.enableCreate
-                                  ? () => setState(() => _viewStaff = s)
+                                  ? () => _openStaffDetails(s)
                                   : null,
                               child: Row(children: [
                                 AvatarCircle(
@@ -490,8 +515,7 @@ class _StaffPageState extends State<StaffPage> {
                                 IconButton(
                                   icon: const Icon(Icons.visibility_outlined,
                                       size: 20),
-                                  onPressed: () =>
-                                      setState(() => _viewStaff = s),
+                                  onPressed: () => _openStaffDetails(s),
                                   tooltip: 'View',
                                 ),
                                 IconButton(
@@ -573,6 +597,7 @@ class _CreateStaffDialog extends StatefulWidget {
     String status,
     int? branchId,
     int? attendanceModalId,
+    int? shiftModalId,
     int? leaveModalId,
     int? holidayModalId,
   }) onSubmit;
@@ -581,6 +606,7 @@ class _CreateStaffDialog extends StatefulWidget {
   final List<Branch> branches;
   final int? initialBranchId;
   final List<StaffModalOption> attendanceModals;
+  final List<StaffModalOption> shiftModals;
   final List<StaffModalOption> leaveModals;
   final List<StaffModalOption> holidayModals;
 
@@ -591,9 +617,10 @@ class _CreateStaffDialog extends StatefulWidget {
     required this.rolesRepo,
     this.branches = const [],
     this.initialBranchId,
-    this.attendanceModals = _defaultAttendanceModals,
-    this.leaveModals = _defaultLeaveModals,
-    this.holidayModals = _defaultHolidayModals,
+    this.attendanceModals = const [],
+    this.shiftModals = const [],
+    this.leaveModals = const [],
+    this.holidayModals = const [],
   });
 
   @override
@@ -614,6 +641,7 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
   int? _selectedRoleId;
   int? _selectedBranchId;
   int? _selectedAttendanceModalId;
+  int? _selectedShiftModalId;
   int? _selectedLeaveModalId;
   int? _selectedHolidayModalId;
   List<Role> _roles = [];
@@ -628,6 +656,9 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
     _selectedBranchId = widget.initialBranchId;
     if (widget.attendanceModals.isNotEmpty) {
       _selectedAttendanceModalId = widget.attendanceModals.first.id;
+    }
+    if (widget.shiftModals.isNotEmpty) {
+      _selectedShiftModalId = widget.shiftModals.first.id;
     }
     if (widget.leaveModals.isNotEmpty) {
       _selectedLeaveModalId = widget.leaveModals.first.id;
@@ -700,10 +731,13 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
       );
       return;
     }
-    if (widget.attendanceModals.isNotEmpty &&
-        _selectedAttendanceModalId == null) {
+    if (widget.attendanceModals.isNotEmpty && _selectedAttendanceModalId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an attendance modal')),
+        const SnackBar(
+          content: Text(
+            'Please select an attendance modal. Create one in Settings > Attendance Settings > Attendance Modals.',
+          ),
+        ),
       );
       return;
     }
@@ -739,6 +773,7 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
         status: _status,
         branchId: _selectedBranchId,
         attendanceModalId: _selectedAttendanceModalId,
+        shiftModalId: _selectedShiftModalId,
         leaveModalId: _selectedLeaveModalId,
         holidayModalId: _selectedHolidayModalId,
       );
@@ -802,7 +837,7 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                'Users: $currentUsers / $maxUsers',
+                'Staff: $currentUsers / $maxUsers',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
             ),
@@ -916,6 +951,23 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
                     setState(() => _selectedAttendanceModalId = v),
               ),
             if (widget.attendanceModals.isNotEmpty) const SizedBox(height: 8),
+            if (widget.shiftModals.isNotEmpty)
+              DropdownButtonFormField<int?>(
+                value: _selectedShiftModalId,
+                decoration: const InputDecoration(
+                  labelText: 'Shift Modal',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  const DropdownMenuItem<int?>(
+                      value: null, child: Text('— None')),
+                  ...widget.shiftModals.map((m) =>
+                      DropdownMenuItem(value: m.id, child: Text(m.name))),
+                ],
+                onChanged: (v) => setState(() => _selectedShiftModalId = v),
+              ),
+            if (widget.shiftModals.isNotEmpty) const SizedBox(height: 8),
             if (widget.leaveModals.isNotEmpty)
               DropdownButtonFormField<int?>(
                 value: _selectedLeaveModalId,
@@ -1031,85 +1083,6 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
               ],
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ViewStaffDialog extends StatelessWidget {
-  final Staff staff;
-  final VoidCallback onClose;
-  final VoidCallback onEdit;
-
-  const _ViewStaffDialog({
-    required this.staff,
-    required this.onClose,
-    required this.onEdit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('Staff details',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text)),
-              const Spacer(),
-              TextButton(onPressed: onEdit, child: const Text('Edit')),
-              IconButton(
-                  onPressed: onClose, icon: const Icon(Icons.close_rounded)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _DetailRow(label: 'Name', value: staff.name),
-          _DetailRow(label: 'Email', value: staff.email),
-          _DetailRow(label: 'Phone', value: staff.phone),
-          _DetailRow(label: 'Employee ID', value: staff.employeeId),
-          _DetailRow(label: 'Department', value: staff.department),
-          _DetailRow(label: 'Designation', value: staff.designation),
-          _DetailRow(label: 'Branch', value: staff.branchName ?? '—'),
-          _DetailRow(label: 'Role', value: staff.roleName ?? '—'),
-          _DetailRow(label: 'Status', value: staff.status),
-          _DetailRow(label: 'Joining date', value: staff.joiningDate),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final String label, value;
-  const _DetailRow({required this.label, required this.value});
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-              width: 120,
-              child: Text(label,
-                  style:
-                      const TextStyle(color: AppColors.textDim, fontSize: 12))),
-          Expanded(
-              child: Text(value,
-                  style: const TextStyle(color: AppColors.text, fontSize: 13))),
         ],
       ),
     );

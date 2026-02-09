@@ -23,7 +23,7 @@ class CompanyCreate(BaseModel):
     city: str | None = None
     state: str | None = None
     subscription_plan: str = "Starter"
-    license_key: str | None = None
+    license_key: str  # Required: unassigned license key to link to this company
     is_active: bool = True
     admin_password: str | None = None  # Optional; if omitted, default is used and returned in response
 
@@ -38,8 +38,14 @@ class CompanyUpdate(BaseModel):
     is_active: bool | None = None
 
 
-def _company_row_to_dict(row, staff_count: int = 0, branches: int = 0) -> dict:
-    """Map DB row to frontend Company shape."""
+def _company_row_to_dict(
+    row,
+    staff_count: int = 0,
+    branches: int = 0,
+    max_staff: int | None = None,
+    max_branches: int | None = None,
+) -> dict:
+    """Map DB row to frontend Company shape. max_staff/max_branches from license (plan limits)."""
     return {
         "id": row["id"],
         "name": row["name"] or "",
@@ -54,6 +60,8 @@ def _company_row_to_dict(row, staff_count: int = 0, branches: int = 0) -> dict:
         "isActive": bool(row.get("is_active", True)),
         "staffCount": staff_count,
         "branches": branches,
+        "maxStaff": max_staff,
+        "maxBranches": max_branches,
         "logo": row.get("logo"),
     }
 
@@ -81,7 +89,13 @@ def list_companies(
     companies = []
     for r in rows:
         with get_cursor() as cur2:
-            # staff can be linked by company_id (BIGINT) or legacy business_id (VARCHAR)
+            cur2.execute(
+                "SELECT l.max_users, l.max_branches FROM licenses l WHERE l.company_id = %s LIMIT 1",
+                (r["id"],),
+            )
+            lic = cur2.fetchone()
+            max_staff = lic.get("max_users") if lic else None
+            max_branches = lic.get("max_branches") if lic else None
             cur2.execute(
                 """
                 SELECT COUNT(*) AS cnt FROM staff
@@ -91,11 +105,14 @@ def list_companies(
             )
             staff_count = int((cur2.fetchone() or {}).get("cnt", 0) or 0)
             cur2.execute(
-                "SELECT COUNT(*) AS cnt FROM branches WHERE business_id = %s OR business_id = %s",
-                (str(r["id"]), r.get("mongo_id") or str(r["id"])),
+                """
+                SELECT COUNT(*) AS cnt FROM branches
+                WHERE company_id = %s OR business_id = %s OR business_id = %s
+                """,
+                (r["id"], str(r["id"]), r.get("mongo_id") or str(r["id"])),
             )
             branches = int((cur2.fetchone() or {}).get("cnt", 0) or 0)
-        d = _company_row_to_dict(r, staff_count, branches)
+        d = _company_row_to_dict(r, staff_count, branches, max_staff, max_branches)
         d["address_city"] = r.get("address_city")
         d["address_state"] = r.get("address_state")
         companies.append(d)
@@ -142,6 +159,13 @@ def get_company(
     mongo_id = row.get("mongo_id")
     with get_cursor() as cur:
         cur.execute(
+            "SELECT l.max_users, l.max_branches FROM licenses l WHERE l.company_id = %s LIMIT 1",
+            (company_id,),
+        )
+        lic = cur.fetchone()
+        max_staff = lic.get("max_users") if lic else None
+        max_branches = lic.get("max_branches") if lic else None
+        cur.execute(
             """
             SELECT COUNT(*) AS cnt FROM staff
             WHERE company_id = %s OR business_id = %s OR (business_id = %s AND %s IS NOT NULL)
@@ -150,12 +174,15 @@ def get_company(
         )
         staff_count = int((cur.fetchone() or {}).get("cnt", 0) or 0)
         cur.execute(
-            "SELECT COUNT(*) AS cnt FROM branches WHERE business_id = %s OR business_id = %s",
-            (str(company_id), mongo_id or str(company_id)),
+            """
+            SELECT COUNT(*) AS cnt FROM branches
+            WHERE company_id = %s OR business_id = %s OR business_id = %s
+            """,
+            (company_id, str(company_id), mongo_id or str(company_id)),
         )
         branches = int((cur.fetchone() or {}).get("cnt", 0) or 0)
 
-    return _company_row_to_dict(row, staff_count, branches)
+    return _company_row_to_dict(row, staff_count, branches, max_staff, max_branches)
 
 
 @router.post("")
@@ -185,18 +212,18 @@ def create_company(
                     detail="Company with this phone number already exists.",
                 )
 
-    license_id = None
-    if body.license_key and body.license_key.strip():
-        with get_cursor() as cur:
-            cur.execute(
-                "SELECT id FROM licenses WHERE license_key = %s AND company_id IS NULL",
-                (body.license_key,),
-            )
-            lic = cur.fetchone()
-            if lic:
-                license_id = lic["id"]
-            else:
-                raise HTTPException(status_code=400, detail="License key not found or already assigned")
+    license_key_trimmed = (body.license_key or "").strip()
+    if not license_key_trimmed:
+        raise HTTPException(status_code=400, detail="License key is required")
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT id FROM licenses WHERE license_key = %s AND company_id IS NULL",
+            (license_key_trimmed,),
+        )
+        lic = cur.fetchone()
+        if not lic:
+            raise HTTPException(status_code=400, detail="License key not found or already assigned to another company")
+    license_id = lic["id"]
 
     with get_cursor() as cur:
         cur.execute(
@@ -226,31 +253,6 @@ def create_company(
 
     new_id = row["id"]
 
-    # If no license provided, auto-create one so company admin can log in (auth requires valid license)
-    if not license_id:
-        import uuid
-        plan_code = (body.subscription_plan or "Starter").lower().replace(" ", "_").strip()
-        if plan_code == "pro":
-            plan_code = "professional"
-        with get_cursor() as cur:
-            cur.execute(
-                "SELECT id FROM subscription_plans WHERE (plan_code = %s OR plan_name ILIKE %s) AND is_active LIMIT 1",
-                (plan_code, "%" + (body.subscription_plan or "Starter") + "%"),
-            )
-            plan = cur.fetchone()
-        if plan:
-            license_key = f"BP-{plan_code[:3].upper()}-{str(uuid.uuid4())[:8].upper()}"
-            with get_cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO licenses (license_key, plan_id, max_users, max_branches, is_trial, created_by, status)
-                    VALUES (%s, %s, 30, 1, FALSE, %s, 'unassigned')
-                    RETURNING id
-                    """,
-                    (license_key, plan["id"], current_user["id"]),
-                )
-                license_id = cur.fetchone()["id"]
-
     # Create a separate database for this company with all required tables (does not affect existing features)
     try:
         db_name = create_company_database(new_id)
@@ -265,21 +267,20 @@ def create_company(
             detail=f"Company created but failed to provision company database. Please ensure the DB user has CREATEDB privilege. Error: {e!s}",
         ) from e
 
-    if license_id:
-        with get_cursor() as cur:
-            cur.execute(
-                "UPDATE licenses SET company_id = %s, status = 'active', valid_from = CURRENT_DATE, valid_until = CURRENT_DATE + INTERVAL '1 year' WHERE id = %s",
-                (new_id, license_id),
-            )
-            cur.execute(
-                "UPDATE companies SET license_id = %s, subscription_end_date = CURRENT_DATE + INTERVAL '1 year' WHERE id = %s",
-                (license_id, new_id),
-            )
-
     with get_cursor() as cur:
-        cur.execute("SELECT license_key FROM licenses WHERE company_id = %s", (new_id,))
+        cur.execute(
+            "UPDATE licenses SET company_id = %s, status = 'active', valid_from = CURRENT_DATE, valid_until = CURRENT_DATE + INTERVAL '1 year' WHERE id = %s",
+            (new_id, license_id),
+        )
+        cur.execute(
+            "UPDATE companies SET license_id = %s, subscription_end_date = CURRENT_DATE + INTERVAL '1 year' WHERE id = %s",
+            (license_id, new_id),
+        )
+        cur.execute("SELECT license_key, max_users, max_branches FROM licenses WHERE id = %s", (license_id,))
         lic_row = cur.fetchone()
-    license_key = (lic_row or {}).get("license_key", body.license_key or "")
+    license_key = (lic_row or {}).get("license_key", license_key_trimmed)
+    max_staff = lic_row.get("max_users") if lic_row else None
+    max_branches = lic_row.get("max_branches") if lic_row else None
 
     # Create company admin user so they can log in (email = company email, company_id_bigint = new_id)
     admin_password = (body.admin_password or "").strip() or DEFAULT_COMPANY_ADMIN_PASSWORD
@@ -306,6 +307,8 @@ def create_company(
         {**dict(row), "license_key": license_key},
         staff_count=0,
         branches=0,
+        max_staff=max_staff,
+        max_branches=max_branches,
     )
     if used_default_password:
         result["adminLogin"] = {

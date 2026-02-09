@@ -27,7 +27,7 @@ import 'pages/leave_placeholder_page.dart';
 import 'pages/tasks_placeholder_page.dart';
 import 'pages/payroll_placeholder_page.dart';
 import 'pages/reports_placeholder_page.dart';
-import 'pages/subscription_placeholder_page.dart';
+import 'pages/subscription_page.dart';
 import 'widgets/company_admin_shell.dart';
 import 'data/branches_repository.dart';
 
@@ -332,7 +332,7 @@ class __CompanyAdminScreenStatefulState
       case 'reports':
         return const ReportsPlaceholderPage();
       case 'subscription':
-        return const SubscriptionPlaceholderPage();
+        return const SubscriptionPage();
       case 'settings':
         return const SettingsPage();
       case 'audit-logs':

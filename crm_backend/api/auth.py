@@ -16,7 +16,9 @@ security = HTTPBearer(auto_error=False)
 
 
 class LoginRequest(BaseModel):
-    email: str
+    """identifier: license key, email, or phone. Accept 'identifier' or 'email' for compatibility."""
+    identifier: str | None = None
+    email: str | None = None
     password: str
 
 
@@ -52,24 +54,61 @@ def create_token(
 
 @router.post("/login", response_model=LoginResponse)
 def login(body: LoginRequest):
-    """Login with email/password. Super Admin bypasses RBAC. Company Admin requires valid license."""
-    email = (body.email or "").strip().lower()
-    if not email or not body.password:
-        raise HTTPException(status_code=400, detail="Email and password are required")
+    """Login with license key, email, or phone + password. Super Admin bypasses RBAC. Company Admin requires valid license."""
+    identifier = (body.identifier or body.email or "").strip()
+    if not identifier or not body.password:
+        raise HTTPException(status_code=400, detail="License key, email or phone, and password are required")
 
+    row = None
+    # 1) Try license key -> resolve to company admin user
     with get_cursor() as cur:
         cur.execute(
-            """
-            SELECT id, name, email, password, role, is_super_admin, company_id_bigint, rbac_role_id
-            FROM users
-            WHERE LOWER(email) = LOWER(%s) AND is_active IS NOT DISTINCT FROM TRUE
-            """,
-            (email,),
+            "SELECT company_id FROM licenses WHERE license_key = %s AND company_id IS NOT NULL LIMIT 1",
+            (identifier,),
         )
-        row = cur.fetchone()
+        lic = cur.fetchone()
+        if lic:
+            company_id_bigint = lic["company_id"]
+            cur.execute(
+                """
+                SELECT id, name, email, password, role, is_super_admin, company_id_bigint, rbac_role_id
+                FROM users
+                WHERE company_id_bigint = %s AND is_active IS NOT DISTINCT FROM TRUE
+                ORDER BY id
+                LIMIT 1
+                """,
+                (company_id_bigint,),
+            )
+            row = cur.fetchone()
+
+    # 2) Try email
+    if not row:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, name, email, password, role, is_super_admin, company_id_bigint, rbac_role_id
+                FROM users
+                WHERE LOWER(email) = LOWER(%s) AND is_active IS NOT DISTINCT FROM TRUE
+                """,
+                (identifier,),
+            )
+            row = cur.fetchone()
+
+    # 3) Try phone
+    if not row:
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, name, email, password, role, is_super_admin, company_id_bigint, rbac_role_id
+                FROM users
+                WHERE TRIM(COALESCE(phone, '')) = %s AND is_active IS NOT DISTINCT FROM TRUE
+                """,
+                (identifier.strip(),),
+            )
+            row = cur.fetchone()
 
     if not row:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Invalid license key, email or phone, or password")
 
     hashed = row.get("password") or ""
     if not verify_password(body.password, hashed):

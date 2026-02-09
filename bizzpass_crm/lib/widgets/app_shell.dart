@@ -17,7 +17,6 @@ const navItems = [
   NavItem(id: 'dashboard', label: 'Dashboard', icon: Icons.dashboard_rounded),
   NavItem(id: 'licenses', label: 'Licenses', icon: Icons.vpn_key_rounded),
   NavItem(id: 'payments', label: 'Payments', icon: Icons.credit_card_rounded),
-  NavItem(id: 'staff', label: 'Staff', icon: Icons.people_rounded),
   NavItem(
       id: 'attendance',
       label: 'Attendance',
@@ -102,18 +101,34 @@ class _AppShellState extends State<AppShell> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
                     children: [
-                      if (!isWide)
-                        IconButton(
-                          onPressed: () =>
-                              _scaffoldKey.currentState?.openDrawer(),
-                          icon: const Icon(Icons.menu_rounded,
-                              color: AppColors.textMuted, size: 22),
+                      IconButton(
+                        onPressed: () {
+                          if (isWide) {
+                            setState(() => _collapsed = !_collapsed);
+                          } else {
+                            _scaffoldKey.currentState?.openDrawer();
+                          }
+                        },
+                        icon: Icon(
+                          isWide && _collapsed
+                              ? Icons.menu_open_rounded
+                              : Icons.menu_rounded,
+                          color: AppColors.textMuted,
+                          size: 22,
                         ),
+                        tooltip: isWide
+                            ? (_collapsed ? 'Open sidebar' : 'Close sidebar')
+                            : 'Open menu',
+                      ),
+                      const SizedBox(width: 4),
                       Text(
                         widget.activePage == 'dashboard'
                             ? 'Welcome back'
                             : navItems
-                                .firstWhere((n) => n.id == widget.activePage)
+                                .firstWhere(
+                                  (n) => n.id == widget.activePage,
+                                  orElse: () => navItems.first,
+                                )
                                 .label,
                         style: const TextStyle(
                           fontSize: 15,

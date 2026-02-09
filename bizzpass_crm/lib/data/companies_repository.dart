@@ -130,6 +130,7 @@ class CompaniesRepository {
   }
 
   /// Create a new company. Returns company and optional admin login (when backend uses default password).
+  /// [licenseKey] is required; must be an unassigned license key.
   Future<CreateCompanyResult> createCompany({
     required String name,
     required String email,
@@ -137,7 +138,7 @@ class CompaniesRepository {
     String? city,
     String? state,
     String subscriptionPlan = 'Starter',
-    String? licenseKey,
+    required String licenseKey,
     bool isActive = true,
     String? adminPassword,
   }) async {
@@ -147,13 +148,11 @@ class CompaniesRepository {
       'email': email.trim(),
       'subscription_plan': subscriptionPlan,
       'is_active': isActive,
+      'license_key': licenseKey.trim(),
     };
     if (phone != null && phone.isNotEmpty) body['phone'] = phone.trim();
     if (city != null && city.isNotEmpty) body['city'] = city.trim();
     if (state != null && state.isNotEmpty) body['state'] = state.trim();
-    if (licenseKey != null && licenseKey.trim().isNotEmpty) {
-      body['license_key'] = licenseKey.trim();
-    }
     if (adminPassword != null && adminPassword.isNotEmpty) {
       body['admin_password'] = adminPassword.trim();
     }

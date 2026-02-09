@@ -180,13 +180,135 @@ def run_migrations(cur):
         if "already exists" not in str(e).lower():
             print("Migration note (departments):", e)
 
-    # Ensure "basic" plan exists for CRM UI (idempotent)
+    # Attendance templates: add company_id for company-scoped attendance modals
+    try:
+        cur.execute(
+            "ALTER TABLE attendance_templates ADD COLUMN IF NOT EXISTS company_id BIGINT NULL"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_attendance_templates_company_id ON attendance_templates(company_id)"
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (attendance_templates):", e)
+
+    # Shift modals table (company-scoped shift definitions)
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS shift_modals (
+                id BIGSERIAL PRIMARY KEY,
+                company_id BIGINT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                start_time VARCHAR(10) NOT NULL,
+                end_time VARCHAR(10) NOT NULL,
+                grace_minutes INTEGER NOT NULL DEFAULT 10,
+                grace_unit VARCHAR(20) NOT NULL DEFAULT 'Minutes',
+                created_at TIMESTAMP NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_shift_modals_company_id ON shift_modals(company_id)"
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (shift_modals):", e)
+
+    # Shift modals: add is_active for activate/deactivate
+    try:
+        cur.execute(
+            "ALTER TABLE shift_modals ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (shift_modals is_active):", e)
+
+    # Leave categories (company-scoped: Sick, Casual, etc.)
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS leave_categories (
+                id BIGSERIAL PRIMARY KEY,
+                company_id BIGINT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMP NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_leave_categories_company_id ON leave_categories(company_id)"
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (leave_categories):", e)
+
+    # Leave modals (company-scoped leave templates for CRM)
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS leave_modals (
+                id BIGSERIAL PRIMARY KEY,
+                company_id BIGINT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                description TEXT NULL,
+                leave_types JSONB NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMP NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_leave_modals_company_id ON leave_modals(company_id)"
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (leave_modals):", e)
+
+    # Holiday modals (company-scoped weekly off patterns: sundays, odd_saturday, etc.)
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS holiday_modals (
+                id BIGSERIAL PRIMARY KEY,
+                company_id BIGINT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                pattern_type VARCHAR(32) NOT NULL DEFAULT 'sundays',
+                custom_days JSONB NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMP NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_holiday_modals_company_id ON holiday_modals(company_id)"
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (holiday_modals):", e)
+
+    # Office holidays (company-scoped list of holiday dates)
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS office_holidays (
+                id BIGSERIAL PRIMARY KEY,
+                company_id BIGINT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                date DATE NOT NULL,
+                created_at TIMESTAMP NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_office_holidays_company_id ON office_holidays(company_id)"
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (office_holidays):", e)
+
+    # Ensure "basic" plan exists for CRM UI (idempotent). Max 30 staff, 1 branch.
     try:
         cur.execute(
             """
             INSERT INTO subscription_plans (plan_code, plan_name, description, price, currency, duration_months, max_users, max_branches, is_active, trial_days, created_at, updated_at)
-            VALUES ('basic', 'Basic', 'Basic plan', 9999, 'INR', 12, 10, 1, TRUE, 0, NOW(), NOW())
-            ON CONFLICT (plan_code) DO NOTHING
+            VALUES ('basic', 'Basic', 'Basic plan', 9999, 'INR', 12, 30, 1, TRUE, 0, NOW(), NOW())
+            ON CONFLICT (plan_code) DO UPDATE SET max_users = 30, max_branches = 1, updated_at = NOW()
             """
         )
     except Exception as e:
@@ -385,6 +507,24 @@ def seed_crm_sample_data(cur):
     print("Sample CRM data seeded.")
 
 
+def sync_license_limits_from_plan(cur):
+    """Sync license max_users and max_branches from their subscription plan."""
+    try:
+        cur.execute("""
+            UPDATE licenses l
+            SET max_users = COALESCE(sp.max_users, 30),
+                max_branches = COALESCE(sp.max_branches, 1),
+                updated_at = NOW()
+            FROM subscription_plans sp
+            WHERE sp.id = l.plan_id
+        """)
+        if cur.rowcount > 0:
+            print(f"Synced {cur.rowcount} license(s) with plan limits.")
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (sync_license_limits):", e)
+
+
 def main():
     create_database_if_not_exists()
     conn = get_connection()
@@ -400,6 +540,7 @@ def main():
         seed_subscription_plans(cur)
         seed_superadmin(cur)
         seed_crm_sample_data(cur)
+        sync_license_limits_from_plan(cur)
         conn.commit()
     except Exception as e:
         conn.rollback()

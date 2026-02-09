@@ -36,13 +36,14 @@ class AuthRepository {
 
   final Dio _dio;
 
-  Future<LoginResponse> login(String email, String password) async {
+  /// [identifier] can be license key, email, or phone number.
+  Future<LoginResponse> login(String identifier, String password) async {
     const uri = '${ApiConstants.baseUrl}/auth/login';
-    _log('Login request', {'url': uri, 'email': email});
+    _log('Login request', {'url': uri, 'identifier': identifier});
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/auth/login',
-        data: {'email': email.trim(), 'password': password},
+        data: {'identifier': identifier.trim(), 'password': password},
         options: Options(
           contentType: 'application/json',
           validateStatus: (s) => s != null && s < 500,
@@ -56,7 +57,7 @@ class AuthRepository {
 
       if (response.statusCode == 401) {
         _log('Login failed: 401 Unauthorized');
-        throw AuthException('Invalid email or password');
+        throw AuthException('Invalid license key, email or phone, or password');
       }
       if (response.statusCode != 200 || response.data == null) {
         final detail = response.data is Map && response.data!['detail'] != null

@@ -14,6 +14,12 @@ from api.licenses import router as licenses_router
 from api.staff import router as staff_router
 from api.visitors import router as visitors_router
 from api.attendance import router as attendance_router
+from api.attendance_modals import router as attendance_modals_router
+from api.shift_modals import router as shift_modals_router
+from api.office_holidays import router as office_holidays_router
+from api.holiday_modals import router as holiday_modals_router
+from api.leave_modals import router as leave_modals_router
+from api.leave_categories import router as leave_categories_router
 from api.payments import router as payments_router
 from api.notifications import router as notifications_router
 from api.plans import router as plans_router, create_plan
@@ -22,6 +28,7 @@ from api.roles import router as roles_router
 from api.audit_logs import router as audit_logs_router
 from api.branches import router as branches_router
 from api.departments import router as departments_router
+from api.subscription import router as subscription_router
 
 app = FastAPI(
     title="BizzPass CRM Backend",
@@ -29,9 +36,21 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Must list origins explicitly when allow_credentials=True (browser rejects "*" with credentials).
+# Flutter web may use localhost or 127.0.0.1 depending on how it's launched.
+_app_origins = [
+    "http://localhost:3000",
+    "http://localhost:808",
+    "http://localhost:8080",
+    "http://localhost:8081",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:808",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:8081",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_app_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,6 +72,12 @@ app.include_router(licenses_router)
 app.include_router(staff_router)
 app.include_router(visitors_router)
 app.include_router(attendance_router)
+app.include_router(attendance_modals_router)
+app.include_router(shift_modals_router)
+app.include_router(office_holidays_router)
+app.include_router(holiday_modals_router)
+app.include_router(leave_modals_router)
+app.include_router(leave_categories_router)
 app.include_router(payments_router)
 app.include_router(notifications_router)
 app.include_router(plans_router)
@@ -61,6 +86,7 @@ app.include_router(roles_router)
 app.include_router(audit_logs_router)
 app.include_router(branches_router)
 app.include_router(departments_router)
+app.include_router(subscription_router)
 
 # Guarantee POST /plans/create is always registered (avoids 404 from router load order/cache)
 app.add_api_route("/plans/create", create_plan, methods=["POST"])

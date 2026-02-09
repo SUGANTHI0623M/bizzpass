@@ -152,13 +152,26 @@ class _CompanyAdminShellState extends State<CompanyAdminShell> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
                     children: [
-                      if (!isWide)
-                        IconButton(
-                          onPressed: () =>
-                              _scaffoldKey.currentState?.openDrawer(),
-                          icon: const Icon(Icons.menu_rounded,
-                              color: AppColors.textMuted, size: 22),
+                      IconButton(
+                        onPressed: () {
+                          if (isWide) {
+                            setState(() => _collapsed = !_collapsed);
+                          } else {
+                            _scaffoldKey.currentState?.openDrawer();
+                          }
+                        },
+                        icon: Icon(
+                          isWide && _collapsed
+                              ? Icons.menu_open_rounded
+                              : Icons.menu_rounded,
+                          color: AppColors.textMuted,
+                          size: 22,
                         ),
+                        tooltip: isWide
+                            ? (_collapsed ? 'Open sidebar' : 'Close sidebar')
+                            : 'Open menu',
+                      ),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           companyNavItemsForPermissions(widget.permissions)
@@ -259,7 +272,11 @@ class _CompanyAdminShellState extends State<CompanyAdminShell> {
             ),
           ),
           const SizedBox(height: 8),
-          ...companyNavItemsForPermissions(widget.permissions).map((n) {
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: companyNavItemsForPermissions(widget.permissions).map((n) {
             final isActive = widget.activePage == n.id;
             return Material(
               color: Colors.transparent,
@@ -309,9 +326,12 @@ class _CompanyAdminShellState extends State<CompanyAdminShell> {
                     ],
                   ),
                 ),
+                ),
+              );
+                }).toList(),
               ),
-            );
-          }),
+            ),
+          ),
         ],
       ),
     );
