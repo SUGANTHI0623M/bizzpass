@@ -5,7 +5,8 @@ import '../theme/app_theme.dart';
 // ─── Formatters ──────────────────────────────────────────────────────────────
 
 String fmtINR(int paise) {
-  final formatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+  final formatter =
+      NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
   return formatter.format(paise);
 }
 
@@ -44,27 +45,48 @@ class StatusBadge extends StatelessWidget {
 
   static _StatusConfig _statusConfig(String status) {
     switch (status) {
-      case 'active': return _StatusConfig(AppColors.success, 'Active');
-      case 'expired': return _StatusConfig(AppColors.danger, 'Expired');
-      case 'expiring_soon': return _StatusConfig(AppColors.warning, 'Expiring Soon');
-      case 'suspended': return _StatusConfig(AppColors.danger, 'Suspended');
-      case 'unassigned': return _StatusConfig(AppColors.textMuted, 'Unassigned');
-      case 'captured': return _StatusConfig(AppColors.success, 'Captured');
-      case 'refunded': return _StatusConfig(AppColors.warning, 'Refunded');
-      case 'failed': return _StatusConfig(AppColors.danger, 'Failed');
-      case 'present': return _StatusConfig(AppColors.success, 'Present');
-      case 'absent': return _StatusConfig(AppColors.danger, 'Absent');
-      case 'late': return _StatusConfig(AppColors.warning, 'Late');
-      case 'checked_in': return _StatusConfig(AppColors.info, 'Checked In');
-      case 'checked_out': return _StatusConfig(AppColors.textMuted, 'Checked Out');
-      case 'expected': return _StatusConfig(AppColors.warning, 'Expected');
-      case 'inactive': return _StatusConfig(AppColors.textMuted, 'Inactive');
-      case 'sent': return _StatusConfig(AppColors.info, 'Sent');
-      case 'delivered': return _StatusConfig(AppColors.success, 'Delivered');
-      case 'read': return _StatusConfig(AppColors.textMuted, 'Read');
-      case 'pending': return _StatusConfig(AppColors.warning, 'Pending');
-      case 'revoked': return _StatusConfig(AppColors.danger, 'Revoked');
-      default: return _StatusConfig(AppColors.textMuted, status);
+      case 'active':
+        return const _StatusConfig(AppColors.success, 'Active');
+      case 'expired':
+        return const _StatusConfig(AppColors.danger, 'Expired');
+      case 'expiring_soon':
+        return const _StatusConfig(AppColors.warning, 'Expiring Soon');
+      case 'suspended':
+        return const _StatusConfig(AppColors.danger, 'Suspended');
+      case 'unassigned':
+        return const _StatusConfig(AppColors.textMuted, 'Unassigned');
+      case 'captured':
+        return const _StatusConfig(AppColors.success, 'Captured');
+      case 'refunded':
+        return const _StatusConfig(AppColors.warning, 'Refunded');
+      case 'failed':
+        return const _StatusConfig(AppColors.danger, 'Failed');
+      case 'present':
+        return const _StatusConfig(AppColors.success, 'Present');
+      case 'absent':
+        return const _StatusConfig(AppColors.danger, 'Absent');
+      case 'late':
+        return const _StatusConfig(AppColors.warning, 'Late');
+      case 'checked_in':
+        return const _StatusConfig(AppColors.info, 'Checked In');
+      case 'checked_out':
+        return const _StatusConfig(AppColors.textMuted, 'Checked Out');
+      case 'expected':
+        return const _StatusConfig(AppColors.warning, 'Expected');
+      case 'inactive':
+        return const _StatusConfig(AppColors.textMuted, 'Inactive');
+      case 'sent':
+        return const _StatusConfig(AppColors.info, 'Sent');
+      case 'delivered':
+        return const _StatusConfig(AppColors.success, 'Delivered');
+      case 'read':
+        return const _StatusConfig(AppColors.textMuted, 'Read');
+      case 'pending':
+        return const _StatusConfig(AppColors.warning, 'Pending');
+      case 'revoked':
+        return const _StatusConfig(AppColors.danger, 'Revoked');
+      default:
+        return _StatusConfig(AppColors.textMuted, status);
     }
   }
 }
@@ -85,13 +107,21 @@ class PriorityDot extends StatelessWidget {
   Widget build(BuildContext context) {
     Color color;
     switch (priority) {
-      case 'urgent': color = AppColors.danger; break;
-      case 'high': color = AppColors.warning; break;
-      case 'normal': color = AppColors.info; break;
-      default: color = AppColors.textMuted;
+      case 'urgent':
+        color = AppColors.danger;
+        break;
+      case 'high':
+        color = AppColors.warning;
+        break;
+      case 'normal':
+        color = AppColors.info;
+        break;
+      default:
+        color = AppColors.textMuted;
     }
     return Container(
-      width: 8, height: 8,
+      width: 8,
+      height: 8,
       decoration: BoxDecoration(shape: BoxShape.circle, color: color),
     );
   }
@@ -107,8 +137,13 @@ class StatCard extends StatelessWidget {
   final Color accentColor;
 
   const StatCard({
-    super.key, required this.icon, required this.label, required this.value,
-    this.sub, this.trend, this.trendUp = true,
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.sub,
+    this.trend,
+    this.trendUp = true,
     this.accentColor = const Color(0x1AA78BFA),
   });
 
@@ -121,52 +156,72 @@ class StatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  borderRadius: BorderRadius.circular(12),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topLeft,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 18, color: AppColors.accent),
                 ),
-                child: Icon(icon, size: 18, color: AppColors.accent),
-              ),
-              if (trend != null)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      trendUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                      size: 14,
-                      color: trendUp ? AppColors.success : AppColors.danger,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(trend!, style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600,
-                      color: trendUp ? AppColors.success : AppColors.danger,
-                    )),
-                  ],
-                ),
+                if (trend != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        trendUp
+                            ? Icons.trending_up_rounded
+                            : Icons.trending_down_rounded,
+                        size: 14,
+                        color: trendUp ? AppColors.success : AppColors.danger,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(trend!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                trendUp ? AppColors.success : AppColors.danger,
+                          )),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(value,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text,
+                  letterSpacing: -0.5,
+                  height: 1.1,
+                )),
+            const SizedBox(height: 4),
+            Text(label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.w500,
+                )),
+            if (sub != null) ...[
+              const SizedBox(height: 2),
+              Text(sub!,
+                  style:
+                      const TextStyle(fontSize: 11, color: AppColors.textDim)),
             ],
-          ),
-          const SizedBox(height: 14),
-          Text(value, style: const TextStyle(
-            fontSize: 26, fontWeight: FontWeight.w700,
-            color: AppColors.text, letterSpacing: -0.5, height: 1.1,
-          )),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(
-            fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w500,
-          )),
-          if (sub != null) ...[
-            const SizedBox(height: 2),
-            Text(sub!, style: const TextStyle(fontSize: 11, color: AppColors.textDim)),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -180,32 +235,44 @@ class SectionHeader extends StatelessWidget {
   final String? actionLabel;
   final IconData? actionIcon;
   final VoidCallback? onAction;
+  final double? bottomPadding;
 
   const SectionHeader({
-    super.key, required this.title, this.subtitle,
-    this.actionLabel, this.actionIcon, this.onAction,
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.actionLabel,
+    this.actionIcon,
+    this.onAction,
+    this.bottomPadding,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: EdgeInsets.only(bottom: bottomPadding ?? 20),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w700,
-                  color: AppColors.text, letterSpacing: -0.3,
-                )),
+                Text(title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text,
+                      letterSpacing: -0.3,
+                    )),
                 if (subtitle != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 3),
-                    child: Text(subtitle!, style: const TextStyle(
-                      fontSize: 13, color: AppColors.textMuted, fontWeight: FontWeight.w400,
-                    )),
+                    child: Text(subtitle!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w400,
+                        )),
                   ),
               ],
             ),
@@ -216,8 +283,10 @@ class SectionHeader extends StatelessWidget {
               icon: Icon(actionIcon ?? Icons.add_rounded, size: 16),
               label: Text(actionLabel!),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
             ),
@@ -247,8 +316,10 @@ class AppSearchBar extends StatelessWidget {
           style: const TextStyle(fontSize: 13, color: AppColors.text),
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: const Icon(Icons.search_rounded, size: 18, color: AppColors.textDim),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+            prefixIcon: const Icon(Icons.search_rounded,
+                size: 18, color: AppColors.textDim),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           ),
         ),
       ),
@@ -262,13 +333,20 @@ class AppTabBar extends StatelessWidget {
   final List<TabItem> tabs;
   final String active;
   final ValueChanged<String> onChanged;
+  final double? marginBottom;
 
-  const AppTabBar({super.key, required this.tabs, required this.active, required this.onChanged});
+  const AppTabBar({
+    super.key,
+    required this.tabs,
+    required this.active,
+    required this.onChanged,
+    this.marginBottom,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: EdgeInsets.only(bottom: marginBottom ?? 20),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppColors.card,
@@ -284,7 +362,8 @@ class AppTabBar extends StatelessWidget {
               onTap: () => onChanged(t.id),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                 decoration: BoxDecoration(
                   color: isActive ? AppColors.accent : Colors.transparent,
                   borderRadius: BorderRadius.circular(9),
@@ -292,16 +371,20 @@ class AppTabBar extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(t.label, style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600,
-                      color: isActive ? Colors.white : AppColors.textMuted,
-                    )),
+                    Text(t.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? Colors.white : AppColors.textMuted,
+                        )),
                     if (t.count != null) ...[
                       const SizedBox(width: 6),
-                      Text('(${t.count})', style: TextStyle(
-                        fontSize: 11,
-                        color: isActive ? Colors.white70 : AppColors.textDim,
-                      )),
+                      Text('(${t.count})',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                isActive ? Colors.white70 : AppColors.textDim,
+                          )),
                     ],
                   ],
                 ),
@@ -341,22 +424,28 @@ class AppDataTable extends StatelessWidget {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 320),
+            constraints: BoxConstraints(
+                minWidth: MediaQuery.of(context).size.width - 320),
             child: DataTable(
               headingRowColor: WidgetStateProperty.all(AppColors.cardHover),
               headingTextStyle: const TextStyle(
-                fontSize: 11, fontWeight: FontWeight.w600,
-                letterSpacing: 0.8, color: AppColors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+                color: AppColors.textMuted,
               ),
-              dataTextStyle: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              dataTextStyle:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               columnSpacing: 24,
               horizontalMargin: 16,
               dividerThickness: 0.5,
               dataRowMinHeight: 52,
               dataRowMaxHeight: 60,
-              columns: columns.map((c) => DataColumn(
-                label: Text(c.label.toUpperCase()),
-              )).toList(),
+              columns: columns
+                  .map((c) => DataColumn(
+                        label: Text(c.label.toUpperCase()),
+                      ))
+                  .toList(),
               rows: rows,
             ),
           ),
@@ -380,26 +469,36 @@ class AvatarCircle extends StatelessWidget {
   final bool round;
 
   const AvatarCircle({
-    super.key, required this.name, this.seed = 0,
-    this.size = 34, this.round = false,
+    super.key,
+    required this.name,
+    this.seed = 0,
+    this.size = 34,
+    this.round = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final hue = ((seed > 0 ? seed : name.hashCode) * 47 % 360).toDouble();
-    final initials = name.split(' ').where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join();
+    final initials = name
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
     return Container(
-      width: size, height: size,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: HSLColor.fromAHSL(1, hue, 0.5, 0.85).toColor(),
         borderRadius: BorderRadius.circular(round ? size / 2 : 10),
       ),
       alignment: Alignment.center,
-      child: Text(initials, style: TextStyle(
-        fontWeight: FontWeight.w700,
-        fontSize: size * 0.36,
-        color: HSLColor.fromAHSL(1, hue, 0.45, 0.35).toColor(),
-      )),
+      child: Text(initials,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: size * 0.36,
+            color: HSLColor.fromAHSL(1, hue, 0.45, 0.35).toColor(),
+          )),
     );
   }
 }
@@ -412,8 +511,11 @@ class DetailTile extends StatelessWidget {
   final Color? valueColor;
 
   const DetailTile({
-    super.key, required this.label, required this.value,
-    this.mono = false, this.valueColor,
+    super.key,
+    required this.label,
+    required this.value,
+    this.mono = false,
+    this.valueColor,
   });
 
   @override
@@ -427,17 +529,21 @@ class DetailTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(
-            fontSize: 11, color: AppColors.textDim,
-            fontWeight: FontWeight.w600, letterSpacing: 0.5,
-          )),
+          Text(label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textDim,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              )),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(
-            fontSize: 13,
-            color: valueColor ?? AppColors.textSecondary,
-            fontFamily: mono ? 'monospace' : null,
-            fontWeight: mono ? FontWeight.w600 : FontWeight.w400,
-          )),
+          Text(value,
+              style: TextStyle(
+                fontSize: 13,
+                color: valueColor ?? AppColors.textSecondary,
+                fontFamily: mono ? 'monospace' : null,
+                fontWeight: mono ? FontWeight.w600 : FontWeight.w400,
+              )),
         ],
       ),
     );
@@ -461,10 +567,13 @@ class FormFieldWrapper extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Text(label, style: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w600,
-              color: AppColors.textMuted, letterSpacing: 0.3,
-            )),
+            child: Text(label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted,
+                  letterSpacing: 0.3,
+                )),
           ),
           child,
         ],
@@ -479,7 +588,8 @@ class InfoMetric extends StatelessWidget {
   final String label, value;
   final Color? valueColor;
 
-  const InfoMetric({super.key, required this.label, required this.value, this.valueColor});
+  const InfoMetric(
+      {super.key, required this.label, required this.value, this.valueColor});
 
   @override
   Widget build(BuildContext context) {
@@ -492,12 +602,15 @@ class InfoMetric extends StatelessWidget {
       alignment: Alignment.center,
       child: Column(
         children: [
-          Text(value, style: TextStyle(
-            fontSize: 22, fontWeight: FontWeight.w700,
-            color: valueColor ?? AppColors.accent,
-          )),
+          Text(value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: valueColor ?? AppColors.accent,
+              )),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textDim)),
+          Text(label,
+              style: const TextStyle(fontSize: 12, color: AppColors.textDim)),
         ],
       ),
     );
@@ -510,7 +623,11 @@ class EmptyState extends StatelessWidget {
   final IconData icon;
   final String title, description;
 
-  const EmptyState({super.key, required this.icon, required this.title, required this.description});
+  const EmptyState(
+      {super.key,
+      required this.icon,
+      required this.title,
+      required this.description});
 
   @override
   Widget build(BuildContext context) {
@@ -521,7 +638,8 @@ class EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56, height: 56,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 color: AppColors.accent.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(16),
@@ -529,11 +647,15 @@ class EmptyState extends StatelessWidget {
               child: Icon(icon, size: 24, color: AppColors.textDim),
             ),
             const SizedBox(height: 16),
-            Text(title, style: const TextStyle(
-              fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textMuted,
-            )),
+            Text(title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted,
+                )),
             const SizedBox(height: 6),
-            Text(description, style: const TextStyle(fontSize: 13, color: AppColors.textDim)),
+            Text(description,
+                style: const TextStyle(fontSize: 13, color: AppColors.textDim)),
           ],
         ),
       ),

@@ -22,6 +22,18 @@ class AppColors {
 
 ThemeData buildAppTheme() {
   final base = ThemeData.dark();
+  TextTheme textTheme;
+  try {
+    textTheme = GoogleFonts.dmSansTextTheme(base.textTheme).apply(
+      bodyColor: AppColors.textSecondary,
+      displayColor: AppColors.text,
+    );
+  } catch (_) {
+    textTheme = base.textTheme.apply(
+      bodyColor: AppColors.textSecondary,
+      displayColor: AppColors.text,
+    );
+  }
   return base.copyWith(
     scaffoldBackgroundColor: AppColors.bg,
     cardColor: AppColors.card,
@@ -32,10 +44,7 @@ ThemeData buildAppTheme() {
       surface: AppColors.card,
       error: AppColors.danger,
     ),
-    textTheme: GoogleFonts.dmSansTextTheme(base.textTheme).apply(
-      bodyColor: AppColors.textSecondary,
-      displayColor: AppColors.text,
-    ),
+    textTheme: textTheme,
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.bg,
       elevation: 0,

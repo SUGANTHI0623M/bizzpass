@@ -2,17 +2,74 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../data/mock_data.dart';
+import '../data/visitors_repository.dart';
+import '../data/companies_repository.dart';
 
-class VisitorsPage extends StatelessWidget {
+class VisitorsPage extends StatefulWidget {
   const VisitorsPage({super.key});
 
+  @override
+  State<VisitorsPage> createState() => _VisitorsPageState();
+}
+
+class _VisitorsPageState extends State<VisitorsPage> {
+  final VisitorsRepository _repo = VisitorsRepository();
+  final CompaniesRepository _companiesRepo = CompaniesRepository();
+  List<Visitor> _visitors = [];
+  List<Company> _companies = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final v = await _repo.fetchVisitors();
+      final c = await _companiesRepo.fetchCompanies();
+      if (mounted) {
+        setState(() {
+          _visitors = v;
+          _companies = c;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString().replaceAll('VisitorsException: ', '').replaceAll('CompaniesException: ', '');
+        });
+      }
+    }
+  }
+
   void _showRegisterDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final visitorCompanyCtrl = TextEditingController();
+    final hostCtrl = TextEditingController();
+    final purposeCtrl = TextEditingController();
+    int? selectedCompanyId;
+    String? selectedIdProof;
+    bool submitting = false;
+    String? submitError;
+    final companies = _companies.where((c) => c.isActive).toList();
+
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: AppColors.bg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: ConstrainedBox(
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: AppColors.bg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: SingleChildScrollView(
             child: Column(
@@ -40,45 +97,63 @@ class VisitorsPage extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (submitError != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: AppColors.danger.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(submitError!, style: const TextStyle(fontSize: 13, color: AppColors.danger)),
+                        ),
+                      ],
                       Row(children: [
                         Expanded(child: FormFieldWrapper(label: 'VISITOR NAME', child: TextFormField(
+                          controller: nameCtrl,
                           style: const TextStyle(fontSize: 13, color: AppColors.text),
                           decoration: const InputDecoration(hintText: 'Full name'),
                         ))),
                         const SizedBox(width: 14),
                         Expanded(child: FormFieldWrapper(label: 'PHONE', child: TextFormField(
+                          controller: phoneCtrl,
                           style: const TextStyle(fontSize: 13, color: AppColors.text),
                           decoration: const InputDecoration(hintText: '+91 XXXXX XXXXX'),
                         ))),
                       ]),
                       Row(children: [
                         Expanded(child: FormFieldWrapper(label: 'COMPANY', child: TextFormField(
+                          controller: visitorCompanyCtrl,
                           style: const TextStyle(fontSize: 13, color: AppColors.text),
                           decoration: const InputDecoration(hintText: "Visitor's organization"),
                         ))),
                         const SizedBox(width: 14),
                         Expanded(child: FormFieldWrapper(
                           label: 'VISITING COMPANY',
-                          child: DropdownButtonFormField<String>(
+                          child: DropdownButtonFormField<int>(
                             decoration: const InputDecoration(),
                             dropdownColor: AppColors.card,
                             style: const TextStyle(fontSize: 13, color: AppColors.text),
                             hint: const Text('Select company...'),
-                            items: companies.where((c) => c.isActive).map((c) =>
-                              DropdownMenuItem(value: c.name, child: Text(c.name)),
+                            value: selectedCompanyId,
+                            items: companies.map((c) =>
+                              DropdownMenuItem(value: c.id, child: Text(c.name)),
                             ).toList(),
-                            onChanged: (_) {},
+                            onChanged: (v) => setDialogState(() => selectedCompanyId = v),
                           ),
                         )),
                       ]),
                       Row(children: [
                         Expanded(child: FormFieldWrapper(label: 'HOST EMPLOYEE', child: TextFormField(
+                          controller: hostCtrl,
                           style: const TextStyle(fontSize: 13, color: AppColors.text),
                           decoration: const InputDecoration(hintText: 'Who are they meeting?'),
                         ))),
                         const SizedBox(width: 14),
                         Expanded(child: FormFieldWrapper(label: 'PURPOSE', child: TextFormField(
+                          controller: purposeCtrl,
                           style: const TextStyle(fontSize: 13, color: AppColors.text),
                           decoration: const InputDecoration(hintText: 'Reason for visit'),
                         ))),
@@ -90,22 +165,68 @@ class VisitorsPage extends StatelessWidget {
                           dropdownColor: AppColors.card,
                           style: const TextStyle(fontSize: 13, color: AppColors.text),
                           hint: const Text('Select...'),
+                          value: selectedIdProof,
                           items: const [
                             DropdownMenuItem(value: 'aadhaar', child: Text('Aadhaar')),
                             DropdownMenuItem(value: 'pan', child: Text('PAN Card')),
                             DropdownMenuItem(value: 'dl', child: Text('Driving License')),
                             DropdownMenuItem(value: 'passport', child: Text('Passport')),
                           ],
-                          onChanged: (_) {},
+                          onChanged: (v) => setDialogState(() => selectedIdProof = v),
                         ),
                       ),
                       const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                          OutlinedButton(
+                            onPressed: submitting ? null : () => Navigator.pop(ctx),
+                            child: const Text('Cancel'),
+                          ),
                           const SizedBox(width: 10),
-                          ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Register & Check In')),
+                          ElevatedButton(
+                            onPressed: submitting ? null : () async {
+                              final name = nameCtrl.text.trim();
+                              if (name.isEmpty) {
+                                setDialogState(() => submitError = 'Visitor name is required');
+                                return;
+                              }
+                              if (selectedCompanyId == null) {
+                                setDialogState(() => submitError = 'Please select a company');
+                                return;
+                              }
+                              setDialogState(() {
+                                submitting = true;
+                                submitError = null;
+                              });
+                              try {
+                                await _repo.registerVisitor(
+                                  visitorName: name,
+                                  visitorPhone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                                  visitorCompany: visitorCompanyCtrl.text.trim().isEmpty ? null : visitorCompanyCtrl.text.trim(),
+                                  companyId: selectedCompanyId!,
+                                  hostName: hostCtrl.text.trim().isEmpty ? null : hostCtrl.text.trim(),
+                                  purpose: purposeCtrl.text.trim().isEmpty ? null : purposeCtrl.text.trim(),
+                                  idProofType: selectedIdProof,
+                                );
+                                if (ctx.mounted) {
+                                  Navigator.pop(ctx);
+                                  _load();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Visitor registered'), backgroundColor: AppColors.success),
+                                  );
+                                }
+                              } catch (e) {
+                                setDialogState(() {
+                                  submitting = false;
+                                  submitError = e.toString().replaceAll('VisitorsException: ', '');
+                                });
+                              }
+                            },
+                            child: submitting
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Text('Register & Check In'),
+                          ),
                         ],
                       ),
                     ],
@@ -115,18 +236,27 @@ class VisitorsPage extends StatelessWidget {
             ),
           ),
         ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final checkedIn = visitors.where((v) => v.status == 'checked_in').length;
-    final expected = visitors.where((v) => v.status == 'expected').length;
-    final checkedOut = visitors.where((v) => v.status == 'checked_out').length;
+    if (_loading && _visitors.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(48),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    final checkedIn = _visitors.where((v) => v.status == 'checked_in').length;
+    final expected = _visitors.where((v) => v.status == 'expected').length;
+    final checkedOut = _visitors.where((v) => v.status == 'checked_out').length;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -137,7 +267,24 @@ class VisitorsPage extends StatelessWidget {
             actionIcon: Icons.person_add_rounded,
             onAction: () => _showRegisterDialog(context),
           ),
-
+          if (_error != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(_error!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+                  TextButton(onPressed: _load, child: const Text('Retry')),
+                ],
+              ),
+            ),
+          ],
           LayoutBuilder(builder: (ctx, c) {
             final crossCount = c.maxWidth > 700 ? 3 : 1;
             return GridView.count(
@@ -161,7 +308,7 @@ class VisitorsPage extends StatelessWidget {
               DataCol('Host'), DataCol('Purpose'), DataCol('Status'),
               DataCol('Badge'), DataCol('Check In'),
             ],
-            rows: visitors.map((v) => DataRow(cells: [
+            rows: _visitors.map((v) => DataRow(cells: [
               DataCell(Text(v.name, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.text))),
               DataCell(Text(v.visitorCompany)),
               DataCell(Text(v.companyVisiting)),
