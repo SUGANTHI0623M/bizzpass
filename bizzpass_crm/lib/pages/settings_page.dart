@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import 'shifts_page.dart';
@@ -151,6 +152,8 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _ThemeCard(),
+        const SizedBox(height: 12),
         _PolicyCard(
           icon: Icons.calendar_today_rounded,
           title: 'Attendance Settings',
@@ -277,6 +280,78 @@ class _SettingsSubPage extends StatelessWidget {
   }
 }
 
+class _ThemeCard extends StatelessWidget {
+  const _ThemeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+    final isDark = themeNotifier.isDarkMode;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.borderColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: context.accentColor.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              size: 20,
+              color: context.accentColor,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Theme',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: context.textColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isDark ? 'Dark theme' : 'Light theme',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.textMutedColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: isDark,
+            onChanged: (value) {
+              themeNotifier.setThemeMode(
+                value ? ThemeMode.dark : ThemeMode.light,
+              );
+            },
+            activeColor: context.accentColor,
+            activeTrackColor: context.accentColor.withOpacity(0.4),
+            inactiveThumbColor: context.textDimColor,
+            inactiveTrackColor: context.borderColor,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PolicyCard extends StatelessWidget {
   final IconData icon;
   final String title, desc;
@@ -301,9 +376,9 @@ class _PolicyCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: context.borderColor),
           ),
           child: Row(
             children: [
@@ -311,10 +386,10 @@ class _PolicyCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.08),
+                  color: context.accentColor.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, size: 20, color: AppColors.accent),
+                child: Icon(icon, size: 20, color: context.accentColor),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -323,18 +398,18 @@ class _PolicyCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.text,
+                        color: context.textColor,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       desc,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textMuted,
+                        color: context.textMutedColor,
                       ),
                     ),
                   ],
@@ -342,10 +417,10 @@ class _PolicyCard extends StatelessWidget {
               ),
               if (trailing != null) trailing!,
               if (trailing == null)
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
                   size: 20,
-                  color: AppColors.textDim,
+                  color: context.textDimColor,
                 ),
             ],
           ),

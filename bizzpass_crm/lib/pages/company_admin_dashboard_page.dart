@@ -81,14 +81,14 @@ class _CompanyAdminDashboardPageState extends State<CompanyAdminDashboardPage> {
             children: [
               Text(_error!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textSecondary)),
+                  style: TextStyle(color: context.textSecondaryColor)),
               if (isBackendUnreachable) ...[
                 const SizedBox(height: 12),
                 Text(
                   ApiConstants.backendUnreachableHint,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.textMuted,
+                    color: context.textMutedColor,
                     fontSize: 12,
                   ),
                 ),
@@ -125,21 +125,21 @@ class _CompanyAdminDashboardPageState extends State<CompanyAdminDashboardPage> {
                     label: 'Total Staff',
                     value: '$_staffCount',
                     sub: 'Employees',
-                    accentColor: AppColors.accent.withOpacity(0.12),
+                    accentColor: context.accentColor.withOpacity(0.12),
                   ),
                   StatCard(
                     icon: Icons.check_circle_rounded,
                     label: 'Present Today',
                     value: '$_presentCount',
                     sub: 'Checked in',
-                    accentColor: AppColors.success.withOpacity(0.12),
+                    accentColor: context.successColor.withOpacity(0.12),
                   ),
                   StatCard(
                     icon: Icons.person_pin_circle_rounded,
                     label: 'Visitors Now',
                     value: '$_visitorsCheckedIn',
                     sub: 'Checked in',
-                    accentColor: AppColors.info.withOpacity(0.12),
+                    accentColor: context.infoColor.withOpacity(0.12),
                   ),
                 ],
               );

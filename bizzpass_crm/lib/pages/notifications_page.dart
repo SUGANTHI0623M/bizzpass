@@ -69,18 +69,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded,
+                      color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                       child: Text(_error!,
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.textSecondary))),
+                          style: TextStyle(
+                              fontSize: 13, color: context.textSecondaryColor))),
                   TextButton(onPressed: _load, child: const Text('Retry')),
                 ],
               ),
@@ -100,16 +100,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 .map((n) => DataRow(cells: [
                       DataCell(PriorityDot(priority: n.priority)),
                       DataCell(Text(n.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.text))),
+                              color: context.textColor))),
                       DataCell(Text(n.company)),
                       DataCell(Text(
                         n.type.replaceAll('_', ' ').toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textMuted,
+                            color: context.textMutedColor,
                             letterSpacing: 0.5),
                       )),
                       DataCell(

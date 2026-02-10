@@ -74,7 +74,7 @@ class _PlansPageState extends State<PlansPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          backgroundColor: AppColors.bg,
+          backgroundColor: context.bgColor,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: ConstrainedBox(
@@ -95,8 +95,8 @@ class _PlansPageState extends State<PlansPage> {
                           label: 'PLAN CODE',
                           child: TextFormField(
                             controller: planCodeCtrl,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             decoration:
                                 const InputDecoration(hintText: 'e.g. starter'),
                           ),
@@ -105,8 +105,8 @@ class _PlansPageState extends State<PlansPage> {
                           label: 'PLAN NAME',
                           child: TextFormField(
                             controller: planNameCtrl,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             decoration:
                                 const InputDecoration(hintText: 'e.g. Starter'),
                           ),
@@ -116,8 +116,8 @@ class _PlansPageState extends State<PlansPage> {
                           child: TextFormField(
                             controller: descCtrl,
                             maxLines: 2,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             decoration:
                                 const InputDecoration(hintText: 'Optional'),
                           ),
@@ -130,8 +130,8 @@ class _PlansPageState extends State<PlansPage> {
                                 child: TextFormField(
                                   controller: priceCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -142,8 +142,8 @@ class _PlansPageState extends State<PlansPage> {
                                 child: TextFormField(
                                   controller: durationCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -157,8 +157,8 @@ class _PlansPageState extends State<PlansPage> {
                                 child: TextFormField(
                                   controller: maxUsersCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -169,8 +169,8 @@ class _PlansPageState extends State<PlansPage> {
                                 child: TextFormField(
                                   controller: maxBranchesCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                   decoration: const InputDecoration(
                                       hintText: 'Empty = Unlimited'),
                                 ),
@@ -183,8 +183,8 @@ class _PlansPageState extends State<PlansPage> {
                           child: TextFormField(
                             controller: trialCtrl,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                           ),
                         ),
                         FormFieldWrapper(
@@ -195,12 +195,12 @@ class _PlansPageState extends State<PlansPage> {
                                 value: isActive,
                                 onChanged: (v) =>
                                     setDialogState(() => isActive = v ?? true),
-                                activeColor: AppColors.accent,
+                                activeColor: context.accentColor,
                               ),
-                              const Text('Plan is active',
+                              Text('Plan is active',
                                   style: TextStyle(
                                       fontSize: 13,
-                                      color: AppColors.textSecondary)),
+                                      color: context.textSecondaryColor)),
                             ],
                           ),
                         ),
@@ -211,7 +211,7 @@ class _PlansPageState extends State<PlansPage> {
                             OutlinedButton(
                               onPressed:
                                   submitting ? null : () => Navigator.pop(ctx),
-                              child: const Text('Cancel'),
+                              child: Text('Cancel'),
                             ),
                             const SizedBox(width: 10),
                             ElevatedButton(
@@ -263,10 +263,10 @@ class _PlansPageState extends State<PlansPage> {
                                           _loadPlans();
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                                 content: Text('Plan created'),
                                                 backgroundColor:
-                                                    AppColors.success),
+                                                    context.successColor),
                                           );
                                         }
                                       } catch (e) {
@@ -283,7 +283,7 @@ class _PlansPageState extends State<PlansPage> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2))
-                                  : const Text('Create Plan'),
+                                  : Text('Create Plan'),
                             ),
                           ],
                         ),
@@ -317,7 +317,7 @@ class _PlansPageState extends State<PlansPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          backgroundColor: AppColors.bg,
+          backgroundColor: context.bgColor,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: ConstrainedBox(
@@ -338,8 +338,8 @@ class _PlansPageState extends State<PlansPage> {
                           label: 'PLAN NAME',
                           child: TextFormField(
                             controller: planNameCtrl,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                           ),
                         ),
                         FormFieldWrapper(
@@ -347,8 +347,8 @@ class _PlansPageState extends State<PlansPage> {
                           child: TextFormField(
                             controller: descCtrl,
                             maxLines: 2,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                           ),
                         ),
                         Row(
@@ -359,8 +359,8 @@ class _PlansPageState extends State<PlansPage> {
                                 child: TextFormField(
                                   controller: priceCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -371,8 +371,8 @@ class _PlansPageState extends State<PlansPage> {
                                 child: TextFormField(
                                   controller: durationCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -386,8 +386,8 @@ class _PlansPageState extends State<PlansPage> {
                                 child: TextFormField(
                                   controller: maxUsersCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -398,8 +398,8 @@ class _PlansPageState extends State<PlansPage> {
                                 child: TextFormField(
                                   controller: maxBranchesCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                   decoration: const InputDecoration(
                                       hintText: 'Empty = Unlimited'),
                                 ),
@@ -412,8 +412,8 @@ class _PlansPageState extends State<PlansPage> {
                           child: TextFormField(
                             controller: trialCtrl,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                           ),
                         ),
                         FormFieldWrapper(
@@ -424,12 +424,12 @@ class _PlansPageState extends State<PlansPage> {
                                 value: isActive,
                                 onChanged: (v) =>
                                     setDialogState(() => isActive = v ?? true),
-                                activeColor: AppColors.accent,
+                                activeColor: context.accentColor,
                               ),
-                              const Text('Plan is active',
+                              Text('Plan is active',
                                   style: TextStyle(
                                       fontSize: 13,
-                                      color: AppColors.textSecondary)),
+                                      color: context.textSecondaryColor)),
                             ],
                           ),
                         ),
@@ -440,7 +440,7 @@ class _PlansPageState extends State<PlansPage> {
                             OutlinedButton(
                               onPressed:
                                   submitting ? null : () => Navigator.pop(ctx),
-                              child: const Text('Cancel'),
+                              child: Text('Cancel'),
                             ),
                             const SizedBox(width: 10),
                             ElevatedButton(
@@ -486,10 +486,10 @@ class _PlansPageState extends State<PlansPage> {
                                           _loadPlans();
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                                 content: Text('Plan updated'),
                                                 backgroundColor:
-                                                    AppColors.success),
+                                                    context.successColor),
                                           );
                                         }
                                       } catch (e) {
@@ -506,7 +506,7 @@ class _PlansPageState extends State<PlansPage> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2))
-                                  : const Text('Save'),
+                                  : Text('Save'),
                             ),
                           ],
                         ),
@@ -527,7 +527,7 @@ class _PlansPageState extends State<PlansPage> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: AppColors.bg,
+        backgroundColor: context.bgColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
@@ -539,23 +539,23 @@ class _PlansPageState extends State<PlansPage> {
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: context.borderColor)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(plan.planName,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.text)),
+                              color: context.textColor)),
                       IconButton(
                         onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close_rounded,
-                            size: 20, color: AppColors.textMuted),
+                        icon: Icon(Icons.close_rounded,
+                            size: 20, color: context.textMutedColor),
                         style: IconButton.styleFrom(
-                            backgroundColor: AppColors.cardHover),
+                            backgroundColor: context.cardHoverColor),
                       ),
                     ],
                   ),
@@ -569,9 +569,9 @@ class _PlansPageState extends State<PlansPage> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16),
                           child: Text(plan.description,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 13,
-                                  color: AppColors.textSecondary)),
+                                  color: context.textSecondaryColor)),
                         ),
                       Wrap(
                         spacing: 12,
@@ -595,17 +595,17 @@ class _PlansPageState extends State<PlansPage> {
                               label: 'STATUS',
                               value: plan.isActive ? 'Active' : 'Inactive',
                               valueColor: plan.isActive
-                                  ? AppColors.success
-                                  : AppColors.danger),
+                                  ? context.successColor
+                                  : context.dangerColor),
                         ],
                       ),
                       if (plan.features.isNotEmpty) ...[
                         const SizedBox(height: 16),
-                        const Text('Features',
+                        Text('Features',
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.textMuted)),
+                                color: context.textMutedColor)),
                         const SizedBox(height: 8),
                         ...plan.features.map((f) => Padding(
                               padding: const EdgeInsets.only(bottom: 6),
@@ -616,9 +616,9 @@ class _PlansPageState extends State<PlansPage> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                       child: Text(f,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontSize: 13,
-                                              color: AppColors.textSecondary))),
+                                              color: context.textSecondaryColor))),
                                 ],
                               ),
                             )),
@@ -632,7 +632,7 @@ class _PlansPageState extends State<PlansPage> {
                               Navigator.pop(ctx);
                               _showEditPlanDialog(plan);
                             },
-                            child: const Text('Edit'),
+                            child: Text('Edit'),
                           ),
                           const SizedBox(width: 10),
                           TextButton(
@@ -640,20 +640,20 @@ class _PlansPageState extends State<PlansPage> {
                               final confirm = await showDialog<bool>(
                                 context: context,
                                 builder: (c) => AlertDialog(
-                                  backgroundColor: AppColors.bg,
-                                  title: const Text('Deactivate plan?'),
-                                  content: const Text(
+                                  backgroundColor: context.bgColor,
+                                  title: Text('Deactivate plan?'),
+                                  content: Text(
                                       'This will deactivate the plan. It can be reactivated by editing.'),
                                   actions: [
                                     TextButton(
                                         onPressed: () =>
                                             Navigator.pop(c, false),
-                                        child: const Text('Cancel')),
+                                        child: Text('Cancel')),
                                     TextButton(
                                         onPressed: () => Navigator.pop(c, true),
-                                        child: const Text('Deactivate',
+                                        child: Text('Deactivate',
                                             style: TextStyle(
-                                                color: AppColors.danger))),
+                                                color: context.dangerColor))),
                                   ],
                                 ),
                               );
@@ -664,9 +664,9 @@ class _PlansPageState extends State<PlansPage> {
                                     Navigator.pop(ctx);
                                     _loadPlans();
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                           content: Text('Plan deactivated'),
-                                          backgroundColor: AppColors.success),
+                                          backgroundColor: context.successColor),
                                     );
                                   }
                                 } catch (e) {
@@ -675,15 +675,15 @@ class _PlansPageState extends State<PlansPage> {
                                       SnackBar(
                                           content: Text(e.toString().replaceAll(
                                               'PlansException: ', '')),
-                                          backgroundColor: AppColors.danger),
+                                          backgroundColor: context.dangerColor),
                                     );
                                   }
                                 }
                               }
                             },
                             style: TextButton.styleFrom(
-                                foregroundColor: AppColors.danger),
-                            child: const Text('Deactivate'),
+                                foregroundColor: context.dangerColor),
+                            child: Text('Deactivate'),
                           ),
                         ],
                       ),
@@ -702,22 +702,22 @@ class _PlansPageState extends State<PlansPage> {
       BuildContext ctx, String title, bool submitting, VoidCallback onClose) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.borderColor)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.text)),
+                  color: context.textColor)),
           IconButton(
             onPressed: submitting ? null : onClose,
-            icon: const Icon(Icons.close_rounded,
-                size: 20, color: AppColors.textMuted),
-            style: IconButton.styleFrom(backgroundColor: AppColors.cardHover),
+            icon: Icon(Icons.close_rounded,
+                size: 20, color: context.textMutedColor),
+            style: IconButton.styleFrom(backgroundColor: context.cardHoverColor),
           ),
         ],
       ),
@@ -729,18 +729,18 @@ class _PlansPageState extends State<PlansPage> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.danger.withOpacity(0.1),
+        color: context.dangerColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded,
-              color: AppColors.danger, size: 20),
+          Icon(Icons.error_outline_rounded,
+              color: context.dangerColor, size: 20),
           const SizedBox(width: 10),
           Expanded(
               child: Text(msg,
                   style:
-                      const TextStyle(fontSize: 13, color: AppColors.danger))),
+                      TextStyle(fontSize: 13, color: context.dangerColor))),
         ],
       ),
     );
@@ -749,14 +749,14 @@ class _PlansPageState extends State<PlansPage> {
   Color _planColor(String code) {
     switch (code.toLowerCase()) {
       case 'starter':
-        return AppColors.textMuted;
+        return context.textMutedColor;
       case 'professional':
       case 'pro':
-        return AppColors.info;
+        return context.infoColor;
       case 'enterprise':
-        return AppColors.accent;
+        return context.accentColor;
       default:
-        return AppColors.accent;
+        return context.accentColor;
     }
   }
 
@@ -780,19 +780,19 @@ class _PlansPageState extends State<PlansPage> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded,
+                      color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                       child: Text(_error!,
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.textSecondary))),
-                  TextButton(onPressed: _loadPlans, child: const Text('Retry')),
+                          style: TextStyle(
+                              fontSize: 13, color: context.textSecondaryColor))),
+                  TextButton(onPressed: _loadPlans, child: Text('Retry')),
                 ],
               ),
             ),
@@ -809,9 +809,9 @@ class _PlansPageState extends State<PlansPage> {
               const SizedBox(width: 12),
               Row(
                 children: [
-                  const Text('Active only',
+                  Text('Active only',
                       style:
-                          TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          TextStyle(fontSize: 12, color: context.textMutedColor)),
                   const SizedBox(width: 8),
                   Switch(
                     value: _activeOnly,
@@ -819,7 +819,7 @@ class _PlansPageState extends State<PlansPage> {
                       _activeOnly = v;
                       _loadPlans();
                     }),
-                    activeColor: AppColors.accent,
+                    activeColor: context.accentColor,
                   ),
                 ],
               ),
@@ -859,15 +859,15 @@ class _PlansPageState extends State<PlansPage> {
     final color = _planColor(p.planCode);
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(height: 4, color: p.isActive ? color : AppColors.textDim),
+          Container(height: 4, color: p.isActive ? color : context.textDimColor),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -883,10 +883,10 @@ class _PlansPageState extends State<PlansPage> {
                           borderRadius: BorderRadius.circular(8),
                           child: Text(
                             p.planName,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.text),
+                                color: context.textColor),
                           ),
                         ),
                       ),
@@ -895,14 +895,14 @@ class _PlansPageState extends State<PlansPage> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppColors.danger.withOpacity(0.1),
+                            color: context.dangerColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text('Inactive',
+                          child: Text('Inactive',
                               style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.danger)),
+                                  color: context.dangerColor)),
                         )
                       else
                         Container(
@@ -926,16 +926,16 @@ class _PlansPageState extends State<PlansPage> {
                       children: [
                         TextSpan(
                           text: '₹${fmtNumber(p.price)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.text,
+                              color: context.textColor,
                               letterSpacing: -1),
                         ),
-                        const TextSpan(
+                        TextSpan(
                             text: '/year',
                             style: TextStyle(
-                                fontSize: 13, color: AppColors.textDim)),
+                                fontSize: 13, color: context.textDimColor)),
                       ],
                     ),
                   ),
@@ -959,9 +959,9 @@ class _PlansPageState extends State<PlansPage> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                     child: Text(f,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 13,
-                                            color: AppColors.textSecondary))),
+                                            color: context.textSecondaryColor))),
                               ],
                             ),
                           )),
@@ -971,11 +971,11 @@ class _PlansPageState extends State<PlansPage> {
                     children: [
                       TextButton(
                         onPressed: () => _showViewPlanDialog(p),
-                        child: const Text('View'),
+                        child: Text('View'),
                       ),
                       TextButton(
                         onPressed: () => _showEditPlanDialog(p),
-                        child: const Text('Edit'),
+                        child: Text('Edit'),
                       ),
                     ],
                   ),
@@ -992,19 +992,19 @@ class _PlansPageState extends State<PlansPage> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
-        color: AppColors.cardHover,
+        color: context.cardHoverColor,
         borderRadius: BorderRadius.circular(10),
       ),
       alignment: Alignment.center,
       child: Column(
         children: [
           Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.text)),
+                  color: context.textColor)),
           Text(label,
-              style: const TextStyle(fontSize: 11, color: AppColors.textDim)),
+              style: TextStyle(fontSize: 11, color: context.textDimColor)),
         ],
       ),
     );

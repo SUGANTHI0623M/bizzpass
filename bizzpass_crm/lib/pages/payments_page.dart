@@ -85,17 +85,17 @@ class _PaymentsPageState extends State<PaymentsPage> {
                     icon: Icons.credit_card_rounded,
                     label: 'Total Captured',
                     value: fmtINR(totalCaptured),
-                    accentColor: AppColors.success.withOpacity(0.12)),
+                    accentColor: context.successColor.withOpacity(0.12)),
                 StatCard(
                     icon: Icons.refresh_rounded,
                     label: 'Refunded',
                     value: fmtINR(totalRefunded),
-                    accentColor: AppColors.warning.withOpacity(0.12)),
+                    accentColor: context.warningColor.withOpacity(0.12)),
                 StatCard(
                     icon: Icons.receipt_long_rounded,
                     label: 'Transactions',
-                    value: '${payments.length}',
-                    accentColor: AppColors.info.withOpacity(0.12)),
+                    value: '${_payments.length}',
+                    accentColor: context.infoColor.withOpacity(0.12)),
               ],
             );
           }),
@@ -105,19 +105,19 @@ class _PaymentsPageState extends State<PaymentsPage> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded,
+                      color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                       child: Text(_error!,
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.textSecondary))),
-                  TextButton(onPressed: _load, child: const Text('Retry')),
+                          style: TextStyle(
+                              fontSize: 13, color: context.textSecondaryColor))),
+                  TextButton(onPressed: _load, child: Text('Retry')),
                 ],
               ),
             ),
@@ -147,30 +147,30 @@ class _PaymentsPageState extends State<PaymentsPage> {
               rows: filtered
                   .map((p) => DataRow(cells: [
                         DataCell(Text(p.company,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.text))),
+                                color: context.textColor))),
                         DataCell(Text(fmtINR(p.amount),
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.text,
+                                color: context.textColor,
                                 fontSize: 14))),
                         DataCell(Text(p.plan)),
                         DataCell(Text(
                             p.gateway[0].toUpperCase() + p.gateway.substring(1),
                             style:
-                                const TextStyle(fontWeight: FontWeight.w500))),
+                                TextStyle(fontWeight: FontWeight.w500))),
                         DataCell(Text(p.method.toUpperCase(),
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.textMuted))),
+                                color: context.textMutedColor))),
                         DataCell(StatusBadge(status: p.status)),
                         DataCell(Text(p.razorpayId,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontFamily: 'monospace',
                                 fontSize: 11,
-                                color: AppColors.textDim))),
+                                color: context.textDimColor))),
                         DataCell(Text(p.paidAt)),
                       ]))
                   .toList(),

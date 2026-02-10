@@ -21,20 +21,20 @@ class SubscriptionPlaceholderPage extends StatelessWidget {
             child: Column(
               children: [
                 Icon(Icons.credit_card_rounded,
-                    size: 64, color: AppColors.textMuted.withOpacity(0.5)),
+                    size: 64, color: context.textMutedColor.withOpacity(0.5)),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Subscription',
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.text),
+                      color: context.textColor),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'View plan usage, expiry date, and trigger renewal.',
                   style: TextStyle(
-                      fontSize: 14, color: AppColors.textSecondary),
+                      fontSize: 14, color: context.textSecondaryColor),
                   textAlign: TextAlign.center,
                 ),
               ],

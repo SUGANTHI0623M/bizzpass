@@ -21,7 +21,7 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final config = _statusConfig(status);
+    final config = _statusConfig(context, status);
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: large ? 14 : 10,
@@ -43,50 +43,50 @@ class StatusBadge extends StatelessWidget {
     );
   }
 
-  static _StatusConfig _statusConfig(String status) {
+  static _StatusConfig _statusConfig(BuildContext context, String status) {
     switch (status) {
       case 'active':
-        return const _StatusConfig(AppColors.success, 'Active');
+        return _StatusConfig(context.successColor, 'Active');
       case 'expired':
-        return const _StatusConfig(AppColors.danger, 'Expired');
+        return _StatusConfig(context.dangerColor, 'Expired');
       case 'expiring_soon':
-        return const _StatusConfig(AppColors.warning, 'Expiring Soon');
+        return _StatusConfig(context.warningColor, 'Expiring Soon');
       case 'suspended':
-        return const _StatusConfig(AppColors.danger, 'Suspended');
+        return _StatusConfig(context.dangerColor, 'Suspended');
       case 'unassigned':
-        return const _StatusConfig(AppColors.textMuted, 'Unassigned');
+        return _StatusConfig(context.textMutedColor, 'Unassigned');
       case 'captured':
-        return const _StatusConfig(AppColors.success, 'Captured');
+        return _StatusConfig(context.successColor, 'Captured');
       case 'refunded':
-        return const _StatusConfig(AppColors.warning, 'Refunded');
+        return _StatusConfig(context.warningColor, 'Refunded');
       case 'failed':
-        return const _StatusConfig(AppColors.danger, 'Failed');
+        return _StatusConfig(context.dangerColor, 'Failed');
       case 'present':
-        return const _StatusConfig(AppColors.success, 'Present');
+        return _StatusConfig(context.successColor, 'Present');
       case 'absent':
-        return const _StatusConfig(AppColors.danger, 'Absent');
+        return _StatusConfig(context.dangerColor, 'Absent');
       case 'late':
-        return const _StatusConfig(AppColors.warning, 'Late');
+        return _StatusConfig(context.warningColor, 'Late');
       case 'checked_in':
-        return const _StatusConfig(AppColors.info, 'Checked In');
+        return _StatusConfig(context.infoColor, 'Checked In');
       case 'checked_out':
-        return const _StatusConfig(AppColors.textMuted, 'Checked Out');
+        return _StatusConfig(context.textMutedColor, 'Checked Out');
       case 'expected':
-        return const _StatusConfig(AppColors.warning, 'Expected');
+        return _StatusConfig(context.warningColor, 'Expected');
       case 'inactive':
-        return const _StatusConfig(AppColors.textMuted, 'Inactive');
+        return _StatusConfig(context.textMutedColor, 'Inactive');
       case 'sent':
-        return const _StatusConfig(AppColors.info, 'Sent');
+        return _StatusConfig(context.infoColor, 'Sent');
       case 'delivered':
-        return const _StatusConfig(AppColors.success, 'Delivered');
+        return _StatusConfig(context.successColor, 'Delivered');
       case 'read':
-        return const _StatusConfig(AppColors.textMuted, 'Read');
+        return _StatusConfig(context.textMutedColor, 'Read');
       case 'pending':
-        return const _StatusConfig(AppColors.warning, 'Pending');
+        return _StatusConfig(context.warningColor, 'Pending');
       case 'revoked':
-        return const _StatusConfig(AppColors.danger, 'Revoked');
+        return _StatusConfig(context.dangerColor, 'Revoked');
       default:
-        return _StatusConfig(AppColors.textMuted, status);
+        return _StatusConfig(context.textMutedColor, status);
     }
   }
 }
@@ -108,16 +108,16 @@ class PriorityDot extends StatelessWidget {
     Color color;
     switch (priority) {
       case 'urgent':
-        color = AppColors.danger;
+        color = context.dangerColor;
         break;
       case 'high':
-        color = AppColors.warning;
+        color = context.warningColor;
         break;
       case 'normal':
-        color = AppColors.info;
+        color = context.infoColor;
         break;
       default:
-        color = AppColors.textMuted;
+        color = context.textMutedColor;
     }
     return Container(
       width: 8,
@@ -152,9 +152,9 @@ class StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: FittedBox(
         fit: BoxFit.scaleDown,
@@ -173,7 +173,7 @@ class StatCard extends StatelessWidget {
                     color: accentColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, size: 18, color: AppColors.accent),
+                  child: Icon(icon, size: 18, color: context.accentColor),
                 ),
                 if (trend != null)
                   Row(
@@ -184,7 +184,7 @@ class StatCard extends StatelessWidget {
                             ? Icons.trending_up_rounded
                             : Icons.trending_down_rounded,
                         size: 14,
-                        color: trendUp ? AppColors.success : AppColors.danger,
+                        color: trendUp ? context.successColor : context.dangerColor,
                       ),
                       const SizedBox(width: 3),
                       Text(trend!,
@@ -192,7 +192,7 @@ class StatCard extends StatelessWidget {
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color:
-                                trendUp ? AppColors.success : AppColors.danger,
+                                trendUp ? context.successColor : context.dangerColor,
                           )),
                     ],
                   ),
@@ -200,25 +200,25 @@ class StatCard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.text,
+                  color: context.textColor,
                   letterSpacing: -0.5,
                   height: 1.1,
                 )),
             const SizedBox(height: 4),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textMuted,
+                  color: context.textMutedColor,
                   fontWeight: FontWeight.w500,
                 )),
             if (sub != null) ...[
               const SizedBox(height: 2),
               Text(sub!,
                   style:
-                      const TextStyle(fontSize: 11, color: AppColors.textDim)),
+                      TextStyle(fontSize: 11, color: context.textDimColor)),
             ],
           ],
         ),
@@ -258,19 +258,19 @@ class SectionHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.text,
+                      color: context.textColor,
                       letterSpacing: -0.3,
                     )),
                 if (subtitle != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 3),
                     child: Text(subtitle!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.textMuted,
+                          color: context.textMutedColor,
                           fontWeight: FontWeight.w400,
                         )),
                   ),
@@ -313,11 +313,11 @@ class AppSearchBar extends StatelessWidget {
         width: 380,
         child: TextField(
           onChanged: onChanged,
-          style: const TextStyle(fontSize: 13, color: AppColors.text),
+          style: TextStyle(fontSize: 13, color: context.textColor),
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: const Icon(Icons.search_rounded,
-                size: 18, color: AppColors.textDim),
+            prefixIcon: Icon(Icons.search_rounded,
+                size: 18, color: context.textDimColor),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           ),
@@ -349,9 +349,9 @@ class AppTabBar extends StatelessWidget {
       margin: EdgeInsets.only(bottom: marginBottom ?? 20),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -365,7 +365,7 @@ class AppTabBar extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isActive ? AppColors.accent : Colors.transparent,
+                  color: isActive ? context.accentColor : Colors.transparent,
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: Row(
@@ -375,7 +375,7 @@ class AppTabBar extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: isActive ? Colors.white : AppColors.textMuted,
+                          color: isActive ? Colors.white : context.textMutedColor,
                         )),
                     if (t.count != null) ...[
                       const SizedBox(width: 6),
@@ -383,7 +383,7 @@ class AppTabBar extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             color:
-                                isActive ? Colors.white70 : AppColors.textDim,
+                                isActive ? Colors.white70 : context.textDimColor,
                           )),
                     ],
                   ],
@@ -415,9 +415,9 @@ class AppDataTable extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -427,15 +427,15 @@ class AppDataTable extends StatelessWidget {
             constraints: BoxConstraints(
                 minWidth: MediaQuery.of(context).size.width - 320),
             child: DataTable(
-              headingRowColor: WidgetStateProperty.all(AppColors.cardHover),
-              headingTextStyle: const TextStyle(
+              headingRowColor: WidgetStateProperty.all(context.cardHoverColor),
+              headingTextStyle: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.8,
-                color: AppColors.textMuted,
+                color: context.textMutedColor,
               ),
               dataTextStyle:
-                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  TextStyle(fontSize: 13, color: context.textSecondaryColor),
               columnSpacing: 24,
               horizontalMargin: 16,
               dividerThickness: 0.5,
@@ -523,16 +523,16 @@ class DetailTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardHover,
+        color: context.cardHoverColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppColors.textDim,
+                color: context.textDimColor,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
               )),
@@ -540,7 +540,7 @@ class DetailTile extends StatelessWidget {
           Text(value,
               style: TextStyle(
                 fontSize: 13,
-                color: valueColor ?? AppColors.textSecondary,
+                color: valueColor ?? context.textSecondaryColor,
                 fontFamily: mono ? 'monospace' : null,
                 fontWeight: mono ? FontWeight.w600 : FontWeight.w400,
               )),
@@ -568,10 +568,10 @@ class FormFieldWrapper extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textMuted,
+                  color: context.textMutedColor,
                   letterSpacing: 0.3,
                 )),
           ),
@@ -597,7 +597,7 @@ class InfoMetric extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       alignment: Alignment.center,
       child: Column(
@@ -606,11 +606,11 @@ class InfoMetric extends StatelessWidget {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: valueColor ?? AppColors.accent,
+                color: valueColor ?? context.accentColor,
               )),
           const SizedBox(height: 4),
           Text(label,
-              style: const TextStyle(fontSize: 12, color: AppColors.textDim)),
+              style: TextStyle(fontSize: 12, color: context.textDimColor)),
         ],
       ),
     );
@@ -641,21 +641,21 @@ class EmptyState extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: AppColors.accent.withOpacity(0.08),
+                color: context.accentColor.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, size: 24, color: AppColors.textDim),
+              child: Icon(icon, size: 24, color: context.textDimColor),
             ),
             const SizedBox(height: 16),
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textMuted,
+                  color: context.textMutedColor,
                 )),
             const SizedBox(height: 6),
             Text(description,
-                style: const TextStyle(fontSize: 13, color: AppColors.textDim)),
+                style: TextStyle(fontSize: 13, color: context.textDimColor)),
           ],
         ),
       ),

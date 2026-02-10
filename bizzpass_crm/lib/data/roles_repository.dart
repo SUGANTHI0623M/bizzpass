@@ -59,33 +59,54 @@ class RolesRepository {
     }
   }
 
+  String _handleDioError(DioException e) {
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        (e.type == DioExceptionType.unknown && e.response == null)) {
+      return 'Cannot reach the backend at ${ApiConstants.baseUrl}. ${ApiConstants.backendUnreachableHint}';
+    }
+    if (e.response?.statusCode == 401) return 'Session expired. Please log in again.';
+    if (e.response?.data is Map && e.response?.data['detail'] != null) {
+      return e.response!.data['detail'].toString();
+    }
+    return e.message ?? 'Network error';
+  }
+
   Future<List<Role>> fetchRoles() async {
     await _addAuthToken();
-    final res = await _dio.get<Map<String, dynamic>>('/roles');
-    if (res.statusCode != 200 || res.data == null) {
-      throw RolesException('Failed to fetch roles');
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/roles');
+      if (res.statusCode != 200 || res.data == null) {
+        throw RolesException('Failed to fetch roles');
+      }
+      final list = res.data!['roles'] as List<dynamic>? ?? [];
+      return list
+          .map((e) => Role.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } on DioException catch (e) {
+      throw RolesException(_handleDioError(e));
     }
-    final list = res.data!['roles'] as List<dynamic>? ?? [];
-    return list
-        .map((e) => Role.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
   }
 
   /// Returns map of module -> list of {id, code, description}
   Future<Map<String, List<Map<String, dynamic>>>> fetchPermissions() async {
     await _addAuthToken();
-    final res = await _dio.get<Map<String, dynamic>>('/roles/permissions');
-    if (res.statusCode != 200 || res.data == null) {
-      throw RolesException('Failed to fetch permissions');
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/roles/permissions');
+      if (res.statusCode != 200 || res.data == null) {
+        throw RolesException('Failed to fetch permissions');
+      }
+      final raw = res.data!['permissions'] as Map<String, dynamic>? ?? {};
+      final out = <String, List<Map<String, dynamic>>>{};
+      for (final entry in raw.entries) {
+        final list = entry.value as List<dynamic>? ?? [];
+        out[entry.key] =
+            list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return out;
+    } on DioException catch (e) {
+      throw RolesException(_handleDioError(e));
     }
-    final raw = res.data!['permissions'] as Map<String, dynamic>? ?? {};
-    final out = <String, List<Map<String, dynamic>>>{};
-    for (final entry in raw.entries) {
-      final list = entry.value as List<dynamic>? ?? [];
-      out[entry.key] =
-          list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    }
-    return out;
   }
 
   Future<Role> createRole({
@@ -94,37 +115,45 @@ class RolesRepository {
     List<String> permissionCodes = const [],
   }) async {
     await _addAuthToken();
-    final res = await _dio.post<Map<String, dynamic>>(
-      '/roles',
-      data: {
-        'name': name,
-        'description': description,
-        'permission_codes': permissionCodes,
-      },
-    );
-    if (res.statusCode != 200 && res.statusCode != 201) {
-      final d = res.data;
-      final msg = (d is Map<String, dynamic> && d['detail'] != null)
-          ? d['detail'].toString()
-          : 'Failed to create role';
-      throw RolesException(msg);
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/roles',
+        data: {
+          'name': name,
+          'description': description,
+          'permission_codes': permissionCodes,
+        },
+      );
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        final d = res.data;
+        final msg = (d is Map<String, dynamic> && d['detail'] != null)
+            ? d['detail'].toString()
+            : 'Failed to create role';
+        throw RolesException(msg);
+      }
+      final data = res.data;
+      if (data == null) {
+        throw RolesException('Invalid response from server');
+      }
+      return Role.fromJson(Map<String, dynamic>.from(data as Map));
+    } on DioException catch (e) {
+      throw RolesException(_handleDioError(e));
     }
-    final data = res.data;
-    if (data == null) {
-      throw RolesException('Invalid response from server');
-    }
-    return Role.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
   Future<void> deleteRole(int roleId) async {
     await _addAuthToken();
-    final res = await _dio.delete<Map<String, dynamic>>('/roles/$roleId');
-    if (res.statusCode != 200 && res.statusCode != 204) {
-      final d = res.data;
-      final msg = (d is Map<String, dynamic> && d['detail'] != null)
-          ? d['detail'].toString()
-          : 'Failed to delete role';
-      throw RolesException(msg);
+    try {
+      final res = await _dio.delete<Map<String, dynamic>>('/roles/$roleId');
+      if (res.statusCode != 200 && res.statusCode != 204) {
+        final d = res.data;
+        final msg = (d is Map<String, dynamic> && d['detail'] != null)
+            ? d['detail'].toString()
+            : 'Failed to delete role';
+        throw RolesException(msg);
+      }
+    } on DioException catch (e) {
+      throw RolesException(_handleDioError(e));
     }
   }
 
@@ -139,16 +168,20 @@ class RolesRepository {
     if (name != null) data['name'] = name;
     if (description != null) data['description'] = description;
     if (permissionCodes != null) data['permission_codes'] = permissionCodes;
-    final res = await _dio.patch<Map<String, dynamic>>(
-      '/roles/$roleId',
-      data: data,
-    );
-    if (res.statusCode != 200) {
-      final d = res.data;
-      final detail = d is Map ? (d as Map)['detail'] : null;
-      throw RolesException(detail?.toString() ?? 'Failed to update role');
+    try {
+      final res = await _dio.patch<Map<String, dynamic>>(
+        '/roles/$roleId',
+        data: data,
+      );
+      if (res.statusCode != 200) {
+        final d = res.data;
+        final detail = d is Map ? (d as Map)['detail'] : null;
+        throw RolesException(detail?.toString() ?? 'Failed to update role');
+      }
+      return Role.fromJson(Map<String, dynamic>.from(res.data as Map));
+    } on DioException catch (e) {
+      throw RolesException(_handleDioError(e));
     }
-    return Role.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 }
 

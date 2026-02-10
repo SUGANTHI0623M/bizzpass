@@ -97,13 +97,13 @@ class _ShiftsPageState extends State<ShiftsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
+            style: TextButton.styleFrom(foregroundColor: context.textMutedColor),
             child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.danger,
+              backgroundColor: context.dangerColor,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -146,24 +146,24 @@ class _ShiftsPageState extends State<ShiftsPage> {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.danger.withOpacity(0.1),
+        color: context.dangerColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+        border: Border.all(color: context.dangerColor.withOpacity(0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.danger),
+          Icon(Icons.error_outline_rounded, color: context.dangerColor),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _shortError(_error!),
-              style: const TextStyle(color: AppColors.text, fontSize: 13),
+              style: TextStyle(color: context.textColor, fontSize: 13),
             ),
           ),
           TextButton(
             onPressed: _load,
             style: TextButton.styleFrom(
-              foregroundColor: AppColors.textMuted,
+              foregroundColor: context.textMutedColor,
             ),
             child: const Text('Retry'),
           ),
@@ -186,7 +186,7 @@ class _ShiftsPageState extends State<ShiftsPage> {
                 icon: const Icon(Icons.arrow_back_rounded),
                 tooltip: 'Back',
                 style: IconButton.styleFrom(
-                  foregroundColor: AppColors.textMuted,
+                  foregroundColor: context.textMutedColor,
                   minimumSize: const Size(40, 40),
                 ),
               ),
@@ -219,9 +219,9 @@ class _ShiftsPageState extends State<ShiftsPage> {
             Container(
               padding: const EdgeInsets.all(40),
               decoration: BoxDecoration(
-                color: AppColors.card,
+                color: context.cardColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: context.borderColor),
               ),
               child: Center(
                 child: Column(
@@ -230,14 +230,14 @@ class _ShiftsPageState extends State<ShiftsPage> {
                     Icon(
                       Icons.schedule_outlined,
                       size: 56,
-                      color: AppColors.textMuted.withOpacity(0.8),
+                      color: context.textMutedColor.withOpacity(0.8),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'No shifts yet. Add one above.',
                       style: TextStyle(
                         fontSize: 14,
-                        color: AppColors.textMuted,
+                        color: context.textMutedColor,
                       ),
                     ),
                   ],
@@ -271,9 +271,9 @@ class _ShiftsDataTable extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -290,36 +290,36 @@ class _ShiftsDataTable extends StatelessWidget {
           defaultVerticalAlignment: TableCellVerticalAlignment.middle,
           children: [
             TableRow(
-              decoration: BoxDecoration(color: AppColors.cardHover),
+              decoration: BoxDecoration(color: context.cardHoverColor),
               children: [
-                _tableHeader('SHIFT NAME'),
-                _tableHeader('START TIME'),
-                _tableHeader('END TIME'),
-                _tableHeader('GRACE TIME'),
-                _tableHeader('UNIT'),
-                _tableHeader('STATUS'),
-                _tableHeader('ACTIONS', alignRight: true),
+                _tableHeader(context, 'SHIFT NAME'),
+                _tableHeader(context, 'START TIME'),
+                _tableHeader(context, 'END TIME'),
+                _tableHeader(context, 'GRACE TIME'),
+                _tableHeader(context, 'UNIT'),
+                _tableHeader(context, 'STATUS'),
+                _tableHeader(context, 'ACTIONS', alignRight: true),
               ],
             ),
             for (final m in modals)
               TableRow(
                 decoration: BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(color: AppColors.border, width: 0.5),
+                    bottom: BorderSide(color: context.borderColor, width: 0.5),
                   ),
                 ),
                 children: [
-                  _tableCell(Text(m.name)),
-                  _tableCell(Text(m.startTime)),
-                  _tableCell(Text(m.endTime)),
-                  _tableCell(Text('${m.graceMinutes}')),
-                  _tableCell(Text(m.graceUnit)),
-                  _tableCell(Container(
+                  _tableCell(context, Text(m.name)),
+                  _tableCell(context, Text(m.startTime)),
+                  _tableCell(context, Text(m.endTime)),
+                  _tableCell(context, Text('${m.graceMinutes}')),
+                  _tableCell(context, Text(m.graceUnit)),
+                  _tableCell(context, Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: m.isActive
-                          ? AppColors.success.withOpacity(0.15)
-                          : AppColors.textMuted.withOpacity(0.2),
+                          ? context.successColor.withOpacity(0.15)
+                          : context.textMutedColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -327,11 +327,11 @@ class _ShiftsDataTable extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: m.isActive ? AppColors.success : AppColors.textMuted,
+                        color: m.isActive ? context.successColor : context.textMutedColor,
                       ),
                     ),
                   )),
-                  _tableCell(Row(
+                  _tableCell(context, Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton(
@@ -350,7 +350,7 @@ class _ShiftsDataTable extends StatelessWidget {
                         onPressed: () => onDelete(m),
                         icon: const Icon(Icons.delete_outline_rounded, size: 20),
                         style: IconButton.styleFrom(
-                          foregroundColor: AppColors.danger,
+                          foregroundColor: context.dangerColor,
                           minimumSize: const Size(36, 36),
                         ),
                         tooltip: 'Delete',
@@ -365,29 +365,29 @@ class _ShiftsDataTable extends StatelessWidget {
     );
   }
 
-  Widget _tableHeader(String label, {bool alignRight = false}) {
+  Widget _tableHeader(BuildContext context, String label, {bool alignRight = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Align(
         alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
         child: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.8,
-            color: AppColors.textMuted,
+            color: context.textMutedColor,
           ),
         ),
       ),
     );
   }
 
-  Widget _tableCell(Widget child) {
+  Widget _tableCell(BuildContext context, Widget child) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: DefaultTextStyle(
-        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        style: TextStyle(fontSize: 13, color: context.textSecondaryColor),
         child: child,
       ),
     );
@@ -502,19 +502,19 @@ class _AddNewShiftCardState extends State<_AddNewShiftCard> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Add New Shift',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: AppColors.text,
+              color: context.textColor,
             ),
           ),
           const SizedBox(height: 20),
@@ -598,7 +598,7 @@ class _AddNewShiftCardState extends State<_AddNewShiftCard> {
               TextButton(
                 onPressed: _submitting ? null : _clearForm,
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.textMuted,
+                  foregroundColor: context.textMutedColor,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
                 child: const Text('Cancel'),
@@ -607,7 +607,7 @@ class _AddNewShiftCardState extends State<_AddNewShiftCard> {
               FilledButton(
                 onPressed: _submitting ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.success,
+                  backgroundColor: context.successColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(
@@ -645,10 +645,10 @@ class _AddNewShiftCardState extends State<_AddNewShiftCard> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: AppColors.textMuted,
+              color: context.textMutedColor,
             ),
           ),
           const SizedBox(height: 6),
@@ -755,14 +755,14 @@ class _EditShiftDialogState extends State<_EditShiftDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Shift Name', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              Text('Shift Name', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
               const SizedBox(height: 6),
               TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(hintText: 'e.g., General 1'),
               ),
               const SizedBox(height: 12),
-              const Text('Start Time', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              Text('Start Time', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
               const SizedBox(height: 6),
               TextField(
                 controller: _startController,
@@ -776,7 +776,7 @@ class _EditShiftDialogState extends State<_EditShiftDialog> {
                 onTap: () => _pickTime(_startController),
               ),
               const SizedBox(height: 12),
-              const Text('End Time', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              Text('End Time', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
               const SizedBox(height: 6),
               TextField(
                 controller: _endController,
@@ -797,7 +797,7 @@ class _EditShiftDialogState extends State<_EditShiftDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Grace Time', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                        Text('Grace Time', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
                         const SizedBox(height: 6),
                         TextField(
                           controller: _graceController,
@@ -811,7 +811,7 @@ class _EditShiftDialogState extends State<_EditShiftDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Unit', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                        Text('Unit', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
                         const SizedBox(height: 6),
                         DropdownButtonFormField<String>(
                           value: _graceUnit,
@@ -832,7 +832,7 @@ class _EditShiftDialogState extends State<_EditShiftDialog> {
                   Checkbox(
                     value: _isActive,
                     onChanged: (v) => setState(() => _isActive = v ?? true),
-                    activeColor: AppColors.success,
+                    activeColor: context.successColor,
                   ),
                   const Text('Active', style: TextStyle(fontSize: 14)),
                 ],
@@ -844,13 +844,13 @@ class _EditShiftDialogState extends State<_EditShiftDialog> {
       actions: [
         TextButton(
           onPressed: _submitting ? null : widget.onClose,
-          style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
+          style: TextButton.styleFrom(foregroundColor: context.textMutedColor),
           child: const Text('Cancel'),
         ),
         FilledButton(
           onPressed: _submitting ? null : _submit,
           style: FilledButton.styleFrom(
-            backgroundColor: AppColors.success,
+            backgroundColor: context.successColor,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             shape: RoundedRectangleBorder(

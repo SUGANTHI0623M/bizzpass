@@ -24,8 +24,34 @@ class CreateStaffBody(BaseModel):
     roleId: int
     status: str = "active"  # active | inactive
     attendanceModalId: int | None = None
+    shiftModalId: int | None = None
     leaveModalId: int | None = None
     holidayModalId: int | None = None
+    staffType: str | None = None
+    reportingManager: str | None = None
+    salaryCycle: str | None = None
+    grossSalary: float | None = None
+    netSalary: float | None = None
+    gender: str | None = None
+    dob: str | None = None
+    maritalStatus: str | None = None
+    bloodGroup: str | None = None
+    addressLine1: str | None = None
+    addressCity: str | None = None
+    addressState: str | None = None
+    addressPostalCode: str | None = None
+    addressCountry: str | None = None
+    uan: str | None = None
+    panNumber: str | None = None
+    aadhaarNumber: str | None = None
+    pfNumber: str | None = None
+    esiNumber: str | None = None
+    bankName: str | None = None
+    ifscCode: str | None = None
+    accountNumber: str | None = None
+    accountHolderName: str | None = None
+    upiId: str | None = None
+    bankVerificationStatus: str | None = None
 
 
 class UpdateStaffBody(BaseModel):
@@ -36,6 +62,41 @@ class UpdateStaffBody(BaseModel):
     status: str | None = None
     roleId: int | None = None
     branchId: int | None = None
+    attendanceModalId: int | None = None
+    shiftModalId: int | None = None
+    leaveModalId: int | None = None
+    holidayModalId: int | None = None
+    staffType: str | None = None
+    reportingManager: str | None = None
+    salaryCycle: str | None = None
+    grossSalary: float | None = None
+    netSalary: float | None = None
+    gender: str | None = None
+    dob: str | None = None
+    maritalStatus: str | None = None
+    bloodGroup: str | None = None
+    addressLine1: str | None = None
+    addressCity: str | None = None
+    addressState: str | None = None
+    addressPostalCode: str | None = None
+    addressCountry: str | None = None
+    uan: str | None = None
+    panNumber: str | None = None
+    aadhaarNumber: str | None = None
+    pfNumber: str | None = None
+    esiNumber: str | None = None
+    bankName: str | None = None
+    ifscCode: str | None = None
+    accountNumber: str | None = None
+    accountHolderName: str | None = None
+    upiId: str | None = None
+    bankVerificationStatus: str | None = None
+
+
+def _date_str(d) -> str:
+    if d is None:
+        return ""
+    return str(d)[:10] if hasattr(d, "__str__") else ""
 
 
 def _staff_row(row) -> dict:
@@ -49,24 +110,63 @@ def _staff_row(row) -> dict:
         "designation": row.get("designation") or "",
         "department": row.get("department") or "",
         "status": (row.get("status") or "active").lower(),
-        "joiningDate": (row.get("joining_date") or "").__str__()[:10] if row.get("joining_date") else "",
+        "joiningDate": _date_str(row.get("joining_date")),
         "roleId": row.get("rbac_role_id"),
         "roleName": row.get("role_name"),
         "userId": row.get("user_id"),
         "branchId": row.get("branch_id"),
         "branchName": row.get("branch_name"),
+        "attendanceModalId": row.get("attendance_modal_id"),
+        "shiftModalId": row.get("shift_modal_id"),
+        "leaveModalId": row.get("leave_modal_id"),
+        "holidayModalId": row.get("holiday_modal_id"),
+        "staffType": row.get("staff_type") or "",
+        "reportingManager": row.get("reporting_manager") or "",
+        "salaryCycle": row.get("salary_cycle") or "",
+        "grossSalary": row.get("gross_salary"),
+        "netSalary": row.get("net_salary"),
+        "gender": row.get("gender") or "",
+        "dob": _date_str(row.get("dob")),
+        "maritalStatus": row.get("marital_status") or "",
+        "bloodGroup": row.get("blood_group") or "",
+        "addressLine1": row.get("address_line1") or "",
+        "addressCity": row.get("address_city") or "",
+        "addressState": row.get("address_state") or "",
+        "addressPostalCode": row.get("address_postal_code") or "",
+        "addressCountry": row.get("address_country") or "",
+        "uan": row.get("uan") or "",
+        "panNumber": row.get("pan") or "",
+        "aadhaarNumber": row.get("aadhaar") or "",
+        "pfNumber": row.get("pf_number") or "",
+        "esiNumber": row.get("esi_number") or "",
+        "bankName": row.get("bank_name") or "",
+        "ifscCode": row.get("ifsc_code") or "",
+        "accountNumber": row.get("account_number") or "",
+        "accountHolderName": row.get("account_holder_name") or "",
+        "upiId": row.get("upi_id") or "",
+        "bankVerificationStatus": row.get("bank_verification_status") or "",
     }
+
+
+def _staff_select_cols():
+    return """s.id, s.employee_id, s.name, s.email, s.phone, s.designation, s.department,
+                       s.status, s.joining_date, s.branch_id,
+                       s.attendance_modal_id, s.shift_modal_id, s.leave_modal_id, s.holiday_modal_id,
+                       s.staff_type, s.reporting_manager, s.salary_cycle, s.gross_salary, s.net_salary,
+                       s.gender, s.dob, s.marital_status, s.blood_group,
+                       s.address_line1, s.address_city, s.address_state, s.address_postal_code, s.address_country,
+                       s.uan, s.pan, s.aadhaar, s.pf_number, s.esi_number,
+                       s.bank_name, s.ifsc_code, s.account_number, s.account_holder_name, s.upi_id, s.bank_verification_status,
+                       u.id AS user_id, u.rbac_role_id, rr.name AS role_name,
+                       COALESCE(c.name, '') AS company_name,
+                       b.id AS branch_id_big, b.branch_name"""
 
 
 def _list_staff_sql(company_id, branch_id=None, department=None, joining_date_from=None, joining_date_to=None):
     """Build SQL and params for staff list with optional filters."""
     join_branch = " LEFT JOIN branches b ON (b.id::text = s.branch_id OR (s.branch_id IS NOT NULL AND b.id = NULLIF(TRIM(s.branch_id), '')::int)) AND b.company_id = s.company_id"
     select = """
-                SELECT s.id, s.employee_id, s.name, s.email, s.phone, s.designation, s.department,
-                       s.status, s.joining_date, s.branch_id,
-                       u.id AS user_id, u.rbac_role_id, rr.name AS role_name,
-                       COALESCE(c.name, '') AS company_name,
-                       b.id AS branch_id_big, b.branch_name
+                SELECT """ + _staff_select_cols() + """
                 FROM staff s
                 LEFT JOIN companies c ON (c.id = s.company_id) OR (c.mongo_id = s.business_id) OR (c.id::text = s.business_id)
                 LEFT JOIN users u ON u.company_id_bigint = s.company_id AND LOWER(u.email) = LOWER(s.email)
@@ -110,11 +210,7 @@ def list_staff(
         with get_cursor() as cur:
             cur.execute(
                 """
-                SELECT s.id, s.employee_id, s.name, s.email, s.phone, s.designation, s.department,
-                       s.status, s.joining_date, s.branch_id,
-                       u.id AS user_id, u.rbac_role_id, rr.name AS role_name,
-                       c.name AS company_name,
-                       b.branch_name
+                SELECT """ + _staff_select_cols() + """
                 FROM staff s
                 LEFT JOIN companies c ON (c.mongo_id = s.business_id) OR (c.id::text = s.business_id) OR (c.id = s.company_id)
                 LEFT JOIN users u ON u.company_id_bigint = s.company_id AND LOWER(u.email) = LOWER(s.email)
@@ -221,11 +317,7 @@ def get_staff(
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT s.id, s.employee_id, s.name, s.email, s.phone, s.designation, s.department,
-                   s.status, s.joining_date, s.branch_id, s.company_id,
-                   u.id AS user_id, u.rbac_role_id, rr.name AS role_name,
-                   c.name AS company_name,
-                   b.id AS branch_id_big, b.branch_name
+            SELECT """ + _staff_select_cols() + """, s.company_id
             FROM staff s
             LEFT JOIN companies c ON c.id = s.company_id
             LEFT JOIN users u ON u.company_id_bigint = s.company_id AND LOWER(u.email) = LOWER(s.email)
@@ -323,6 +415,12 @@ def create_staff(
             joining_date = date.fromisoformat(body.joiningDate[:10])
         except Exception:
             pass
+    dob_date = None
+    if body.dob:
+        try:
+            dob_date = date.fromisoformat(body.dob[:10])
+        except Exception:
+            pass
 
     user_id_created = None
     if body.loginMethod == "password" and body.temporaryPassword:
@@ -345,8 +443,12 @@ def create_staff(
         branch_id_val = str(body.branchId) if body.branchId is not None else None
         cur.execute(
             """
-            INSERT INTO staff (employee_id, name, email, phone, designation, department, status, joining_date, company_id, user_id, branch_id, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+            INSERT INTO staff (employee_id, name, email, phone, designation, department, status, joining_date, company_id, user_id, branch_id,
+                attendance_modal_id, shift_modal_id, leave_modal_id, holiday_modal_id, staff_type, reporting_manager, salary_cycle, gross_salary, net_salary,
+                gender, dob, marital_status, blood_group, address_line1, address_city, address_state, address_postal_code, address_country,
+                uan, pan, aadhaar, pf_number, esi_number, bank_name, ifsc_code, account_number, account_holder_name, upi_id, bank_verification_status,
+                created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
             RETURNING id
             """,
             (
@@ -361,6 +463,35 @@ def create_staff(
                 company_id,
                 str(user_id_created) if user_id_created else None,
                 branch_id_val,
+                body.attendanceModalId,
+                body.shiftModalId,
+                body.leaveModalId,
+                body.holidayModalId,
+                (body.staffType or "").strip() or None,
+                (body.reportingManager or "").strip() or None,
+                (body.salaryCycle or "").strip() or None,
+                body.grossSalary,
+                body.netSalary,
+                (body.gender or "").strip() or None,
+                dob_date,
+                (body.maritalStatus or "").strip() or None,
+                (body.bloodGroup or "").strip() or None,
+                (body.addressLine1 or "").strip() or None,
+                (body.addressCity or "").strip() or None,
+                (body.addressState or "").strip() or None,
+                (body.addressPostalCode or "").strip() or None,
+                (body.addressCountry or "").strip() or None,
+                (body.uan or "").strip() or None,
+                (body.panNumber or "").strip() or None,
+                (body.aadhaarNumber or "").strip() or None,
+                (body.pfNumber or "").strip() or None,
+                (body.esiNumber or "").strip() or None,
+                (body.bankName or "").strip() or None,
+                (body.ifscCode or "").strip() or None,
+                (body.accountNumber or "").strip() or None,
+                (body.accountHolderName or "").strip() or None,
+                (body.upiId or "").strip() or None,
+                (body.bankVerificationStatus or "").strip() or None,
             ),
         )
         staff_row = cur.fetchone()
@@ -388,13 +519,22 @@ def create_staff(
             )
 
     _audit_log(current_user["id"], company_id, "staff.create", "staff", str(staff_id))
-    return _staff_row({
-        **dict(staff_row),
-        "company_name": None,
-        "rbac_role_id": body.roleId,
-        "role_name": None,
-        "user_id": user_id_created,
-    })
+    # Return full staff row (same shape as get_staff)
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT " + _staff_select_cols() + " FROM staff s "
+            "LEFT JOIN companies c ON c.id = s.company_id "
+            "LEFT JOIN users u ON u.company_id_bigint = s.company_id AND LOWER(u.email) = LOWER(s.email) "
+            "LEFT JOIN rbac_roles rr ON rr.id = u.rbac_role_id "
+            "LEFT JOIN branches b ON (b.id::text = s.branch_id OR (s.branch_id IS NOT NULL AND b.id = NULLIF(TRIM(s.branch_id), '')::int)) AND b.company_id = s.company_id "
+            "WHERE s.id = %s",
+            (staff_id,),
+        )
+        row = cur.fetchone()
+    if row:
+        row["branch_id"] = row.get("branch_id_big") or (int(row["branch_id"]) if row.get("branch_id") and str(row.get("branch_id")).isdigit() else None)
+        row["branch_name"] = row.get("branch_name")
+    return _staff_row(row or {})
 
 
 @router.patch("/{staff_id}")
@@ -458,23 +598,79 @@ def update_staff(
                 "UPDATE staff SET branch_id = %s WHERE id = %s",
                 (str(body.branchId) if body.branchId else None, staff_id),
             )
+        if body.attendanceModalId is not None:
+            cur.execute("UPDATE staff SET attendance_modal_id = %s WHERE id = %s", (body.attendanceModalId, staff_id))
+        if body.shiftModalId is not None:
+            cur.execute("UPDATE staff SET shift_modal_id = %s WHERE id = %s", (body.shiftModalId, staff_id))
+        if body.leaveModalId is not None:
+            cur.execute("UPDATE staff SET leave_modal_id = %s WHERE id = %s", (body.leaveModalId, staff_id))
+        if body.holidayModalId is not None:
+            cur.execute("UPDATE staff SET holiday_modal_id = %s WHERE id = %s", (body.holidayModalId, staff_id))
+        if body.staffType is not None:
+            cur.execute("UPDATE staff SET staff_type = %s WHERE id = %s", (body.staffType.strip() or None, staff_id))
+        if body.reportingManager is not None:
+            cur.execute("UPDATE staff SET reporting_manager = %s WHERE id = %s", (body.reportingManager.strip() or None, staff_id))
+        if body.salaryCycle is not None:
+            cur.execute("UPDATE staff SET salary_cycle = %s WHERE id = %s", (body.salaryCycle.strip() or None, staff_id))
+        if body.grossSalary is not None:
+            cur.execute("UPDATE staff SET gross_salary = %s WHERE id = %s", (body.grossSalary, staff_id))
+        if body.netSalary is not None:
+            cur.execute("UPDATE staff SET net_salary = %s WHERE id = %s", (body.netSalary, staff_id))
+        if body.gender is not None:
+            cur.execute("UPDATE staff SET gender = %s WHERE id = %s", (body.gender.strip() or None, staff_id))
+        if body.dob is not None:
+            dob_val = None
+            try:
+                dob_val = date.fromisoformat(body.dob[:10])
+            except Exception:
+                pass
+            cur.execute("UPDATE staff SET dob = %s WHERE id = %s", (dob_val, staff_id))
+        if body.maritalStatus is not None:
+            cur.execute("UPDATE staff SET marital_status = %s WHERE id = %s", (body.maritalStatus.strip() or None, staff_id))
+        if body.bloodGroup is not None:
+            cur.execute("UPDATE staff SET blood_group = %s WHERE id = %s", (body.bloodGroup.strip() or None, staff_id))
+        if body.addressLine1 is not None:
+            cur.execute("UPDATE staff SET address_line1 = %s WHERE id = %s", (body.addressLine1.strip() or None, staff_id))
+        if body.addressCity is not None:
+            cur.execute("UPDATE staff SET address_city = %s WHERE id = %s", (body.addressCity.strip() or None, staff_id))
+        if body.addressState is not None:
+            cur.execute("UPDATE staff SET address_state = %s WHERE id = %s", (body.addressState.strip() or None, staff_id))
+        if body.addressPostalCode is not None:
+            cur.execute("UPDATE staff SET address_postal_code = %s WHERE id = %s", (body.addressPostalCode.strip() or None, staff_id))
+        if body.addressCountry is not None:
+            cur.execute("UPDATE staff SET address_country = %s WHERE id = %s", (body.addressCountry.strip() or None, staff_id))
+        if body.uan is not None:
+            cur.execute("UPDATE staff SET uan = %s WHERE id = %s", (body.uan.strip() or None, staff_id))
+        if body.panNumber is not None:
+            cur.execute("UPDATE staff SET pan = %s WHERE id = %s", (body.panNumber.strip() or None, staff_id))
+        if body.aadhaarNumber is not None:
+            cur.execute("UPDATE staff SET aadhaar = %s WHERE id = %s", (body.aadhaarNumber.strip() or None, staff_id))
+        if body.pfNumber is not None:
+            cur.execute("UPDATE staff SET pf_number = %s WHERE id = %s", (body.pfNumber.strip() or None, staff_id))
+        if body.esiNumber is not None:
+            cur.execute("UPDATE staff SET esi_number = %s WHERE id = %s", (body.esiNumber.strip() or None, staff_id))
+        if body.bankName is not None:
+            cur.execute("UPDATE staff SET bank_name = %s WHERE id = %s", (body.bankName.strip() or None, staff_id))
+        if body.ifscCode is not None:
+            cur.execute("UPDATE staff SET ifsc_code = %s WHERE id = %s", (body.ifscCode.strip() or None, staff_id))
+        if body.accountNumber is not None:
+            cur.execute("UPDATE staff SET account_number = %s WHERE id = %s", (body.accountNumber.strip() or None, staff_id))
+        if body.accountHolderName is not None:
+            cur.execute("UPDATE staff SET account_holder_name = %s WHERE id = %s", (body.accountHolderName.strip() or None, staff_id))
+        if body.upiId is not None:
+            cur.execute("UPDATE staff SET upi_id = %s WHERE id = %s", (body.upiId.strip() or None, staff_id))
+        if body.bankVerificationStatus is not None:
+            cur.execute("UPDATE staff SET bank_verification_status = %s WHERE id = %s", (body.bankVerificationStatus.strip() or None, staff_id))
 
     _audit_log(current_user["id"], company_id, "staff.edit", "staff", str(staff_id))
     with get_cursor() as cur:
         cur.execute(
-            """
-            SELECT s.id, s.employee_id, s.name, s.email, s.phone, s.designation, s.department,
-                   s.status, s.joining_date, s.branch_id,
-                   u.id AS user_id, u.rbac_role_id, rr.name AS role_name,
-                   c.name AS company_name,
-                   b.id AS branch_id_big, b.branch_name
-            FROM staff s
-            LEFT JOIN companies c ON c.id = s.company_id
-            LEFT JOIN users u ON u.company_id_bigint = s.company_id AND LOWER(u.email) = LOWER(s.email)
-            LEFT JOIN rbac_roles rr ON rr.id = u.rbac_role_id
-            LEFT JOIN branches b ON (b.id::text = s.branch_id OR (s.branch_id IS NOT NULL AND b.id = NULLIF(TRIM(s.branch_id), '')::int)) AND b.company_id = s.company_id
-            WHERE s.id = %s
-            """,
+            "SELECT " + _staff_select_cols() + " FROM staff s "
+            "LEFT JOIN companies c ON c.id = s.company_id "
+            "LEFT JOIN users u ON u.company_id_bigint = s.company_id AND LOWER(u.email) = LOWER(s.email) "
+            "LEFT JOIN rbac_roles rr ON rr.id = u.rbac_role_id "
+            "LEFT JOIN branches b ON (b.id::text = s.branch_id OR (s.branch_id IS NOT NULL AND b.id = NULLIF(TRIM(s.branch_id), '')::int)) AND b.company_id = s.company_id "
+            "WHERE s.id = %s",
             (staff_id,),
         )
         row = cur.fetchone()

@@ -124,8 +124,34 @@ class StaffRepository {
     required int roleId,
     String status = 'active',
     int? attendanceModalId,
+    int? shiftModalId,
     int? leaveModalId,
     int? holidayModalId,
+    String? staffType,
+    String? reportingManager,
+    String? salaryCycle,
+    double? grossSalary,
+    double? netSalary,
+    String? gender,
+    String? dob,
+    String? maritalStatus,
+    String? bloodGroup,
+    String? addressLine1,
+    String? addressCity,
+    String? addressState,
+    String? addressPostalCode,
+    String? addressCountry,
+    String? uan,
+    String? panNumber,
+    String? aadhaarNumber,
+    String? pfNumber,
+    String? esiNumber,
+    String? bankName,
+    String? ifscCode,
+    String? accountNumber,
+    String? accountHolderName,
+    String? upiId,
+    String? bankVerificationStatus,
   }) async {
     await _addAuthToken();
     try {
@@ -143,10 +169,35 @@ class StaffRepository {
         'roleId': roleId,
         'status': status,
       };
-      if (attendanceModalId != null)
-        data['attendanceModalId'] = attendanceModalId;
+      if (attendanceModalId != null) data['attendanceModalId'] = attendanceModalId;
+      if (shiftModalId != null) data['shiftModalId'] = shiftModalId;
       if (leaveModalId != null) data['leaveModalId'] = leaveModalId;
       if (holidayModalId != null) data['holidayModalId'] = holidayModalId;
+      if (staffType != null) data['staffType'] = staffType;
+      if (reportingManager != null) data['reportingManager'] = reportingManager;
+      if (salaryCycle != null) data['salaryCycle'] = salaryCycle;
+      if (grossSalary != null) data['grossSalary'] = grossSalary;
+      if (netSalary != null) data['netSalary'] = netSalary;
+      if (gender != null) data['gender'] = gender;
+      if (dob != null) data['dob'] = dob;
+      if (maritalStatus != null) data['maritalStatus'] = maritalStatus;
+      if (bloodGroup != null) data['bloodGroup'] = bloodGroup;
+      if (addressLine1 != null) data['addressLine1'] = addressLine1;
+      if (addressCity != null) data['addressCity'] = addressCity;
+      if (addressState != null) data['addressState'] = addressState;
+      if (addressPostalCode != null) data['addressPostalCode'] = addressPostalCode;
+      if (addressCountry != null) data['addressCountry'] = addressCountry;
+      if (uan != null) data['uan'] = uan;
+      if (panNumber != null) data['panNumber'] = panNumber;
+      if (aadhaarNumber != null) data['aadhaarNumber'] = aadhaarNumber;
+      if (pfNumber != null) data['pfNumber'] = pfNumber;
+      if (esiNumber != null) data['esiNumber'] = esiNumber;
+      if (bankName != null) data['bankName'] = bankName;
+      if (ifscCode != null) data['ifscCode'] = ifscCode;
+      if (accountNumber != null) data['accountNumber'] = accountNumber;
+      if (accountHolderName != null) data['accountHolderName'] = accountHolderName;
+      if (upiId != null) data['upiId'] = upiId;
+      if (bankVerificationStatus != null) data['bankVerificationStatus'] = bankVerificationStatus;
       final res = await _dio.post<Map<String, dynamic>>(
         '/staff',
         data: data,
@@ -172,6 +223,35 @@ class StaffRepository {
     String? status,
     int? roleId,
     int? branchId,
+    int? attendanceModalId,
+    int? shiftModalId,
+    int? leaveModalId,
+    int? holidayModalId,
+    String? staffType,
+    String? reportingManager,
+    String? salaryCycle,
+    double? grossSalary,
+    double? netSalary,
+    String? gender,
+    String? dob,
+    String? maritalStatus,
+    String? bloodGroup,
+    String? addressLine1,
+    String? addressCity,
+    String? addressState,
+    String? addressPostalCode,
+    String? addressCountry,
+    String? uan,
+    String? panNumber,
+    String? aadhaarNumber,
+    String? pfNumber,
+    String? esiNumber,
+    String? bankName,
+    String? ifscCode,
+    String? accountNumber,
+    String? accountHolderName,
+    String? upiId,
+    String? bankVerificationStatus,
   }) async {
     await _addAuthToken();
     try {
@@ -183,6 +263,35 @@ class StaffRepository {
       if (status != null) data['status'] = status;
       if (roleId != null) data['roleId'] = roleId;
       if (branchId != null) data['branchId'] = branchId;
+      if (attendanceModalId != null) data['attendanceModalId'] = attendanceModalId;
+      if (shiftModalId != null) data['shiftModalId'] = shiftModalId;
+      if (leaveModalId != null) data['leaveModalId'] = leaveModalId;
+      if (holidayModalId != null) data['holidayModalId'] = holidayModalId;
+      if (staffType != null) data['staffType'] = staffType;
+      if (reportingManager != null) data['reportingManager'] = reportingManager;
+      if (salaryCycle != null) data['salaryCycle'] = salaryCycle;
+      if (grossSalary != null) data['grossSalary'] = grossSalary;
+      if (netSalary != null) data['netSalary'] = netSalary;
+      if (gender != null) data['gender'] = gender;
+      if (dob != null) data['dob'] = dob;
+      if (maritalStatus != null) data['maritalStatus'] = maritalStatus;
+      if (bloodGroup != null) data['bloodGroup'] = bloodGroup;
+      if (addressLine1 != null) data['addressLine1'] = addressLine1;
+      if (addressCity != null) data['addressCity'] = addressCity;
+      if (addressState != null) data['addressState'] = addressState;
+      if (addressPostalCode != null) data['addressPostalCode'] = addressPostalCode;
+      if (addressCountry != null) data['addressCountry'] = addressCountry;
+      if (uan != null) data['uan'] = uan;
+      if (panNumber != null) data['panNumber'] = panNumber;
+      if (aadhaarNumber != null) data['aadhaarNumber'] = aadhaarNumber;
+      if (pfNumber != null) data['pfNumber'] = pfNumber;
+      if (esiNumber != null) data['esiNumber'] = esiNumber;
+      if (bankName != null) data['bankName'] = bankName;
+      if (ifscCode != null) data['ifscCode'] = ifscCode;
+      if (accountNumber != null) data['accountNumber'] = accountNumber;
+      if (accountHolderName != null) data['accountHolderName'] = accountHolderName;
+      if (upiId != null) data['upiId'] = upiId;
+      if (bankVerificationStatus != null) data['bankVerificationStatus'] = bankVerificationStatus;
       final res = await _dio.patch<Map<String, dynamic>>(
         '/staff/$staffId',
         data: data,

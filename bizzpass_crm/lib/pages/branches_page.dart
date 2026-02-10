@@ -54,9 +54,11 @@ class _BranchesPageState extends State<BranchesPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete branch'),
+        backgroundColor: ctx.cardColor,
+        title: Text('Delete branch', style: TextStyle(color: ctx.textColor)),
         content: Text(
           'Delete "${branch.branchName}"? This will fail if any staff are assigned to this branch.',
+          style: TextStyle(color: ctx.textSecondaryColor),
         ),
         actions: [
           TextButton(
@@ -64,8 +66,8 @@ class _BranchesPageState extends State<BranchesPage> {
               child: const Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Delete',
-                  style: TextStyle(color: AppColors.danger))),
+              child: Text('Delete',
+                  style: TextStyle(color: ctx.dangerColor))),
         ],
       ),
     );
@@ -144,18 +146,18 @@ class _BranchesPageState extends State<BranchesPage> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.warning.withOpacity(0.1),
+        color: context.warningColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline_rounded,
-              color: AppColors.warning, size: 20),
+          Icon(Icons.info_outline_rounded,
+              color: context.warningColor, size: 20),
           const SizedBox(width: 10),
           Expanded(
               child: Text(_error!,
-                  style: const TextStyle(
-                      fontSize: 13, color: AppColors.textSecondary))),
+                  style: TextStyle(
+                      fontSize: 13, color: context.textSecondaryColor))),
           TextButton(onPressed: _load, child: const Text('Retry')),
         ],
       ),
@@ -181,9 +183,9 @@ class _BranchesPageState extends State<BranchesPage> {
                             onTap: () =>
                                 widget.onSelectBranch!(b.id, b.branchName),
                             child: Text(b.branchName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.accent)),
+                                    color: context.accentColor)),
                           )
                         : Text(b.branchName),
                   ),
@@ -382,9 +384,9 @@ class _BranchFormDialogState extends State<_BranchFormDialog> {
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -393,10 +395,10 @@ class _BranchFormDialogState extends State<_BranchFormDialog> {
           Row(
             children: [
               Text(widget.branch != null ? 'Edit branch' : 'Add branch',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.text)),
+                      color: context.textColor)),
               const Spacer(),
               IconButton(
                   onPressed: widget.onClose,
@@ -447,11 +449,11 @@ class _BranchFormDialogState extends State<_BranchFormDialog> {
                   border: OutlineInputBorder(),
                   isDense: true)),
           const SizedBox(height: 12),
-          const Text('Branch location (for attendance check-in)',
+          Text('Branch location (for attendance check-in)',
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.text)),
+                  color: context.textColor)),
           const SizedBox(height: 8),
           Row(
             children: [

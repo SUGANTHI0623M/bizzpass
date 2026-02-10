@@ -83,7 +83,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceAll('SubscriptionException: ', '')),
-            backgroundColor: AppColors.danger,
+            backgroundColor: context.dangerColor,
           ),
         );
       }
@@ -102,25 +102,25 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             subtitle: 'View your plan, usage, and subscribe or renew here',
           ),
           if (_loading)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(48),
-                child: CircularProgressIndicator(color: AppColors.accent),
+                padding: const EdgeInsets.all(48),
+                child: CircularProgressIndicator(color: context.accentColor),
               ),
             )
           else if (_error != null) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.danger.withOpacity(0.1),
+                color: context.dangerColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                border: Border.all(color: context.dangerColor.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: AppColors.danger),
+                  Icon(Icons.error_outline_rounded, color: context.dangerColor),
                   const SizedBox(width: 12),
-                  Expanded(child: Text(_error!, style: const TextStyle(color: AppColors.text))),
+                  Expanded(child: Text(_error!, style: TextStyle(color: context.textColor))),
                   TextButton(
                     onPressed: _load,
                     child: const Text('Retry'),
@@ -161,10 +161,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isExpired ? AppColors.danger.withOpacity(0.4) : AppColors.border,
+          color: isExpired ? context.dangerColor.withOpacity(0.4) : context.borderColor,
         ),
       ),
       child: Column(
@@ -176,10 +176,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.12),
+                  color: context.accentColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.credit_card_rounded, color: AppColors.accent, size: 24),
+                child: Icon(Icons.credit_card_rounded, color: context.accentColor, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -188,16 +188,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   children: [
                     Text(
                       sub.hasSubscription && plan != null ? plan.planName : 'No active plan',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.text,
+                        color: context.textColor,
                       ),
                     ),
                     if (sub.hasSubscription && plan != null)
                       Text(
                         plan.description.isNotEmpty ? plan.description : '${plan.maxUsers} staff · ${plan.maxBranches} branches',
-                        style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 13, color: context.textMutedColor),
                       ),
                   ],
                 ),
@@ -207,7 +207,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           ),
           if (sub.hasSubscription && (sub.validUntil != null || sub.daysRemaining != null)) ...[
             const SizedBox(height: 20),
-            const Divider(height: 1, color: AppColors.border),
+            Divider(height: 1, color: context.borderColor),
             const SizedBox(height: 16),
             Wrap(
               spacing: 12,
@@ -222,7 +222,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   _DetailChip(
                     icon: Icons.schedule_rounded,
                     label: sub.daysRemaining! > 0 ? '${sub.daysRemaining} days left' : 'Expired',
-                    color: isExpired ? AppColors.danger : (isExpiringSoon ? AppColors.warning : AppColors.textMuted),
+                    color: isExpired ? context.dangerColor : (isExpiringSoon ? context.warningColor : context.textMutedColor),
                   ),
                 _DetailChip(
                   icon: Icons.people_rounded,
@@ -239,7 +239,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             const SizedBox(height: 20),
             Text(
               isExpired ? 'Your plan has ended. Subscribe below to continue using the portal.' : 'Subscribe to a plan to get started.',
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 13, color: context.textSecondaryColor),
             ),
           ],
         ],
@@ -254,7 +254,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         alignment: Alignment.center,
         child: Text(
           'No plans available. Contact support.',
-          style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+          style: TextStyle(fontSize: 14, color: context.textMutedColor),
         ),
       );
     }
@@ -293,9 +293,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         children: _payments.take(10).map((p) {
@@ -306,7 +306,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 Icon(
                   p.status == 'captured' ? Icons.check_circle_rounded : Icons.schedule_rounded,
                   size: 20,
-                  color: p.status == 'captured' ? AppColors.success : AppColors.warning,
+                  color: p.status == 'captured' ? context.successColor : context.warningColor,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -315,15 +315,15 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     children: [
                       Text(
                         p.planName.isNotEmpty ? p.planName : 'Payment #${p.id}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppColors.text,
+                          color: context.textColor,
                           fontSize: 13,
                         ),
                       ),
                       Text(
                         p.paidAt.isNotEmpty ? p.paidAt : p.createdAt,
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: context.textMutedColor),
                       ),
                     ],
                   ),
@@ -332,9 +332,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 const SizedBox(width: 12),
                 Text(
                   '${fmtINR(p.amount)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: AppColors.text,
+                    color: context.textColor,
                     fontSize: 14,
                   ),
                 ),
@@ -359,11 +359,11 @@ class _DetailChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: color ?? AppColors.textMuted),
+        Icon(icon, size: 16, color: color ?? context.textMutedColor),
         const SizedBox(width: 6),
         Text(
           label,
-          style: TextStyle(fontSize: 12, color: color ?? AppColors.textMuted),
+          style: TextStyle(fontSize: 12, color: color ?? context.textMutedColor),
         ),
       ],
     );
@@ -388,10 +388,10 @@ class _PlanCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isCurrentPlan ? AppColors.accent.withOpacity(0.5) : AppColors.border,
+          color: isCurrentPlan ? context.accentColor.withOpacity(0.5) : context.borderColor,
           width: isCurrentPlan ? 1.5 : 1,
         ),
       ),
@@ -404,19 +404,19 @@ class _PlanCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.12),
+                  color: context.accentColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.layers_rounded, color: AppColors.accent, size: 22),
+                child: Icon(Icons.layers_rounded, color: context.accentColor, size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
                   plan.planName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.text,
+                    color: context.textColor,
                   ),
                 ),
               ),
@@ -424,15 +424,15 @@ class _PlanCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.15),
+                    color: context.accentColor.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Current',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.accent,
+                      color: context.accentColor,
                     ),
                   ),
                 ),
@@ -442,7 +442,7 @@ class _PlanCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               plan.description,
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12, color: context.textMutedColor),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -450,16 +450,16 @@ class _PlanCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             '${fmtINR(plan.price)} / ${plan.durationMonths} mo',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w800,
-              color: AppColors.accent,
+              color: context.accentColor,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '${plan.maxUsers} staff · ${plan.maxBranches} branches',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 12, color: context.textSecondaryColor),
           ),
           if (plan.features.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -467,10 +467,10 @@ class _PlanCard extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.check_rounded, size: 14, color: AppColors.success),
+                      Icon(Icons.check_rounded, size: 14, color: context.successColor),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(f, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                        child: Text(f, style: TextStyle(fontSize: 12, color: context.textMutedColor)),
                       ),
                     ],
                   ),
@@ -483,7 +483,7 @@ class _PlanCard extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: initiating ? null : onSubscribe,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
+                  backgroundColor: context.accentColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -522,14 +522,14 @@ class _DurationDialogState extends State<_DurationDialog> {
     final plan = widget.plan;
     final amount = (plan.price * _months / plan.durationMonths).round();
     return AlertDialog(
-      backgroundColor: AppColors.card,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Subscribe to ${plan.planName}', style: const TextStyle(color: AppColors.text)),
+      title: Text('Subscribe to ${plan.planName}', style: TextStyle(color: context.textColor)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Duration', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          Text('Duration', style: TextStyle(fontSize: 12, color: context.textMutedColor)),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
             value: _months,
@@ -538,7 +538,7 @@ class _DurationDialogState extends State<_DurationDialog> {
               isDense: true,
               contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
-            dropdownColor: AppColors.card,
+            dropdownColor: context.cardColor,
             items: [12, 6, 24].map((m) => DropdownMenuItem(value: m, child: Text('$m months'))).toList(),
             onChanged: (v) => setState(() => _months = v ?? 12),
           ),
@@ -546,16 +546,16 @@ class _DurationDialogState extends State<_DurationDialog> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.bg,
+              color: context.bgColor,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Total', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                Text('Total', style: TextStyle(color: context.textMutedColor, fontSize: 13)),
                 Text(
                   '${fmtINR(amount)}',
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.accent, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.w700, color: context.accentColor, fontSize: 16),
                 ),
               ],
             ),
@@ -566,7 +566,7 @@ class _DurationDialogState extends State<_DurationDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () => Navigator.pop(context, _months),
-          style: FilledButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white),
+          style: FilledButton.styleFrom(backgroundColor: context.accentColor, foregroundColor: Colors.white),
           child: const Text('Continue to payment'),
         ),
       ],
@@ -583,14 +583,14 @@ class _PaymentDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasUrl = result.checkoutUrl != null && result.checkoutUrl!.isNotEmpty;
     return AlertDialog(
-      backgroundColor: AppColors.card,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
         children: [
           Icon(hasUrl ? Icons.payment_rounded : Icons.info_outline_rounded,
-              color: hasUrl ? AppColors.success : AppColors.warning, size: 24),
+              color: hasUrl ? context.successColor : context.warningColor, size: 24),
           const SizedBox(width: 10),
-          const Text('Payment', style: TextStyle(color: AppColors.text, fontSize: 18)),
+          Text('Payment', style: TextStyle(color: context.textColor, fontSize: 18)),
         ],
       ),
       content: SingleChildScrollView(
@@ -600,40 +600,40 @@ class _PaymentDialog extends StatelessWidget {
           children: [
             Text(
               '${result.planName} · ${result.durationMonths} months',
-              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.text),
+              style: TextStyle(fontWeight: FontWeight.w600, color: context.textColor),
             ),
             const SizedBox(height: 4),
             Text(
               '${fmtINR(result.amount)} ${result.currency}',
-              style: const TextStyle(fontSize: 15, color: AppColors.accent, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 15, color: context.accentColor, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
             if (result.message != null && result.message!.isNotEmpty)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withOpacity(0.1),
+                  color: context.warningColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                  border: Border.all(color: context.warningColor.withOpacity(0.3)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 20),
+                    Icon(Icons.info_outline_rounded, color: context.warningColor, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         result.message!,
-                        style: const TextStyle(fontSize: 13, color: AppColors.text),
+                        style: TextStyle(fontSize: 13, color: context.textColor),
                       ),
                     ),
                   ],
                 ),
               )
             else if (hasUrl)
-              const Text(
+              Text(
                 'You will be redirected to PaySharp to complete the payment.',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 13, color: context.textSecondaryColor),
               ),
           ],
         ),
@@ -648,7 +648,7 @@ class _PaymentDialog extends StatelessWidget {
             },
             icon: const Icon(Icons.open_in_new_rounded, size: 18),
             label: const Text('Open payment page'),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white),
+            style: FilledButton.styleFrom(backgroundColor: context.accentColor, foregroundColor: Colors.white),
           ),
       ],
     );

@@ -255,6 +255,19 @@ def get_current_super_admin(
     )
 
 
+def get_current_company_admin(
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    """Require Company Admin role. Use for company-specific routes."""
+    company_id = current_user.get("company_id")
+    if not company_id:
+        raise HTTPException(
+            status_code=403,
+            detail="This requires a company admin account.",
+        )
+    return current_user
+
+
 def require_permission(permission: str):
     """Dependency factory: require specific RBAC permission. Super Admin bypasses."""
 

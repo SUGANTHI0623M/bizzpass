@@ -195,7 +195,7 @@ class _ShiftModalsPageState extends State<ShiftModalsPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            style: TextButton.styleFrom(foregroundColor: context.dangerColor),
             child: const Text('Delete'),
           ),
         ],
@@ -258,19 +258,19 @@ class _ShiftModalsPageState extends State<ShiftModalsPage> {
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: context.borderColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Add New Shift',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.text,
+                  color: context.textColor,
                 ),
               ),
               const SizedBox(height: 16),
@@ -454,10 +454,10 @@ class _ShiftModalsPageState extends State<ShiftModalsPage> {
 
   Widget _buildShiftsList() {
     if (_loading) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: CircularProgressIndicator(color: AppColors.accent),
+          padding: const EdgeInsets.all(32),
+          child: CircularProgressIndicator(color: context.accentColor),
         ),
       );
     }
@@ -465,18 +465,18 @@ class _ShiftModalsPageState extends State<ShiftModalsPage> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.danger.withOpacity(0.1),
+          color: context.dangerColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+          border: Border.all(color: context.dangerColor.withOpacity(0.3)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: AppColors.danger),
+            Icon(Icons.error_outline_rounded, color: context.dangerColor),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 _error!,
-                style: const TextStyle(color: AppColors.text),
+                style: TextStyle(color: context.textColor),
               ),
             ),
             TextButton(
@@ -491,20 +491,20 @@ class _ShiftModalsPageState extends State<ShiftModalsPage> {
       return Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: context.cardColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.borderColor),
         ),
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.schedule_rounded, size: 48, color: AppColors.textMuted),
+              Icon(Icons.schedule_rounded, size: 48, color: context.textMutedColor),
               const SizedBox(height: 12),
               Text(
                 'No shift modals yet',
                 style: TextStyle(
                   fontSize: 15,
-                  color: AppColors.textMuted,
+                  color: context.textMutedColor,
                 ),
               ),
               const SizedBox(height: 8),
@@ -512,7 +512,7 @@ class _ShiftModalsPageState extends State<ShiftModalsPage> {
                 'Use the form above to add your first shift',
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textDim,
+                  color: context.textDimColor,
                 ),
               ),
             ],
@@ -529,7 +529,7 @@ class _ShiftModalsPageState extends State<ShiftModalsPage> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: AppColors.textMuted,
+            color: context.textMutedColor,
           ),
         ),
         const SizedBox(height: 12),
@@ -572,7 +572,7 @@ class _TimePickerField extends StatelessWidget {
         child: Text(
           value != null ? formatTime(value!) : '--:--',
           style: TextStyle(
-            color: value != null ? AppColors.text : AppColors.textDim,
+            color: value != null ? context.textColor : context.textDimColor,
             fontSize: 14,
           ),
         ),
@@ -602,9 +602,9 @@ class _ShiftModalCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Row(
         children: [
@@ -612,10 +612,10 @@ class _ShiftModalCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.08),
+              color: context.accentColor.withOpacity(0.08),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.schedule_rounded, size: 20, color: AppColors.accent),
+            child: Icon(Icons.schedule_rounded, size: 20, color: context.accentColor),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -624,25 +624,25 @@ class _ShiftModalCard extends StatelessWidget {
               children: [
                 Text(
                   modal.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.text,
+                    color: context.textColor,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Time: ${modal.startTime} - ${modal.endTime}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textMuted,
+                    color: context.textMutedColor,
                   ),
                 ),
                 Text(
                   'Grace Time: $graceLabel',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textMuted,
+                    color: context.textMutedColor,
                   ),
                 ),
               ],
@@ -654,7 +654,7 @@ class _ShiftModalCard extends StatelessWidget {
           ),
           IconButton(
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_rounded, size: 20, color: AppColors.danger),
+            icon: Icon(Icons.delete_rounded, size: 20, color: context.dangerColor),
             tooltip: 'Delete',
           ),
         ],
@@ -762,7 +762,7 @@ class _EditShiftModalDialogState extends State<_EditShiftModalDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppColors.card,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -778,18 +778,18 @@ class _EditShiftModalDialogState extends State<_EditShiftModalDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Edit Shift Modal',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.text,
+                            color: context.textColor,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Update shift timing and grace period',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 12, color: context.textMutedColor),
                         ),
                       ],
                     ),

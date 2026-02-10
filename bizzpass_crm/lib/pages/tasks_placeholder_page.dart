@@ -21,20 +21,20 @@ class TasksPlaceholderPage extends StatelessWidget {
             child: Column(
               children: [
                 Icon(Icons.task_alt_rounded,
-                    size: 64, color: AppColors.textMuted.withOpacity(0.5)),
+                    size: 64, color: context.textMutedColor.withOpacity(0.5)),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Tasks module',
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.text),
+                      color: context.textColor),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Create tasks, assign to staff, and update status.',
                   style: TextStyle(
-                      fontSize: 14, color: AppColors.textSecondary),
+                      fontSize: 14, color: context.textSecondaryColor),
                   textAlign: TextAlign.center,
                 ),
               ],

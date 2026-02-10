@@ -61,20 +61,20 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded,
+                      color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(_error!,
-                        style: const TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary)),
+                        style: TextStyle(
+                            fontSize: 13, color: context.textSecondaryColor)),
                   ),
-                  TextButton(onPressed: _load, child: const Text('Retry')),
+                  TextButton(onPressed: _load, child: Text('Retry')),
                 ],
               ),
             ),
@@ -98,34 +98,34 @@ class _AuditLogsPageState extends State<AuditLogsPage> {
                   .map((l) => DataRow(
                         cells: [
                           DataCell(Text(l.action,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.text))),
+                                  color: context.textColor))),
                           DataCell(Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(l.actorName ?? '—',
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text)),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor)),
                               if (l.actorEmail != null)
                                 Text(l.actorEmail!,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11,
-                                        color: AppColors.textDim)),
+                                        color: context.textDimColor)),
                             ],
                           )),
                           DataCell(Text(
                             [l.entityType, l.entityId]
                                 .where((x) => x != null && x.isNotEmpty)
                                 .join(' #'),
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.textSecondary),
+                            style: TextStyle(
+                                fontSize: 12, color: context.textSecondaryColor),
                           )),
                           DataCell(Text(
                             l.createdAt ?? '—',
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.textMuted),
+                            style: TextStyle(
+                                fontSize: 12, color: context.textMutedColor),
                           )),
                         ],
                       ))

@@ -169,6 +169,7 @@ def run_migrations(cur):
                 id BIGSERIAL PRIMARY KEY,
                 company_id BIGINT NOT NULL,
                 name VARCHAR(255) NOT NULL,
+                active BOOLEAN NOT NULL DEFAULT true,
                 created_at TIMESTAMP NULL DEFAULT NOW(),
                 updated_at TIMESTAMP NULL DEFAULT NOW()
             )
@@ -179,6 +180,12 @@ def run_migrations(cur):
     except Exception as e:
         if "already exists" not in str(e).lower():
             print("Migration note (departments):", e)
+    # Migration: add active column to existing departments tables
+    try:
+        cur.execute("ALTER TABLE departments ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true")
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (departments active):", e)
 
     # Attendance templates: add company_id for company-scoped attendance modals
     try:
@@ -301,6 +308,27 @@ def run_migrations(cur):
     except Exception as e:
         if "already exists" not in str(e).lower():
             print("Migration note (office_holidays):", e)
+
+    # Staff: CRM modal IDs (attendance, shift, leave, holiday) and extra fields
+    for col, typ in [
+        ("attendance_modal_id", "BIGINT NULL"),
+        ("shift_modal_id", "BIGINT NULL"),
+        ("leave_modal_id", "BIGINT NULL"),
+        ("holiday_modal_id", "BIGINT NULL"),
+        ("staff_type", "VARCHAR(50) NULL"),
+        ("reporting_manager", "VARCHAR(255) NULL"),
+        ("salary_cycle", "VARCHAR(50) NULL"),
+        ("gross_salary", "DOUBLE PRECISION NULL"),
+        ("net_salary", "DOUBLE PRECISION NULL"),
+        ("address_postal_code", "VARCHAR(20) NULL"),
+        ("address_country", "VARCHAR(100) NULL"),
+        ("bank_verification_status", "VARCHAR(50) NULL"),
+    ]:
+        try:
+            cur.execute(f"ALTER TABLE staff ADD COLUMN IF NOT EXISTS {col} {typ}")
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                print("Migration note (staff %s): %s", col, e)
 
     # Ensure "basic" plan exists for CRM UI (idempotent). Max 30 staff, 1 branch.
     try:

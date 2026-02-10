@@ -60,14 +60,14 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: context.bgColor,
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: AppColors.danger,
+                backgroundColor: context.dangerColor,
               ),
             );
           }
@@ -92,38 +92,45 @@ class _LoginPageState extends State<LoginPage> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
-                              color: AppColors.danger.withOpacity(0.15),
+                              color: context.dangerColor.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: AppColors.danger.withOpacity(0.5)),
+                                  color: context.dangerColor.withOpacity(0.5)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.warning_amber_rounded,
-                                    color: AppColors.danger, size: 20),
+                                Icon(Icons.warning_amber_rounded,
+                                    color: context.dangerColor, size: 20),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Cannot reach backend at ${ApiConstants.baseUrl}. Start the backend and refresh.',
-                                    style: const TextStyle(
-                                        color: AppColors.text, fontSize: 12),
+                                    'Cannot reach backend at ${ApiConstants.baseUrl}. Start the backend (e.g. docker compose up -d), then tap Retry.',
+                                    style: TextStyle(
+                                        color: context.textColor, fontSize: 12),
                                   ),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    setState(() => _backendReachable = null);
+                                    await _checkBackend();
+                                  },
+                                  child: const Text('Retry'),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                      const Icon(
+                      Icon(
                         LucideIcons.shieldCheck,
                         size: 56,
-                        color: AppColors.accent,
+                        color: context.accentColor,
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'BizzPass',
                         style:
                             Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  color: AppColors.text,
+                                  color: context.textColor,
                                   fontWeight: FontWeight.w600,
                                 ),
                         textAlign: TextAlign.center,
@@ -132,7 +139,7 @@ class _LoginPageState extends State<LoginPage> {
                       Text(
                         'Sign in to continue',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textMuted,
+                              color: context.textMutedColor,
                             ),
                         textAlign: TextAlign.center,
                       ),
@@ -141,10 +148,10 @@ class _LoginPageState extends State<LoginPage> {
                         controller: _identifierController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'License key, email or phone',
                           hintText: 'Enter license key, email or phone number',
-                          prefixIcon: Icon(LucideIcons.mail, size: 20, color: AppColors.textMuted),
+                          prefixIcon: Icon(LucideIcons.mail, size: 20, color: context.textMutedColor),
                         ),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
@@ -162,14 +169,14 @@ class _LoginPageState extends State<LoginPage> {
                         decoration: InputDecoration(
                           labelText: 'Password',
                           hintText: 'Enter your password',
-                          prefixIcon: const Icon(LucideIcons.lock, size: 20, color: AppColors.textMuted),
+                          prefixIcon: Icon(LucideIcons.lock, size: 20, color: context.textMutedColor),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
                                   ? LucideIcons.eyeOff
                                   : LucideIcons.eye,
                               size: 20,
-                              color: AppColors.textMuted,
+                              color: context.textMutedColor,
                             ),
                             onPressed: () {
                               setState(
@@ -188,7 +195,7 @@ class _LoginPageState extends State<LoginPage> {
                       FilledButton(
                         onPressed: loading ? null : _submit,
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.accent,
+                          backgroundColor: context.accentColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/constants.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../data/departments_repository.dart';
@@ -17,6 +18,8 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
   String? _error;
   bool _showCreateDialog = false;
   Department? _editingDepartment;
+  String _search = '';
+  bool? _filterActive; // null = all, true = active, false = inactive
 
   @override
   void initState() {
@@ -30,7 +33,10 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
       _error = null;
     });
     try {
-      final list = await _repo.fetchDepartments();
+      final list = await _repo.fetchDepartments(
+        active: _filterActive,
+        search: _search.trim().isEmpty ? null : _search.trim(),
+      );
       if (mounted) {
         setState(() {
           _departments = list;
@@ -55,7 +61,7 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
         content: Text('Delete "${dept.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text('Delete', style: TextStyle(color: ctx.dangerColor))),
         ],
       ),
     );
@@ -104,20 +110,28 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
           if (_error != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 16),
+              margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded, color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(_error!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+                  Expanded(child: Text(_error!, style: TextStyle(fontSize: 13, color: context.textSecondaryColor))),
                   TextButton(onPressed: _load, child: const Text('Retry')),
                 ],
               ),
             ),
+            if (_error!.toLowerCase().contains('cannot reach the backend'))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  ApiConstants.backendUnreachableHint,
+                  style: TextStyle(color: context.textMutedColor, fontSize: 12),
+                ),
+              ),
           ],
           Row(
             children: [
@@ -128,16 +142,62 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: 'Search by department name...',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    prefixIcon: Icon(Icons.search_rounded, size: 20),
+                  ),
+                  onChanged: (v) => setState(() => _search = v),
+                  onSubmitted: (_) => _load(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 160,
+                child: DropdownButtonFormField<bool?>(
+                  value: _filterActive,
+                  decoration: const InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: const [
+                    DropdownMenuItem<bool?>(value: null, child: Text('All')),
+                    DropdownMenuItem<bool?>(value: true, child: Text('Active')),
+                    DropdownMenuItem<bool?>(value: false, child: Text('Inactive')),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _filterActive = v);
+                    _load();
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Search'),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           if (_loading && _departments.isEmpty)
             const Center(child: Padding(padding: EdgeInsets.all(48), child: CircularProgressIndicator()))
           else
             AppDataTable(
-              columns: const [DataCol('Name'), DataCol('Actions')],
+              columns: const [DataCol('Name'), DataCol('Status'), DataCol('Actions')],
               rows: _departments
                   .map((d) => DataRow(
                         cells: [
                           DataCell(Text(d.name)),
+                          DataCell(Text(d.active ? 'Active' : 'Inactive')),
                           DataCell(Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -183,11 +243,17 @@ class _DepartmentFormDialog extends StatefulWidget {
 class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
   final _name = TextEditingController();
   bool _saving = false;
+  late bool _active;
 
   @override
   void initState() {
     super.initState();
-    if (widget.department != null) _name.text = widget.department!.name;
+    if (widget.department != null) {
+      _name.text = widget.department!.name;
+      _active = widget.department!.active;
+    } else {
+      _active = true;
+    }
   }
 
   @override
@@ -204,9 +270,13 @@ class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
     setState(() => _saving = true);
     try {
       if (widget.department != null) {
-        await widget.repo.updateDepartment(widget.department!.id, name: _name.text.trim());
+        await widget.repo.updateDepartment(
+          widget.department!.id,
+          name: _name.text.trim(),
+          active: _active,
+        );
       } else {
-        await widget.repo.createDepartment(name: _name.text.trim());
+        await widget.repo.createDepartment(name: _name.text.trim(), active: _active);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(widget.department != null ? 'Department updated' : 'Department created')));
@@ -226,9 +296,9 @@ class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -237,13 +307,22 @@ class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
           Row(
             children: [
               Text(widget.department != null ? 'Edit department' : 'Add department',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.text)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: context.textColor)),
               const Spacer(),
               IconButton(onPressed: widget.onClose, icon: const Icon(Icons.close_rounded)),
             ],
           ),
           const SizedBox(height: 12),
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name *', border: OutlineInputBorder(), isDense: true)),
+          const SizedBox(height: 12),
+          CheckboxListTile(
+            value: _active,
+            onChanged: (v) => setState(() => _active = v ?? true),
+            title: const Text('Active'),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+          ),
           const SizedBox(height: 16),
           Row(
             children: [

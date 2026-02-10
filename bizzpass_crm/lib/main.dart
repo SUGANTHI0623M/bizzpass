@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 
 import 'bloc/auth_bloc.dart';
 import 'data/auth_repository.dart';
@@ -18,14 +19,14 @@ import 'pages/notifications_page.dart';
 import 'pages/plans_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/login_page.dart';
-import 'pages/company_admin_dashboard_page.dart';
+import 'pages/new_company_admin_dashboard.dart';
 import 'pages/roles_permissions_page.dart';
 import 'pages/audit_logs_page.dart';
 import 'pages/branches_page.dart';
 import 'pages/departments_page.dart';
 import 'pages/leave_placeholder_page.dart';
 import 'pages/tasks_placeholder_page.dart';
-import 'pages/payroll_placeholder_page.dart';
+import 'pages/payroll_page.dart';
 import 'pages/reports_placeholder_page.dart';
 import 'pages/subscription_page.dart';
 import 'widgets/company_admin_shell.dart';
@@ -61,7 +62,12 @@ void main() {
     };
   }
   runZonedGuarded(() {
-    runApp(const BizzPassApp());
+    runApp(
+      ChangeNotifierProvider(
+        create: (_) => ThemeNotifier(),
+        child: const BizzPassApp(),
+      ),
+    );
   }, (error, stack) {
     if (kDebugMode) {
       // ignore: avoid_print
@@ -80,21 +86,28 @@ class BizzPassApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'BizzPass Admin CRM',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      builder: (context, child) {
-        return Container(
-          color: const Color(0xFF0C0E14),
-          child: child,
+    return Consumer<ThemeNotifier>(
+      builder: (context, themeNotifier, child) {
+        return MaterialApp(
+          title: 'BizzPass Admin CRM',
+          debugShowCheckedModeBanner: false,
+          theme: buildLightTheme(),
+          darkTheme: buildDarkTheme(),
+          themeMode: themeNotifier.themeMode,
+          builder: (context, child) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            return Container(
+              color: isDark ? const Color(0xFF0C0E14) : const Color(0xFFF8F9FC),
+              child: child,
+            );
+          },
+          home: BlocProvider(
+            create: (context) =>
+                AuthBloc(AuthRepository())..add(AuthCheckRequested()),
+            child: const AuthGate(),
+          ),
         );
       },
-      home: BlocProvider(
-        create: (context) =>
-            AuthBloc(AuthRepository())..add(AuthCheckRequested()),
-        child: const AuthGate(),
-      ),
     );
   }
 }
@@ -300,7 +313,7 @@ class __CompanyAdminScreenStatefulState
   Widget _buildPage() {
     switch (_currentPage) {
       case 'dashboard':
-        return const CompanyAdminDashboardPage();
+        return const NewCompanyAdminDashboard();
       case 'staff':
         return StaffPage(
           enableCreate: true,
@@ -328,7 +341,7 @@ class __CompanyAdminScreenStatefulState
       case 'visitors':
         return const VisitorsPage();
       case 'payroll':
-        return const PayrollPlaceholderPage();
+        return const PayrollPage();
       case 'reports':
         return const ReportsPlaceholderPage();
       case 'subscription':
@@ -338,7 +351,7 @@ class __CompanyAdminScreenStatefulState
       case 'audit-logs':
         return const AuditLogsPage();
       default:
-        return const CompanyAdminDashboardPage();
+        return const NewCompanyAdminDashboard();
     }
   }
 

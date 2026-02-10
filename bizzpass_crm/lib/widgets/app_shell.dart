@@ -62,11 +62,11 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: AppColors.bg,
+      backgroundColor: context.bgColor,
       drawer: isWide
           ? null
           : Drawer(
-              backgroundColor: AppColors.sidebar,
+              backgroundColor: context.sidebarColor,
               width: 260,
               shape: const RoundedRectangleBorder(),
               child: _buildSidebarContent(collapsed: false, inDrawer: true),
@@ -79,9 +79,9 @@ class _AppShellState extends State<AppShell> {
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
               width: _collapsed ? 72 : 250,
-              decoration: const BoxDecoration(
-                color: AppColors.sidebar,
-                border: Border(right: BorderSide(color: AppColors.border)),
+              decoration: BoxDecoration(
+                color: context.sidebarColor,
+                border: Border(right: BorderSide(color: context.borderColor)),
               ),
               child:
                   _buildSidebarContent(collapsed: _collapsed, inDrawer: false),
@@ -94,9 +94,9 @@ class _AppShellState extends State<AppShell> {
                 // ─── Top Bar ─────────────────────────
                 Container(
                   height: 64,
-                  decoration: const BoxDecoration(
-                    color: AppColors.bg,
-                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                  decoration: BoxDecoration(
+                    color: context.bgColor,
+                    border: Border(bottom: BorderSide(color: context.borderColor)),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
@@ -113,7 +113,7 @@ class _AppShellState extends State<AppShell> {
                           isWide && _collapsed
                               ? Icons.menu_open_rounded
                               : Icons.menu_rounded,
-                          color: AppColors.textMuted,
+                          color: context.textMutedColor,
                           size: 22,
                         ),
                         tooltip: isWide
@@ -130,10 +130,10 @@ class _AppShellState extends State<AppShell> {
                                   orElse: () => navItems.first,
                                 )
                                 .label,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.text,
+                          color: context.textColor,
                         ),
                       ),
                       const Spacer(),
@@ -143,8 +143,8 @@ class _AppShellState extends State<AppShell> {
                           IconButton(
                             onPressed: () =>
                                 widget.onPageChanged('notifications'),
-                            icon: const Icon(Icons.notifications_outlined,
-                                size: 20, color: AppColors.textMuted),
+                            icon: Icon(Icons.notifications_outlined,
+                                size: 20, color: context.textMutedColor),
                           ),
                           Positioned(
                             top: 8,
@@ -154,9 +154,9 @@ class _AppShellState extends State<AppShell> {
                               height: 8,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppColors.danger,
+                                color: context.dangerColor,
                                 border:
-                                    Border.all(color: AppColors.bg, width: 1.5),
+                                    Border.all(color: context.bgColor, width: 1.5),
                               ),
                             ),
                           ),
@@ -166,8 +166,8 @@ class _AppShellState extends State<AppShell> {
                       if (widget.onLogout != null)
                         IconButton(
                           onPressed: widget.onLogout,
-                          icon: const Icon(Icons.logout_rounded,
-                              size: 20, color: AppColors.textMuted),
+                          icon: Icon(Icons.logout_rounded,
+                              size: 20, color: context.textMutedColor),
                           tooltip: 'Log out',
                         ),
                       const SizedBox(width: 4),
@@ -195,7 +195,7 @@ class _AppShellState extends State<AppShell> {
                           ),
                           if (isWide) ...[
                             const SizedBox(width: 10),
-                            const Column(
+                            Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -203,12 +203,12 @@ class _AppShellState extends State<AppShell> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.text,
+                                      color: context.textColor,
                                     )),
                                 Text('admin@bizzpass.in',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: AppColors.textDim,
+                                      color: context.textDimColor,
                                     )),
                               ],
                             ),
@@ -267,21 +267,21 @@ class _AppShellState extends State<AppShell> {
                 ),
                 if (!collapsed) ...[
                   const SizedBox(width: 12),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('BizzPass',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.text,
+                            color: context.textColor,
                             letterSpacing: -0.3,
                           )),
                       Text('ADMIN CRM',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textDim,
+                            color: context.textDimColor,
                             letterSpacing: 1.5,
                           )),
                     ],
@@ -310,7 +310,7 @@ class _AppShellState extends State<AppShell> {
                         if (inDrawer) Navigator.pop(context);
                       },
                       borderRadius: BorderRadius.circular(10),
-                      hoverColor: AppColors.cardHover,
+                      hoverColor: context.cardHoverColor,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         padding: EdgeInsets.symmetric(
@@ -319,7 +319,7 @@ class _AppShellState extends State<AppShell> {
                         ),
                         decoration: BoxDecoration(
                           color: isActive
-                              ? AppColors.accent.withOpacity(0.12)
+                              ? context.accentColor.withOpacity(0.12)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -332,8 +332,8 @@ class _AppShellState extends State<AppShell> {
                               item.icon,
                               size: 18,
                               color: isActive
-                                  ? AppColors.accent
-                                  : AppColors.textMuted,
+                                  ? context.accentColor
+                                  : context.textMutedColor,
                             ),
                             if (!collapsed) ...[
                               const SizedBox(width: 12),
@@ -345,8 +345,8 @@ class _AppShellState extends State<AppShell> {
                                           ? FontWeight.w600
                                           : FontWeight.w500,
                                       color: isActive
-                                          ? AppColors.accent
-                                          : AppColors.textMuted,
+                                          ? context.accentColor
+                                          : context.textMutedColor,
                                     )),
                               ),
                               if (item.badgeCount > 0)
@@ -355,14 +355,14 @@ class _AppShellState extends State<AppShell> {
                                   height: 18,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: AppColors.danger.withOpacity(0.15),
+                                    color: context.dangerColor.withOpacity(0.15),
                                   ),
                                   alignment: Alignment.center,
                                   child: Text('${item.badgeCount}',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
-                                        color: AppColors.danger,
+                                        color: context.dangerColor,
                                       )),
                                 ),
                             ],
@@ -379,8 +379,8 @@ class _AppShellState extends State<AppShell> {
           // ─── Collapse Button (desktop only) ──────
           if (!inDrawer)
             Container(
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: AppColors.border)),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: context.borderColor)),
               ),
               padding: const EdgeInsets.all(12),
               child: Material(
@@ -389,12 +389,12 @@ class _AppShellState extends State<AppShell> {
                 child: InkWell(
                   onTap: () => setState(() => _collapsed = !_collapsed),
                   borderRadius: BorderRadius.circular(10),
-                  hoverColor: AppColors.cardHover,
+                  hoverColor: context.cardHoverColor,
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                     decoration: BoxDecoration(
-                      color: AppColors.cardHover,
+                      color: context.cardHoverColor,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -407,15 +407,15 @@ class _AppShellState extends State<AppShell> {
                               ? Icons.chevron_right_rounded
                               : Icons.chevron_left_rounded,
                           size: 16,
-                          color: AppColors.textDim,
+                          color: context.textDimColor,
                         ),
                         if (!collapsed) ...[
                           const SizedBox(width: 10),
-                          const Text('Collapse',
+                          Text('Collapse',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: AppColors.textDim,
+                                color: context.textDimColor,
                               )),
                         ],
                       ],

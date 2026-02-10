@@ -167,7 +167,7 @@ class _AttendanceModalsPageState extends State<AttendanceModalsPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            style: TextButton.styleFrom(foregroundColor: ctx.dangerColor),
             child: const Text('Delete'),
           ),
         ],
@@ -217,7 +217,7 @@ class _AttendanceModalsPageState extends State<AttendanceModalsPage> {
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('Add modal'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
+                  backgroundColor: context.accentColor,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -239,28 +239,28 @@ class _AttendanceModalsPageState extends State<AttendanceModalsPage> {
           ),
           const SizedBox(height: 20),
           if (_loading)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(color: AppColors.accent),
+                padding: const EdgeInsets.all(32),
+                child: CircularProgressIndicator(color: context.accentColor),
               ),
             )
           else if (_error != null)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.danger.withOpacity(0.1),
+                color: context.dangerColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                border: Border.all(color: context.dangerColor.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: AppColors.danger),
+                  Icon(Icons.error_outline_rounded, color: context.dangerColor),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _error!,
-                      style: const TextStyle(color: AppColors.text),
+                      style: TextStyle(color: context.textColor),
                     ),
                   ),
                   TextButton(
@@ -274,22 +274,22 @@ class _AttendanceModalsPageState extends State<AttendanceModalsPage> {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppColors.card,
+                color: context.cardColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: context.borderColor),
               ),
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.tune_rounded, size: 48, color: AppColors.textMuted),
+                    Icon(Icons.tune_rounded, size: 48, color: context.textMutedColor),
                     const SizedBox(height: 12),
                     Text(
                       _searchController.text.trim().isEmpty
                           ? 'No attendance modals yet. Add one to get started.'
                           : 'No results for "${_searchController.text.trim()}".',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: AppColors.textMuted,
+                        color: context.textMutedColor,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -299,7 +299,7 @@ class _AttendanceModalsPageState extends State<AttendanceModalsPage> {
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Add modal'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
+                        backgroundColor: context.accentColor,
                         foregroundColor: Colors.white,
                       ),
                     ),
@@ -327,8 +327,8 @@ class _AttendanceModalsPageState extends State<AttendanceModalsPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: m.isActive
-                          ? AppColors.success.withOpacity(0.15)
-                          : AppColors.textMuted.withOpacity(0.2),
+                          ? context.successColor.withOpacity(0.15)
+                          : context.textMutedColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -336,7 +336,7 @@ class _AttendanceModalsPageState extends State<AttendanceModalsPage> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: m.isActive ? AppColors.success : AppColors.textMuted,
+                        color: m.isActive ? context.successColor : context.textMutedColor,
                       ),
                     ),
                   )),
@@ -350,7 +350,7 @@ class _AttendanceModalsPageState extends State<AttendanceModalsPage> {
                       ),
                       IconButton(
                         onPressed: () => _confirmDelete(m),
-                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                        icon: Icon(Icons.delete_outline_rounded, color: context.dangerColor),
                         tooltip: 'Delete',
                       ),
                     ],
@@ -470,7 +470,7 @@ class _AttendanceModalDialogState extends State<_AttendanceModalDialog> {
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
     return Dialog(
-      backgroundColor: AppColors.card,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480, maxHeight: 600),
@@ -488,16 +488,16 @@ class _AttendanceModalDialogState extends State<_AttendanceModalDialog> {
                       children: [
                         Text(
                           isEdit ? 'Edit Attendance Modal' : 'Create Attendance Modal',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.text,
+                            color: context.textColor,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Configure attendance modal settings and requirements',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 12, color: context.textMutedColor),
                         ),
                       ],
                     ),
@@ -545,12 +545,12 @@ class _AttendanceModalDialogState extends State<_AttendanceModalDialog> {
                       onChanged: (v) => setState(() => _active = v),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'Attendance Requirements',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.text,
+                        color: context.textColor,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -567,12 +567,12 @@ class _AttendanceModalDialogState extends State<_AttendanceModalDialog> {
                       onChanged: (v) => setState(() => _requireSelfie = v),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'Attendance Rules',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.text,
+                        color: context.textColor,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -626,7 +626,7 @@ class _AttendanceModalDialogState extends State<_AttendanceModalDialog> {
                     icon: const Icon(Icons.add_rounded, size: 18),
                     label: Text(isEdit ? 'Update Modal' : 'Create Modal'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
+                      backgroundColor: context.accentColor,
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -665,16 +665,16 @@ class _SwitchRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.text,
+                    color: context.textColor,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 12, color: context.textMutedColor),
                 ),
               ],
             ),
@@ -682,7 +682,7 @@ class _SwitchRow extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.accent,
+            activeColor: context.accentColor,
           ),
         ],
       ),

@@ -62,7 +62,7 @@ class _LicensesPageState extends State<LicensesPage> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: AppColors.bg,
+        backgroundColor: context.bgColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
@@ -74,8 +74,8 @@ class _LicensesPageState extends State<LicensesPage> {
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: context.borderColor)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -86,11 +86,11 @@ class _LicensesPageState extends State<LicensesPage> {
                           children: [
                             Text(
                               l.licenseKey,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                                 fontFamily: 'monospace',
-                                color: AppColors.accent,
+                                color: context.accentColor,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -99,15 +99,15 @@ class _LicensesPageState extends State<LicensesPage> {
                                 Clipboard.setData(
                                     ClipboardData(text: l.licenseKey));
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
+                                  SnackBar(
                                     content: Text('License key copied'),
-                                    backgroundColor: AppColors.success,
+                                    backgroundColor: context.successColor,
                                     duration: Duration(seconds: 2),
                                   ),
                                 );
                               },
-                              icon: const Icon(Icons.copy_rounded,
-                                  size: 18, color: AppColors.textMuted),
+                              icon: Icon(Icons.copy_rounded,
+                                  size: 18, color: context.textMutedColor),
                               tooltip: 'Copy license key',
                               style: IconButton.styleFrom(
                                 padding: const EdgeInsets.all(4),
@@ -119,10 +119,10 @@ class _LicensesPageState extends State<LicensesPage> {
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close_rounded,
-                            size: 20, color: AppColors.textMuted),
+                        icon: Icon(Icons.close_rounded,
+                            size: 20, color: context.textMutedColor),
                         style: IconButton.styleFrom(
-                            backgroundColor: AppColors.cardHover),
+                            backgroundColor: context.cardHoverColor),
                       ),
                     ],
                   ),
@@ -143,7 +143,7 @@ class _LicensesPageState extends State<LicensesPage> {
                           DetailTile(
                               label: 'STATUS',
                               value: l.status,
-                              valueColor: AppColors.info),
+                              valueColor: context.infoColor),
                           DetailTile(
                               label: 'VALID FROM', value: l.validFrom ?? '—'),
                           DetailTile(
@@ -170,7 +170,7 @@ class _LicensesPageState extends State<LicensesPage> {
                                 final confirm = await showDialog<bool>(
                                   context: context,
                                   builder: (c) => AlertDialog(
-                                    backgroundColor: AppColors.bg,
+                                    backgroundColor: context.bgColor,
                                     title: const Text('Revoke license?'),
                                     content: const Text(
                                       'This will revoke the license. The company will no longer be able to use it.',
@@ -182,9 +182,9 @@ class _LicensesPageState extends State<LicensesPage> {
                                           child: const Text('Cancel')),
                                       TextButton(
                                         onPressed: () => Navigator.pop(c, true),
-                                        child: const Text('Revoke',
+                                        child: Text('Revoke',
                                             style: TextStyle(
-                                                color: AppColors.danger)),
+                                                color: context.dangerColor)),
                                       ),
                                     ],
                                   ),
@@ -197,9 +197,9 @@ class _LicensesPageState extends State<LicensesPage> {
                                       _loadLicenses();
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(
-                                        const SnackBar(
+                                        SnackBar(
                                             content: Text('License revoked'),
-                                            backgroundColor: AppColors.success),
+                                            backgroundColor: context.successColor),
                                       );
                                     }
                                   } catch (e) {
@@ -209,7 +209,7 @@ class _LicensesPageState extends State<LicensesPage> {
                                         SnackBar(
                                           content: Text(e.toString().replaceAll(
                                               'LicensesException: ', '')),
-                                          backgroundColor: AppColors.danger,
+                                          backgroundColor: context.dangerColor,
                                         ),
                                       );
                                     }
@@ -217,7 +217,7 @@ class _LicensesPageState extends State<LicensesPage> {
                                 }
                               },
                               style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.danger),
+                                  foregroundColor: context.dangerColor),
                               child: const Text('Revoke'),
                             ),
                         ],
@@ -245,7 +245,7 @@ class _LicensesPageState extends State<LicensesPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          backgroundColor: AppColors.bg,
+          backgroundColor: context.bgColor,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: ConstrainedBox(
@@ -258,25 +258,25 @@ class _LicensesPageState extends State<LicensesPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 20),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border:
-                          Border(bottom: BorderSide(color: AppColors.border)),
+                          Border(bottom: BorderSide(color: context.borderColor)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Edit License',
+                        Text('Edit License',
                             style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.text)),
+                                color: context.textColor)),
                         IconButton(
                           onPressed:
                               submitting ? null : () => Navigator.pop(ctx),
-                          icon: const Icon(Icons.close_rounded,
-                              size: 20, color: AppColors.textMuted),
+                          icon: Icon(Icons.close_rounded,
+                              size: 20, color: context.textMutedColor),
                           style: IconButton.styleFrom(
-                              backgroundColor: AppColors.cardHover),
+                              backgroundColor: context.cardHoverColor),
                         ),
                       ],
                     ),
@@ -290,19 +290,19 @@ class _LicensesPageState extends State<LicensesPage> {
                             padding: const EdgeInsets.all(12),
                             margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: AppColors.danger.withOpacity(0.1),
+                              color: context.dangerColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline_rounded,
-                                    color: AppColors.danger, size: 20),
+                                Icon(Icons.error_outline_rounded,
+                                    color: context.dangerColor, size: 20),
                                 const SizedBox(width: 10),
                                 Expanded(
                                     child: Text(submitError!,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 13,
-                                            color: AppColors.danger))),
+                                            color: context.dangerColor))),
                               ],
                             ),
                           ),
@@ -312,8 +312,8 @@ class _LicensesPageState extends State<LicensesPage> {
                           child: TextFormField(
                             controller: maxUsersCtrl,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                           ),
                         ),
                         FormFieldWrapper(
@@ -321,9 +321,9 @@ class _LicensesPageState extends State<LicensesPage> {
                           child: DropdownButtonFormField<String>(
                             value: selectedStatus,
                             decoration: const InputDecoration(),
-                            dropdownColor: AppColors.card,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            dropdownColor: context.cardColor,
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             items: const [
                               DropdownMenuItem(
                                   value: 'unassigned',
@@ -346,8 +346,8 @@ class _LicensesPageState extends State<LicensesPage> {
                           child: TextFormField(
                             controller: notesCtrl,
                             maxLines: 2,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             decoration:
                                 const InputDecoration(hintText: 'Optional'),
                           ),
@@ -392,11 +392,11 @@ class _LicensesPageState extends State<LicensesPage> {
                                           _loadLicenses();
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                                 content:
                                                     Text('License updated'),
                                                 backgroundColor:
-                                                    AppColors.success),
+                                                    context.successColor),
                                           );
                                         }
                                       } catch (e) {
@@ -448,7 +448,7 @@ class _LicensesPageState extends State<LicensesPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          backgroundColor: AppColors.bg,
+          backgroundColor: context.bgColor,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: ConstrainedBox(
@@ -461,26 +461,26 @@ class _LicensesPageState extends State<LicensesPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 20),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border:
-                          Border(bottom: BorderSide(color: AppColors.border)),
+                          Border(bottom: BorderSide(color: context.borderColor)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Create New License',
+                        Text('Create New License',
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.text,
+                              color: context.textColor,
                             )),
                         IconButton(
                           onPressed:
                               submitting ? null : () => Navigator.pop(ctx),
-                          icon: const Icon(Icons.close_rounded,
-                              size: 20, color: AppColors.textMuted),
+                          icon: Icon(Icons.close_rounded,
+                              size: 20, color: context.textMutedColor),
                           style: IconButton.styleFrom(
-                              backgroundColor: AppColors.cardHover),
+                              backgroundColor: context.cardHoverColor),
                         ),
                       ],
                     ),
@@ -494,19 +494,19 @@ class _LicensesPageState extends State<LicensesPage> {
                             padding: const EdgeInsets.all(12),
                             margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: AppColors.danger.withOpacity(0.1),
+                              color: context.dangerColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline_rounded,
-                                    color: AppColors.danger, size: 20),
+                                Icon(Icons.error_outline_rounded,
+                                    color: context.dangerColor, size: 20),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     submitError!,
-                                    style: const TextStyle(
-                                        fontSize: 13, color: AppColors.danger),
+                                    style: TextStyle(
+                                        fontSize: 13, color: context.dangerColor),
                                   ),
                                 ),
                               ],
@@ -522,9 +522,9 @@ class _LicensesPageState extends State<LicensesPage> {
                                     : plans.first.planCode)
                                 : selectedPlan,
                             decoration: const InputDecoration(),
-                            dropdownColor: AppColors.card,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            dropdownColor: context.cardColor,
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             items: plans.isNotEmpty
                                 ? plans
                                     .map((p) => DropdownMenuItem<String>(
@@ -561,8 +561,8 @@ class _LicensesPageState extends State<LicensesPage> {
                                 child: TextFormField(
                                   controller: maxUsersCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -573,8 +573,8 @@ class _LicensesPageState extends State<LicensesPage> {
                                 child: TextFormField(
                                   controller: maxBranchesCtrl,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -588,12 +588,12 @@ class _LicensesPageState extends State<LicensesPage> {
                                 value: isTrial,
                                 onChanged: (v) =>
                                     setDialogState(() => isTrial = v ?? false),
-                                activeColor: AppColors.accent,
+                                activeColor: context.accentColor,
                               ),
-                              const Text('Yes, this is a trial license',
+                              Text('Yes, this is a trial license',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: AppColors.textSecondary,
+                                    color: context.textSecondaryColor,
                                   )),
                             ],
                           ),
@@ -603,8 +603,8 @@ class _LicensesPageState extends State<LicensesPage> {
                           child: TextFormField(
                             controller: notesCtrl,
                             maxLines: 3,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             decoration: const InputDecoration(
                                 hintText: 'Optional internal notes...'),
                           ),
@@ -653,11 +653,11 @@ class _LicensesPageState extends State<LicensesPage> {
                                           _loadLicenses();
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Text(
                                                   'License created successfully'),
                                               backgroundColor:
-                                                  AppColors.success,
+                                                  context.successColor,
                                             ),
                                           );
                                         }
@@ -712,18 +712,18 @@ class _LicensesPageState extends State<LicensesPage> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded,
+                      color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(_error!,
-                        style: const TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary)),
+                        style: TextStyle(
+                            fontSize: 13, color: context.textSecondaryColor)),
                   ),
                   TextButton(
                       onPressed: _loadLicenses, child: const Text('Retry')),
@@ -792,10 +792,10 @@ class _LicensesPageState extends State<LicensesPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(l.licenseKey,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'monospace',
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.accent,
+                                    color: context.accentColor,
                                     fontSize: 12,
                                     letterSpacing: 0.5,
                                   )),
@@ -807,9 +807,9 @@ class _LicensesPageState extends State<LicensesPage> {
                                     Clipboard.setData(
                                         ClipboardData(text: l.licenseKey));
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content: Text('License key copied'),
-                                        backgroundColor: AppColors.success,
+                                        backgroundColor: context.successColor,
                                         duration: Duration(seconds: 2),
                                       ),
                                     );
@@ -818,7 +818,7 @@ class _LicensesPageState extends State<LicensesPage> {
                                   child: Padding(
                                     padding: const EdgeInsets.all(4),
                                     child: Icon(Icons.copy_rounded,
-                                        size: 16, color: AppColors.textMuted),
+                                        size: 16, color: context.textMutedColor),
                                   ),
                                 ),
                               ),
@@ -827,28 +827,28 @@ class _LicensesPageState extends State<LicensesPage> {
                           DataCell(Text(l.company ?? '—',
                               style: TextStyle(
                                 color: l.company != null
-                                    ? AppColors.textSecondary
-                                    : AppColors.textDim,
+                                    ? context.textSecondaryColor
+                                    : context.textDimColor,
                                 fontStyle: l.company == null
                                     ? FontStyle.italic
                                     : FontStyle.normal,
                               ))),
                           DataCell(Text(l.plan,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontWeight: FontWeight.w600))),
                           DataCell(Text('${l.maxUsers}')),
                           DataCell(StatusBadge(status: l.status)),
                           DataCell(Text(l.validUntil ?? '—',
                               style:
-                                  const TextStyle(color: AppColors.textMuted))),
+                                  TextStyle(color: context.textMutedColor))),
                           DataCell(l.isTrial
-                              ? const Text('TRIAL',
+                              ? Text('TRIAL',
                                   style: TextStyle(
-                                      color: AppColors.warning,
+                                      color: context.warningColor,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 11))
-                              : const Text('—',
-                                  style: TextStyle(color: AppColors.textDim))),
+                              : Text('—',
+                                  style: TextStyle(color: context.textDimColor))),
                           DataCell(Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -866,7 +866,7 @@ class _LicensesPageState extends State<LicensesPage> {
                                     final confirm = await showDialog<bool>(
                                       context: context,
                                       builder: (c) => AlertDialog(
-                                        backgroundColor: AppColors.bg,
+                                        backgroundColor: context.bgColor,
                                         title: const Text('Revoke license?'),
                                         content: const Text(
                                             'This will revoke the license.'),
@@ -878,10 +878,10 @@ class _LicensesPageState extends State<LicensesPage> {
                                           TextButton(
                                               onPressed: () =>
                                                   Navigator.pop(c, true),
-                                              child: const Text('Revoke',
-                                                  style: TextStyle(
+child: Text('Revoke',
+                                              style: TextStyle(
                                                       color:
-                                                          AppColors.danger))),
+                                                          context.dangerColor))),
                                         ],
                                       ),
                                     );
@@ -892,11 +892,11 @@ class _LicensesPageState extends State<LicensesPage> {
                                         if (mounted) {
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                                 content:
                                                     Text('License revoked'),
                                                 backgroundColor:
-                                                    AppColors.success),
+                                                    context.successColor),
                                           );
                                         }
                                       } catch (e) {
@@ -910,16 +910,16 @@ class _LicensesPageState extends State<LicensesPage> {
                                                         'LicensesException: ',
                                                         '')),
                                                 backgroundColor:
-                                                    AppColors.danger),
+                                                    context.dangerColor),
                                           );
                                         }
                                       }
                                     }
                                   },
-                                  child: const Text('Revoke',
+                                  child: Text('Revoke',
                                       style: TextStyle(
                                           fontSize: 12,
-                                          color: AppColors.danger)),
+                                          color: context.dangerColor)),
                                 ),
                             ],
                           )),

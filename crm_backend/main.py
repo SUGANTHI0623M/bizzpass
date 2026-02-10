@@ -29,6 +29,8 @@ from api.audit_logs import router as audit_logs_router
 from api.branches import router as branches_router
 from api.departments import router as departments_router
 from api.subscription import router as subscription_router
+from api.payroll import router as payroll_router
+from api.company_dashboard import router as company_dashboard_router
 
 app = FastAPI(
     title="BizzPass CRM Backend",
@@ -87,6 +89,8 @@ app.include_router(audit_logs_router)
 app.include_router(branches_router)
 app.include_router(departments_router)
 app.include_router(subscription_router)
+app.include_router(payroll_router)
+app.include_router(company_dashboard_router)
 
 # Guarantee POST /plans/create is always registered (avoids 404 from router load order/cache)
 app.add_api_route("/plans/create", create_plan, methods=["POST"])

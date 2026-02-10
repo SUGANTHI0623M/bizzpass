@@ -1,5 +1,363 @@
 // ─── Data Models ─────────────────────────────────────────────────────────────
 
+// ═══ PAYROLL MODELS ═══
+
+class SalaryComponent {
+  final int id;
+  final String name;
+  final String displayName;
+  final String type; // 'earning' or 'deduction'
+  final String? category; // 'fixed', 'variable', 'statutory', 'voluntary'
+  final String calculationType; // 'fixed_amount', 'percentage_of_basic', 'percentage_of_gross', 'formula', 'attendance_based'
+  final double? calculationValue;
+  final String? formula;
+  final bool isTaxable;
+  final bool isStatutory;
+  final bool affectsGross;
+  final bool affectsNet;
+  final double? minValue;
+  final double? maxValue;
+  final List<String>? appliesToCategories;
+  final int priorityOrder;
+  final bool isActive;
+  final String? remarks;
+
+  const SalaryComponent({
+    required this.id,
+    required this.name,
+    required this.displayName,
+    required this.type,
+    this.category,
+    required this.calculationType,
+    this.calculationValue,
+    this.formula,
+    this.isTaxable = true,
+    this.isStatutory = false,
+    this.affectsGross = true,
+    this.affectsNet = true,
+    this.minValue,
+    this.maxValue,
+    this.appliesToCategories,
+    this.priorityOrder = 0,
+    this.isActive = true,
+    this.remarks,
+  });
+
+  factory SalaryComponent.fromJson(Map<String, dynamic> j) {
+    return SalaryComponent(
+      id: (j['id'] as num?)?.toInt() ?? 0,
+      name: (j['name'] as String?) ?? '',
+      displayName: (j['display_name'] as String?) ?? (j['displayName'] as String?) ?? '',
+      type: (j['type'] as String?) ?? 'earning',
+      category: j['category'] as String?,
+      calculationType: (j['calculation_type'] as String?) ?? (j['calculationType'] as String?) ?? 'fixed_amount',
+      calculationValue: (j['calculation_value'] as num?)?.toDouble() ?? (j['calculationValue'] as num?)?.toDouble(),
+      formula: j['formula'] as String?,
+      isTaxable: (j['is_taxable'] as bool?) ?? (j['isTaxable'] as bool?) ?? true,
+      isStatutory: (j['is_statutory'] as bool?) ?? (j['isStatutory'] as bool?) ?? false,
+      affectsGross: (j['affects_gross'] as bool?) ?? (j['affectsGross'] as bool?) ?? true,
+      affectsNet: (j['affects_net'] as bool?) ?? (j['affectsNet'] as bool?) ?? true,
+      minValue: (j['min_value'] as num?)?.toDouble() ?? (j['minValue'] as num?)?.toDouble(),
+      maxValue: (j['max_value'] as num?)?.toDouble() ?? (j['maxValue'] as num?)?.toDouble(),
+      appliesToCategories: j['applies_to_categories'] != null 
+          ? List<String>.from(j['applies_to_categories'] as List)
+          : (j['appliesToCategories'] != null ? List<String>.from(j['appliesToCategories'] as List) : null),
+      priorityOrder: (j['priority_order'] as num?)?.toInt() ?? (j['priorityOrder'] as num?)?.toInt() ?? 0,
+      isActive: (j['is_active'] as bool?) ?? (j['isActive'] as bool?) ?? true,
+      remarks: j['remarks'] as String?,
+    );
+  }
+}
+
+class PayrollSettings {
+  final String payCycleType;
+  final int payDay;
+  final int attendanceCutoffDay;
+  final String workingDaysBasis;
+  final int? customWorkingDays;
+  final double workingHoursPerDay;
+  final List<String>? paidLeaveTypes;
+  final List<String>? unpaidLeaveTypes;
+  final bool leaveEncashmentEnabled;
+  final Map<String, dynamic>? leaveEncashmentRules;
+  final String sandwichLeavePolicy;
+  final String lopCalculationMethod;
+  final double lopDeductionMultiplier;
+  final int graceDaysPerMonth;
+  final Map<String, dynamic>? lateComingRules;
+  final Map<String, dynamic>? halfDayRules;
+  final bool overtimeEnabled;
+  final String overtimeCalculationBasis;
+  final double weekdayOtMultiplier;
+  final double weekendOtMultiplier;
+  final double holidayOtMultiplier;
+  final double? maxOtHoursPerMonth;
+  final Map<String, dynamic>? otEligibilityCriteria;
+  final String holidayWorkCompensation;
+  final bool pfEnabled;
+  final double pfEmployeeRate;
+  final double pfEmployerRate;
+  final double pfWageCeiling;
+  final String pfCalculationBasis;
+  final bool esiEnabled;
+  final double esiEmployeeRate;
+  final double esiEmployerRate;
+  final double esiWageCeiling;
+  final bool ptEnabled;
+  final String? ptState;
+  final Map<String, dynamic>? ptSlabRules;
+  final bool tdsEnabled;
+  final String tdsCalculationMethod;
+  final bool gratuityEnabled;
+  final int gratuityMinServiceYears;
+  final String gratuityFormula;
+  final String gratuityWageBasis;
+  final bool joiningDayIncluded;
+  final bool exitDayIncluded;
+  final String prorataCalculationBasis;
+  final bool arrearsEnabled;
+  final String arrearsPaymentMethod;
+  final Map<String, dynamic>? locationBasedAllowances;
+  final String defaultTaxRegime;
+  final Map<String, dynamic>? reimbursementCategories;
+  final String currency;
+  final String? remarks;
+
+  const PayrollSettings({
+    this.payCycleType = 'monthly',
+    this.payDay = 1,
+    this.attendanceCutoffDay = 25,
+    this.workingDaysBasis = '26_days',
+    this.customWorkingDays,
+    this.workingHoursPerDay = 8.0,
+    this.paidLeaveTypes,
+    this.unpaidLeaveTypes,
+    this.leaveEncashmentEnabled = false,
+    this.leaveEncashmentRules,
+    this.sandwichLeavePolicy = 'count_as_leave',
+    this.lopCalculationMethod = 'per_day',
+    this.lopDeductionMultiplier = 1.0,
+    this.graceDaysPerMonth = 0,
+    this.lateComingRules,
+    this.halfDayRules,
+    this.overtimeEnabled = false,
+    this.overtimeCalculationBasis = 'hourly',
+    this.weekdayOtMultiplier = 1.5,
+    this.weekendOtMultiplier = 2.0,
+    this.holidayOtMultiplier = 2.5,
+    this.maxOtHoursPerMonth,
+    this.otEligibilityCriteria,
+    this.holidayWorkCompensation = 'double_pay',
+    this.pfEnabled = true,
+    this.pfEmployeeRate = 12.0,
+    this.pfEmployerRate = 12.0,
+    this.pfWageCeiling = 15000.0,
+    this.pfCalculationBasis = 'basic_only',
+    this.esiEnabled = true,
+    this.esiEmployeeRate = 0.75,
+    this.esiEmployerRate = 3.25,
+    this.esiWageCeiling = 21000.0,
+    this.ptEnabled = true,
+    this.ptState,
+    this.ptSlabRules,
+    this.tdsEnabled = true,
+    this.tdsCalculationMethod = 'monthly',
+    this.gratuityEnabled = true,
+    this.gratuityMinServiceYears = 5,
+    this.gratuityFormula = '15/26',
+    this.gratuityWageBasis = 'basic_only',
+    this.joiningDayIncluded = true,
+    this.exitDayIncluded = false,
+    this.prorataCalculationBasis = 'calendar_days',
+    this.arrearsEnabled = true,
+    this.arrearsPaymentMethod = 'lump_sum',
+    this.locationBasedAllowances,
+    this.defaultTaxRegime = 'old',
+    this.reimbursementCategories,
+    this.currency = 'INR',
+    this.remarks,
+  });
+
+  factory PayrollSettings.fromJson(Map<String, dynamic> j) {
+    return PayrollSettings(
+      payCycleType: (j['pay_cycle_type'] as String?) ?? (j['payCycleType'] as String?) ?? 'monthly',
+      payDay: (j['pay_day'] as num?)?.toInt() ?? (j['payDay'] as num?)?.toInt() ?? 1,
+      attendanceCutoffDay: (j['attendance_cutoff_day'] as num?)?.toInt() ?? (j['attendanceCutoffDay'] as num?)?.toInt() ?? 25,
+      workingDaysBasis: (j['working_days_basis'] as String?) ?? (j['workingDaysBasis'] as String?) ?? '26_days',
+      customWorkingDays: (j['custom_working_days'] as num?)?.toInt() ?? (j['customWorkingDays'] as num?)?.toInt(),
+      workingHoursPerDay: (j['working_hours_per_day'] as num?)?.toDouble() ?? (j['workingHoursPerDay'] as num?)?.toDouble() ?? 8.0,
+      paidLeaveTypes: j['paid_leave_types'] != null ? List<String>.from(j['paid_leave_types'] as List) : (j['paidLeaveTypes'] != null ? List<String>.from(j['paidLeaveTypes'] as List) : null),
+      unpaidLeaveTypes: j['unpaid_leave_types'] != null ? List<String>.from(j['unpaid_leave_types'] as List) : (j['unpaidLeaveTypes'] != null ? List<String>.from(j['unpaidLeaveTypes'] as List) : null),
+      leaveEncashmentEnabled: (j['leave_encashment_enabled'] as bool?) ?? (j['leaveEncashmentEnabled'] as bool?) ?? false,
+      leaveEncashmentRules: j['leave_encashment_rules'] as Map<String, dynamic>? ?? j['leaveEncashmentRules'] as Map<String, dynamic>?,
+      sandwichLeavePolicy: (j['sandwich_leave_policy'] as String?) ?? (j['sandwichLeavePolicy'] as String?) ?? 'count_as_leave',
+      lopCalculationMethod: (j['lop_calculation_method'] as String?) ?? (j['lopCalculationMethod'] as String?) ?? 'per_day',
+      lopDeductionMultiplier: (j['lop_deduction_multiplier'] as num?)?.toDouble() ?? (j['lopDeductionMultiplier'] as num?)?.toDouble() ?? 1.0,
+      graceDaysPerMonth: (j['grace_days_per_month'] as num?)?.toInt() ?? (j['graceDaysPerMonth'] as num?)?.toInt() ?? 0,
+      lateComingRules: j['late_coming_rules'] as Map<String, dynamic>? ?? j['lateComingRules'] as Map<String, dynamic>?,
+      halfDayRules: j['half_day_rules'] as Map<String, dynamic>? ?? j['halfDayRules'] as Map<String, dynamic>?,
+      overtimeEnabled: (j['overtime_enabled'] as bool?) ?? (j['overtimeEnabled'] as bool?) ?? false,
+      overtimeCalculationBasis: (j['overtime_calculation_basis'] as String?) ?? (j['overtimeCalculationBasis'] as String?) ?? 'hourly',
+      weekdayOtMultiplier: (j['weekday_ot_multiplier'] as num?)?.toDouble() ?? (j['weekdayOtMultiplier'] as num?)?.toDouble() ?? 1.5,
+      weekendOtMultiplier: (j['weekend_ot_multiplier'] as num?)?.toDouble() ?? (j['weekendOtMultiplier'] as num?)?.toDouble() ?? 2.0,
+      holidayOtMultiplier: (j['holiday_ot_multiplier'] as num?)?.toDouble() ?? (j['holidayOtMultiplier'] as num?)?.toDouble() ?? 2.5,
+      maxOtHoursPerMonth: (j['max_ot_hours_per_month'] as num?)?.toDouble() ?? (j['maxOtHoursPerMonth'] as num?)?.toDouble(),
+      otEligibilityCriteria: j['ot_eligibility_criteria'] as Map<String, dynamic>? ?? j['otEligibilityCriteria'] as Map<String, dynamic>?,
+      holidayWorkCompensation: (j['holiday_work_compensation'] as String?) ?? (j['holidayWorkCompensation'] as String?) ?? 'double_pay',
+      pfEnabled: (j['pf_enabled'] as bool?) ?? (j['pfEnabled'] as bool?) ?? true,
+      pfEmployeeRate: (j['pf_employee_rate'] as num?)?.toDouble() ?? (j['pfEmployeeRate'] as num?)?.toDouble() ?? 12.0,
+      pfEmployerRate: (j['pf_employer_rate'] as num?)?.toDouble() ?? (j['pfEmployerRate'] as num?)?.toDouble() ?? 12.0,
+      pfWageCeiling: (j['pf_wage_ceiling'] as num?)?.toDouble() ?? (j['pfWageCeiling'] as num?)?.toDouble() ?? 15000.0,
+      pfCalculationBasis: (j['pf_calculation_basis'] as String?) ?? (j['pfCalculationBasis'] as String?) ?? 'basic_only',
+      esiEnabled: (j['esi_enabled'] as bool?) ?? (j['esiEnabled'] as bool?) ?? true,
+      esiEmployeeRate: (j['esi_employee_rate'] as num?)?.toDouble() ?? (j['esiEmployeeRate'] as num?)?.toDouble() ?? 0.75,
+      esiEmployerRate: (j['esi_employer_rate'] as num?)?.toDouble() ?? (j['esiEmployerRate'] as num?)?.toDouble() ?? 3.25,
+      esiWageCeiling: (j['esi_wage_ceiling'] as num?)?.toDouble() ?? (j['esiWageCeiling'] as num?)?.toDouble() ?? 21000.0,
+      ptEnabled: (j['pt_enabled'] as bool?) ?? (j['ptEnabled'] as bool?) ?? true,
+      ptState: j['pt_state'] as String? ?? j['ptState'] as String?,
+      ptSlabRules: j['pt_slab_rules'] as Map<String, dynamic>? ?? j['ptSlabRules'] as Map<String, dynamic>?,
+      tdsEnabled: (j['tds_enabled'] as bool?) ?? (j['tdsEnabled'] as bool?) ?? true,
+      tdsCalculationMethod: (j['tds_calculation_method'] as String?) ?? (j['tdsCalculationMethod'] as String?) ?? 'monthly',
+      gratuityEnabled: (j['gratuity_enabled'] as bool?) ?? (j['gratuityEnabled'] as bool?) ?? true,
+      gratuityMinServiceYears: (j['gratuity_min_service_years'] as num?)?.toInt() ?? (j['gratuityMinServiceYears'] as num?)?.toInt() ?? 5,
+      gratuityFormula: (j['gratuity_formula'] as String?) ?? (j['gratuityFormula'] as String?) ?? '15/26',
+      gratuityWageBasis: (j['gratuity_wage_basis'] as String?) ?? (j['gratuityWageBasis'] as String?) ?? 'basic_only',
+      joiningDayIncluded: (j['joining_day_included'] as bool?) ?? (j['joiningDayIncluded'] as bool?) ?? true,
+      exitDayIncluded: (j['exit_day_included'] as bool?) ?? (j['exitDayIncluded'] as bool?) ?? false,
+      prorataCalculationBasis: (j['prorata_calculation_basis'] as String?) ?? (j['prorataCalculationBasis'] as String?) ?? 'calendar_days',
+      arrearsEnabled: (j['arrears_enabled'] as bool?) ?? (j['arrearsEnabled'] as bool?) ?? true,
+      arrearsPaymentMethod: (j['arrears_payment_method'] as String?) ?? (j['arrearsPaymentMethod'] as String?) ?? 'lump_sum',
+      locationBasedAllowances: j['location_based_allowances'] as Map<String, dynamic>? ?? j['locationBasedAllowances'] as Map<String, dynamic>?,
+      defaultTaxRegime: (j['default_tax_regime'] as String?) ?? (j['defaultTaxRegime'] as String?) ?? 'old',
+      reimbursementCategories: j['reimbursement_categories'] as Map<String, dynamic>? ?? j['reimbursementCategories'] as Map<String, dynamic>?,
+      currency: (j['currency'] as String?) ?? 'INR',
+      remarks: j['remarks'] as String?,
+    );
+  }
+}
+
+class PayrollRun {
+  final int id;
+  final int month;
+  final int year;
+  final String payPeriodStart;
+  final String payPeriodEnd;
+  final String status; // 'draft', 'processing', 'calculated', 'approved', 'paid', 'cancelled'
+  final int totalEmployees;
+  final double totalGross;
+  final double totalDeductions;
+  final double totalNetPay;
+  final String? remarks;
+
+  const PayrollRun({
+    required this.id,
+    required this.month,
+    required this.year,
+    required this.payPeriodStart,
+    required this.payPeriodEnd,
+    required this.status,
+    this.totalEmployees = 0,
+    this.totalGross = 0,
+    this.totalDeductions = 0,
+    this.totalNetPay = 0,
+    this.remarks,
+  });
+
+  factory PayrollRun.fromJson(Map<String, dynamic> j) {
+    return PayrollRun(
+      id: (j['id'] as num?)?.toInt() ?? 0,
+      month: (j['month'] as num?)?.toInt() ?? 1,
+      year: (j['year'] as num?)?.toInt() ?? 2025,
+      payPeriodStart: (j['pay_period_start'] as String?) ?? (j['payPeriodStart'] as String?) ?? '',
+      payPeriodEnd: (j['pay_period_end'] as String?) ?? (j['payPeriodEnd'] as String?) ?? '',
+      status: (j['status'] as String?) ?? 'draft',
+      totalEmployees: (j['total_employees'] as num?)?.toInt() ?? (j['totalEmployees'] as num?)?.toInt() ?? 0,
+      totalGross: (j['total_gross'] as num?)?.toDouble() ?? (j['totalGross'] as num?)?.toDouble() ?? 0,
+      totalDeductions: (j['total_deductions'] as num?)?.toDouble() ?? (j['totalDeductions'] as num?)?.toDouble() ?? 0,
+      totalNetPay: (j['total_net_pay'] as num?)?.toDouble() ?? (j['totalNetPay'] as num?)?.toDouble() ?? 0,
+      remarks: j['remarks'] as String?,
+    );
+  }
+}
+
+class PayrollTransaction {
+  final int id;
+  final int employeeId;
+  final String employeeName;
+  final String? employeeNumber;
+  final String? designation;
+  final String? department;
+  final int month;
+  final int year;
+  final double totalWorkingDays;
+  final double daysPresent;
+  final double daysAbsent;
+  final double lopDays;
+  final double grossSalary;
+  final double totalEarnings;
+  final double totalDeductions;
+  final double netSalary;
+  final List<Map<String, dynamic>> earningsBreakdown;
+  final List<Map<String, dynamic>> deductionsBreakdown;
+  final double lopAmount;
+  final String status; // 'draft', 'calculated', 'approved', 'paid', 'hold'
+  final String? holdReason;
+
+  const PayrollTransaction({
+    required this.id,
+    required this.employeeId,
+    required this.employeeName,
+    this.employeeNumber,
+    this.designation,
+    this.department,
+    required this.month,
+    required this.year,
+    this.totalWorkingDays = 0,
+    this.daysPresent = 0,
+    this.daysAbsent = 0,
+    this.lopDays = 0,
+    required this.grossSalary,
+    required this.totalEarnings,
+    required this.totalDeductions,
+    required this.netSalary,
+    this.earningsBreakdown = const [],
+    this.deductionsBreakdown = const [],
+    this.lopAmount = 0,
+    this.status = 'draft',
+    this.holdReason,
+  });
+
+  factory PayrollTransaction.fromJson(Map<String, dynamic> j) {
+    return PayrollTransaction(
+      id: (j['id'] as num?)?.toInt() ?? 0,
+      employeeId: (j['employee_id'] as num?)?.toInt() ?? (j['employeeId'] as num?)?.toInt() ?? 0,
+      employeeName: (j['employee_name'] as String?) ?? (j['employeeName'] as String?) ?? '',
+      employeeNumber: j['employee_number'] as String? ?? j['employeeNumber'] as String?,
+      designation: j['designation'] as String?,
+      department: j['department'] as String?,
+      month: (j['month'] as num?)?.toInt() ?? 1,
+      year: (j['year'] as num?)?.toInt() ?? 2025,
+      totalWorkingDays: (j['total_working_days'] as num?)?.toDouble() ?? (j['totalWorkingDays'] as num?)?.toDouble() ?? 0,
+      daysPresent: (j['days_present'] as num?)?.toDouble() ?? (j['daysPresent'] as num?)?.toDouble() ?? 0,
+      daysAbsent: (j['days_absent'] as num?)?.toDouble() ?? (j['daysAbsent'] as num?)?.toDouble() ?? 0,
+      lopDays: (j['lop_days'] as num?)?.toDouble() ?? (j['lopDays'] as num?)?.toDouble() ?? 0,
+      grossSalary: (j['gross_salary'] as num?)?.toDouble() ?? (j['grossSalary'] as num?)?.toDouble() ?? 0,
+      totalEarnings: (j['total_earnings'] as num?)?.toDouble() ?? (j['totalEarnings'] as num?)?.toDouble() ?? 0,
+      totalDeductions: (j['total_deductions'] as num?)?.toDouble() ?? (j['totalDeductions'] as num?)?.toDouble() ?? 0,
+      netSalary: (j['net_salary'] as num?)?.toDouble() ?? (j['netSalary'] as num?)?.toDouble() ?? 0,
+      earningsBreakdown: j['earnings_breakdown'] != null 
+          ? List<Map<String, dynamic>>.from(j['earnings_breakdown'] as List)
+          : (j['earningsBreakdown'] != null ? List<Map<String, dynamic>>.from(j['earningsBreakdown'] as List) : []),
+      deductionsBreakdown: j['deductions_breakdown'] != null
+          ? List<Map<String, dynamic>>.from(j['deductions_breakdown'] as List)
+          : (j['deductionsBreakdown'] != null ? List<Map<String, dynamic>>.from(j['deductionsBreakdown'] as List) : []),
+      lopAmount: (j['lop_amount'] as num?)?.toDouble() ?? (j['lopAmount'] as num?)?.toDouble() ?? 0,
+      status: (j['status'] as String?) ?? 'draft',
+      holdReason: j['hold_reason'] as String? ?? j['holdReason'] as String?,
+    );
+  }
+}
+
 class Company {
   final int id;
   final String name,
@@ -189,6 +547,35 @@ class Staff {
   final String? roleName;
   final int? branchId;
   final String? branchName;
+  final int? attendanceModalId;
+  final int? shiftModalId;
+  final int? leaveModalId;
+  final int? holidayModalId;
+  final String? staffType;
+  final String? reportingManager;
+  final String? salaryCycle;
+  final double? grossSalary;
+  final double? netSalary;
+  final String? gender;
+  final String? dob;
+  final String? maritalStatus;
+  final String? bloodGroup;
+  final String? addressLine1;
+  final String? addressCity;
+  final String? addressState;
+  final String? addressPostalCode;
+  final String? addressCountry;
+  final String? uan;
+  final String? panNumber;
+  final String? aadhaarNumber;
+  final String? pfNumber;
+  final String? esiNumber;
+  final String? bankName;
+  final String? ifscCode;
+  final String? accountNumber;
+  final String? accountHolderName;
+  final String? upiId;
+  final String? bankVerificationStatus;
 
   const Staff({
     required this.id,
@@ -205,6 +592,35 @@ class Staff {
     this.roleName,
     this.branchId,
     this.branchName,
+    this.attendanceModalId,
+    this.shiftModalId,
+    this.leaveModalId,
+    this.holidayModalId,
+    this.staffType,
+    this.reportingManager,
+    this.salaryCycle,
+    this.grossSalary,
+    this.netSalary,
+    this.gender,
+    this.dob,
+    this.maritalStatus,
+    this.bloodGroup,
+    this.addressLine1,
+    this.addressCity,
+    this.addressState,
+    this.addressPostalCode,
+    this.addressCountry,
+    this.uan,
+    this.panNumber,
+    this.aadhaarNumber,
+    this.pfNumber,
+    this.esiNumber,
+    this.bankName,
+    this.ifscCode,
+    this.accountNumber,
+    this.accountHolderName,
+    this.upiId,
+    this.bankVerificationStatus,
   });
 
   factory Staff.fromJson(Map<String, dynamic> j) {
@@ -223,6 +639,35 @@ class Staff {
       roleName: j['roleName'] as String?,
       branchId: (j['branchId'] as num?)?.toInt(),
       branchName: j['branchName'] as String?,
+      attendanceModalId: (j['attendanceModalId'] as num?)?.toInt(),
+      shiftModalId: (j['shiftModalId'] as num?)?.toInt(),
+      leaveModalId: (j['leaveModalId'] as num?)?.toInt(),
+      holidayModalId: (j['holidayModalId'] as num?)?.toInt(),
+      staffType: j['staffType'] as String?,
+      reportingManager: j['reportingManager'] as String?,
+      salaryCycle: j['salaryCycle'] as String?,
+      grossSalary: (j['grossSalary'] as num?)?.toDouble(),
+      netSalary: (j['netSalary'] as num?)?.toDouble(),
+      gender: j['gender'] as String?,
+      dob: j['dob'] as String?,
+      maritalStatus: j['maritalStatus'] as String?,
+      bloodGroup: j['bloodGroup'] as String?,
+      addressLine1: j['addressLine1'] as String?,
+      addressCity: j['addressCity'] as String?,
+      addressState: j['addressState'] as String?,
+      addressPostalCode: j['addressPostalCode'] as String?,
+      addressCountry: j['addressCountry'] as String?,
+      uan: j['uan'] as String?,
+      panNumber: j['panNumber'] as String?,
+      aadhaarNumber: j['aadhaarNumber'] as String?,
+      pfNumber: j['pfNumber'] as String?,
+      esiNumber: j['esiNumber'] as String?,
+      bankName: j['bankName'] as String?,
+      ifscCode: j['ifscCode'] as String?,
+      accountNumber: j['accountNumber'] as String?,
+      accountHolderName: j['accountHolderName'] as String?,
+      upiId: j['upiId'] as String?,
+      bankVerificationStatus: j['bankVerificationStatus'] as String?,
     );
   }
 }

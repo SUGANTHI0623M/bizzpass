@@ -156,7 +156,7 @@ class _LeaveModalsPageState extends State<LeaveModalsPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            style: FilledButton.styleFrom(backgroundColor: context.dangerColor),
             child: const Text('Delete'),
           ),
         ],
@@ -206,7 +206,7 @@ class _LeaveModalsPageState extends State<LeaveModalsPage> {
                 onPressed: _showManageCategories,
                 icon: const Icon(Icons.category_rounded, size: 18),
                 label: const Text('Manage categories'),
-                style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                style: TextButton.styleFrom(foregroundColor: context.accentColor),
               ),
               const SizedBox(width: 12),
               FilledButton.icon(
@@ -214,7 +214,7 @@ class _LeaveModalsPageState extends State<LeaveModalsPage> {
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('New Template'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.accent,
+                  backgroundColor: context.accentColor,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -246,18 +246,18 @@ class _LeaveModalsPageState extends State<LeaveModalsPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.danger.withOpacity(0.1),
+                color: context.dangerColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                border: Border.all(color: context.dangerColor.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: AppColors.danger),
+                  Icon(Icons.error_outline_rounded, color: context.dangerColor),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _error!,
-                      style: const TextStyle(color: AppColors.text, fontSize: 13),
+                      style: TextStyle(color: context.textColor, fontSize: 13),
                     ),
                   ),
                   TextButton(onPressed: _load, child: const Text('Retry')),
@@ -268,20 +268,20 @@ class _LeaveModalsPageState extends State<LeaveModalsPage> {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppColors.card,
+                color: context.cardColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: context.borderColor),
               ),
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.beach_access_rounded, size: 48, color: AppColors.textMuted),
+                    Icon(Icons.beach_access_rounded, size: 48, color: context.textMutedColor),
                     const SizedBox(height: 12),
                     Text(
                       _searchController.text.trim().isEmpty
                           ? 'No leave templates yet. Add one to get started.'
                           : 'No results for "${_searchController.text.trim()}".',
-                      style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+                      style: TextStyle(fontSize: 14, color: context.textMutedColor),
                       textAlign: TextAlign.center,
                     ),
                     if (_searchController.text.trim().isEmpty) ...[
@@ -291,7 +291,7 @@ class _LeaveModalsPageState extends State<LeaveModalsPage> {
                         icon: const Icon(Icons.add_rounded, size: 18),
                         label: const Text('New Template'),
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.accent,
+                          backgroundColor: context.accentColor,
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -322,8 +322,8 @@ class _LeaveModalsPageState extends State<LeaveModalsPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: m.isActive
-                          ? AppColors.accent.withOpacity(0.15)
-                          : AppColors.textMuted.withOpacity(0.2),
+                          ? context.accentColor.withOpacity(0.15)
+                          : context.textMutedColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -331,7 +331,7 @@ class _LeaveModalsPageState extends State<LeaveModalsPage> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: m.isActive ? AppColors.accent : AppColors.textMuted,
+                        color: m.isActive ? context.accentColor : context.textMutedColor,
                       ),
                     ),
                   )),
@@ -345,7 +345,7 @@ class _LeaveModalsPageState extends State<LeaveModalsPage> {
                       ),
                       IconButton(
                         onPressed: () => _confirmDelete(m),
-                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                        icon: Icon(Icons.delete_outline_rounded, color: context.dangerColor),
                         tooltip: 'Delete',
                       ),
                     ],
@@ -481,7 +481,7 @@ class _LeaveModalDialogState extends State<_LeaveModalDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Template Name *', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              Text('Template Name *', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
               const SizedBox(height: 6),
               TextField(
                 controller: _nameController,
@@ -490,7 +490,7 @@ class _LeaveModalDialogState extends State<_LeaveModalDialog> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Description', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              Text('Description', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
               const SizedBox(height: 6),
               TextField(
                 controller: _descController,
@@ -502,13 +502,13 @@ class _LeaveModalDialogState extends State<_LeaveModalDialog> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Text('Leave Category *', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  Text('Leave Category *', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
                   const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: _categories.isEmpty ? null : _addCategoryRow,
                     icon: const Icon(Icons.add_rounded, size: 18),
                     label: const Text('Add category'),
-                    style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                    style: TextButton.styleFrom(foregroundColor: context.accentColor),
                   ),
                 ],
               ),
@@ -526,26 +526,26 @@ class _LeaveModalDialogState extends State<_LeaveModalDialog> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.card,
+                    color: context.cardColor,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: context.borderColor),
                   ),
-                  child: const Text(
+                  child: Text(
                     'No categories yet. Click \'Manage categories\' on the Leave Templates page to create categories (e.g. Sick, Casual).',
-                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 13, color: context.textMutedColor),
                   ),
                 )
               else if (_selectedCategoryNames.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.card,
+                    color: context.cardColor,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: context.borderColor),
                   ),
-                  child: const Text(
+                  child: Text(
                     'No categories added yet. Click \'Add category\' to select a leave category and days.',
-                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 13, color: context.textMutedColor),
                   ),
                 )
               else
@@ -595,7 +595,7 @@ class _LeaveModalDialogState extends State<_LeaveModalDialog> {
                         ),
                         IconButton(
                           onPressed: () => _removeCategoryRow(i),
-                          icon: const Icon(Icons.remove_circle_outline, color: AppColors.danger),
+                          icon: Icon(Icons.remove_circle_outline, color: context.dangerColor),
                           tooltip: 'Remove',
                         ),
                       ],
@@ -608,7 +608,7 @@ class _LeaveModalDialogState extends State<_LeaveModalDialog> {
                   Checkbox(
                     value: _isActive,
                     onChanged: (v) => setState(() => _isActive = v ?? true),
-                    activeColor: AppColors.accent,
+                    activeColor: context.accentColor,
                   ),
                   const Text('Active', style: TextStyle(fontSize: 14)),
                 ],
@@ -621,7 +621,7 @@ class _LeaveModalDialogState extends State<_LeaveModalDialog> {
         TextButton(onPressed: _saving ? null : widget.onClose, child: const Text('Cancel')),
         FilledButton(
           onPressed: _saving ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+          style: FilledButton.styleFrom(backgroundColor: context.accentColor),
           child: _saving
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : Text(widget.existing == null ? 'Create Template' : 'Save'),
@@ -692,7 +692,7 @@ class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
             TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(c.text.trim()),
-              style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+              style: FilledButton.styleFrom(backgroundColor: context.accentColor),
               child: const Text('Add'),
             ),
           ],
@@ -723,7 +723,7 @@ class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            style: FilledButton.styleFrom(backgroundColor: context.dangerColor),
             child: const Text('Delete'),
           ),
         ],
@@ -761,8 +761,8 @@ class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
                         child: SingleChildScrollView(
                           child: Text(
                             _error!,
-                            style: const TextStyle(
-                              color: AppColors.danger,
+                            style: TextStyle(
+                              color: context.dangerColor,
                               fontSize: 13,
                             ),
                           ),
@@ -778,7 +778,7 @@ class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
                     children: [
                       Text(
                         'Create categories like Sick, Casual, etc. They will appear in the dropdown when creating leave templates.',
-                        style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 13, color: context.textMutedColor),
                       ),
                       const SizedBox(height: 16),
                       OutlinedButton.icon(
@@ -786,24 +786,24 @@ class _ManageCategoriesDialogState extends State<_ManageCategoriesDialog> {
                         icon: const Icon(Icons.add_rounded, size: 18),
                         label: const Text('Add category'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.accent,
-                          side: const BorderSide(color: AppColors.accent),
+                          foregroundColor: context.accentColor,
+                          side: BorderSide(color: context.accentColor),
                         ),
                       ),
                       const SizedBox(height: 16),
                       if (_categories.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
                           child: Text(
                             'No categories yet. Click \'Add category\' to create one.',
-                            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                            style: TextStyle(fontSize: 13, color: context.textMutedColor),
                           ),
                         )
                       else
                         ..._categories.map((c) => ListTile(
                               title: Text(c.name),
                               trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 20),
+                                icon: Icon(Icons.delete_outline_rounded, color: context.dangerColor, size: 20),
                                 onPressed: () => _confirmDelete(c),
                                 tooltip: 'Delete',
                               ),

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../core/constants.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -10,7 +12,9 @@ import '../data/departments_repository.dart';
 import '../data/attendance_modals_repository.dart';
 import '../data/shift_modals_repository.dart';
 import '../data/leave_modals_repository.dart';
+import '../data/holiday_modals_repository.dart';
 import 'staff_details_page.dart';
+import 'create_staff_page.dart';
 
 /// Option for attendance / shift / leave / holiday modal dropdowns in staff creation.
 class StaffModalOption {
@@ -40,6 +44,7 @@ class _StaffPageState extends State<StaffPage> {
   final AttendanceModalsRepository _attendanceModalsRepo = AttendanceModalsRepository();
   final ShiftModalsRepository _shiftModalsRepo = ShiftModalsRepository();
   final LeaveModalsRepository _leaveModalsRepo = LeaveModalsRepository();
+  final HolidayModalsRepository _holidayModalsRepo = HolidayModalsRepository();
   List<Staff> _staff = [];
   List<Branch> _branches = [];
   List<Department> _departments = [];
@@ -51,7 +56,6 @@ class _StaffPageState extends State<StaffPage> {
   String? _error;
   String _search = '';
   String _tab = 'all';
-  bool _showCreateDialog = false;
   Staff? _editingStaff;
   String? _filterDepartment;
   String? _filterJoiningFrom;
@@ -59,11 +63,13 @@ class _StaffPageState extends State<StaffPage> {
   int? _filterBranchId;
   final _joiningFromController = TextEditingController();
   final _joiningToController = TextEditingController();
+  Timer? _debounce;
 
   int? get _effectiveBranchId => widget.branchId ?? _filterBranchId;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _joiningFromController.dispose();
     _joiningToController.dispose();
     super.dispose();
@@ -83,7 +89,7 @@ class _StaffPageState extends State<StaffPage> {
   Future<void> _loadBranchesAndDepartments() async {
     try {
       final branches = await _branchesRepo.fetchBranches();
-      final departments = await _departmentsRepo.fetchDepartments();
+      final departments = await _departmentsRepo.fetchDepartments(activeOnly: true);
       if (mounted)
         setState(() {
           _branches = branches;
@@ -97,12 +103,13 @@ class _StaffPageState extends State<StaffPage> {
       final att = await _attendanceModalsRepo.fetchModals();
       final shift = await _shiftModalsRepo.fetchModals();
       final leave = await _leaveModalsRepo.fetchModals();
+      final holiday = await _holidayModalsRepo.fetchModals();
       if (mounted) {
         setState(() {
           _attendanceModals = att.map((m) => StaffModalOption(m.id, m.name)).toList();
           _shiftModals = shift.map((m) => StaffModalOption(m.id, m.name)).toList();
           _leaveModals = leave.map((m) => StaffModalOption(m.id, m.name)).toList();
-          _holidayModals = [];
+          _holidayModals = holiday.map((m) => StaffModalOption(m.id, m.name)).toList();
         });
       }
     } catch (_) {
@@ -151,15 +158,59 @@ class _StaffPageState extends State<StaffPage> {
     }).toList();
   }
 
+  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1950),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: context.accentColor,
+              onPrimary: Colors.white,
+              surface: context.cardColor,
+              onSurface: context.textColor,
+            ),
+            dialogBackgroundColor: context.cardColor,
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      controller.text = DateFormat('yyyy-MM-dd').format(picked);
+    }
+  }
+
   void _openCreateStaff() {
-    setState(() => _showCreateDialog = true);
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (ctx) => CreateStaffPage(
+          staffRepo: _repo,
+          rolesRepo: _rolesRepo,
+          branches: _branches,
+          departments: _departments,
+          initialBranchId: _effectiveBranchId,
+          attendanceModals: _attendanceModals,
+          shiftModals: _shiftModals,
+          leaveModals: _leaveModals,
+          holidayModals: _holidayModals,
+        ),
+      ),
+    ).then((result) {
+      if (result == true && mounted) {
+        _load(); // Reload staff list after successful creation
+      }
+    });
   }
 
   void _openStaffDetails(Staff s) {
     Navigator.of(context).push<Staff?>(
       MaterialPageRoute<Staff?>(
         builder: (ctx) => Scaffold(
-          backgroundColor: AppColors.bg,
+          backgroundColor: context.bgColor,
           body: StaffDetailsPage(
             staffId: s.id,
             initialStaff: s,
@@ -174,46 +225,6 @@ class _StaffPageState extends State<StaffPage> {
     });
   }
 
-  Future<void> _submitCreateStaff({
-    required String fullName,
-    required String email,
-    String? phone,
-    String? employeeId,
-    String? department,
-    String? designation,
-    String? joiningDate,
-    String loginMethod = 'password',
-    String? temporaryPassword,
-    required int roleId,
-    String status = 'active',
-    int? branchId,
-    int? attendanceModalId,
-    int? shiftModalId,
-    int? leaveModalId,
-    int? holidayModalId,
-  }) async {
-    await _repo.createStaff(
-      fullName: fullName,
-      email: email,
-      phone: phone,
-      employeeId: employeeId,
-      department: department,
-      designation: designation,
-      joiningDate: joiningDate,
-      loginMethod: loginMethod,
-      temporaryPassword: temporaryPassword,
-      roleId: roleId,
-      status: status,
-      branchId: branchId,
-      attendanceModalId: attendanceModalId,
-      leaveModalId: leaveModalId,
-      holidayModalId: holidayModalId,
-    );
-    if (mounted) {
-      setState(() => _showCreateDialog = false);
-      _load();
-    }
-  }
 
   Future<void> _updateStaff(
     int staffId, {
@@ -267,19 +278,6 @@ class _StaffPageState extends State<StaffPage> {
                 ),
             ],
           ),
-          if (_showCreateDialog)
-            _CreateStaffDialog(
-              onClose: () => setState(() => _showCreateDialog = false),
-              onSubmit: _submitCreateStaff,
-              staffRepo: _repo,
-              rolesRepo: _rolesRepo,
-              branches: _branches,
-              initialBranchId: _effectiveBranchId,
-              attendanceModals: _attendanceModals,
-              shiftModals: _shiftModals,
-              leaveModals: _leaveModals,
-              holidayModals: _holidayModals,
-            ),
           if (_editingStaff != null)
             _EditStaffDialog(
               staff: _editingStaff!,
@@ -294,18 +292,18 @@ class _StaffPageState extends State<StaffPage> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded,
+                      color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                       child: Text(_error!,
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.textSecondary))),
+                          style: TextStyle(
+                              fontSize: 13, color: context.textSecondaryColor))),
                   TextButton(onPressed: _load, child: const Text('Retry')),
                 ],
               ),
@@ -315,8 +313,8 @@ class _StaffPageState extends State<StaffPage> {
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Text(
                   ApiConstants.backendUnreachableHint,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
+                  style: TextStyle(
+                    color: context.textMutedColor,
                     fontSize: 12,
                   ),
                 ),
@@ -342,10 +340,13 @@ class _StaffPageState extends State<StaffPage> {
           ),
           AppSearchBar(
               hint: 'Search by name, company, or department...',
-              onChanged: (v) => setState(() {
-                    _search = v;
-                    if (v.isEmpty) _load();
-                  })),
+              onChanged: (v) {
+                setState(() => _search = v);
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 500), () {
+                  if (mounted) _load();
+                });
+              }),
           if (widget.enableCreate) ...[
             const SizedBox(height: 12),
             Wrap(
@@ -402,28 +403,34 @@ class _StaffPageState extends State<StaffPage> {
                   ),
                 ),
                 SizedBox(
-                  width: 140,
+                  width: 160,
                   child: TextField(
                     controller: _joiningFromController,
+                    readOnly: true,
+                    onTap: () => _selectDate(context, _joiningFromController),
                     decoration: const InputDecoration(
-                      labelText: 'Joining from (YYYY-MM-DD)',
+                      labelText: 'Joining from',
                       border: OutlineInputBorder(),
                       isDense: true,
                       contentPadding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      suffixIcon: Icon(Icons.calendar_today_rounded, size: 16),
                     ),
                   ),
                 ),
                 SizedBox(
-                  width: 140,
+                  width: 160,
                   child: TextField(
                     controller: _joiningToController,
+                    readOnly: true,
+                    onTap: () => _selectDate(context, _joiningToController),
                     decoration: const InputDecoration(
-                      labelText: 'Joining to (YYYY-MM-DD)',
+                      labelText: 'Joining to',
                       border: OutlineInputBorder(),
                       isDense: true,
                       contentPadding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      suffixIcon: Icon(Icons.calendar_today_rounded, size: 16),
                     ),
                   ),
                 ),
@@ -487,13 +494,13 @@ class _StaffPageState extends State<StaffPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(s.name,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            color: AppColors.text)),
+                                            color: context.textColor)),
                                     Text(s.employeeId,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 11,
-                                            color: AppColors.textDim)),
+                                            color: context.textDimColor)),
                                   ],
                                 ),
                               ]),
@@ -527,8 +534,8 @@ class _StaffPageState extends State<StaffPage> {
                                 ),
                                 if (s.status == 'active')
                                   IconButton(
-                                    icon: const Icon(Icons.toggle_on_rounded,
-                                        size: 24, color: AppColors.accent),
+                                    icon: Icon(Icons.toggle_on_rounded,
+                                        size: 24, color: context.accentColor),
                                     onPressed: () async {
                                       try {
                                         await _updateStaff(s.id,
@@ -600,10 +607,36 @@ class _CreateStaffDialog extends StatefulWidget {
     int? shiftModalId,
     int? leaveModalId,
     int? holidayModalId,
+    String? staffType,
+    String? reportingManager,
+    String? salaryCycle,
+    double? grossSalary,
+    double? netSalary,
+    String? gender,
+    String? dob,
+    String? maritalStatus,
+    String? bloodGroup,
+    String? addressLine1,
+    String? addressCity,
+    String? addressState,
+    String? addressPostalCode,
+    String? addressCountry,
+    String? uan,
+    String? panNumber,
+    String? aadhaarNumber,
+    String? pfNumber,
+    String? esiNumber,
+    String? bankName,
+    String? ifscCode,
+    String? accountNumber,
+    String? accountHolderName,
+    String? upiId,
+    String? bankVerificationStatus,
   }) onSubmit;
   final StaffRepository staffRepo;
   final RolesRepository rolesRepo;
   final List<Branch> branches;
+  final List<Department> departments;
   final int? initialBranchId;
   final List<StaffModalOption> attendanceModals;
   final List<StaffModalOption> shiftModals;
@@ -616,6 +649,7 @@ class _CreateStaffDialog extends StatefulWidget {
     required this.staffRepo,
     required this.rolesRepo,
     this.branches = const [],
+    this.departments = const [],
     this.initialBranchId,
     this.attendanceModals = const [],
     this.shiftModals = const [],
@@ -632,12 +666,37 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
   final _email = TextEditingController();
   final _phone = TextEditingController();
   final _employeeId = TextEditingController();
-  final _department = TextEditingController();
   final _designation = TextEditingController();
   final _joiningDate = TextEditingController();
   final _tempPassword = TextEditingController();
+  final _reportingManager = TextEditingController();
+  final _grossSalary = TextEditingController();
+  final _netSalary = TextEditingController();
+  final _dob = TextEditingController();
+  final _addressLine1 = TextEditingController();
+  final _addressCity = TextEditingController();
+  final _addressState = TextEditingController();
+  final _addressPostalCode = TextEditingController();
+  final _addressCountry = TextEditingController();
+  final _uan = TextEditingController();
+  final _panNumber = TextEditingController();
+  final _aadhaarNumber = TextEditingController();
+  final _pfNumber = TextEditingController();
+  final _esiNumber = TextEditingController();
+  final _bankName = TextEditingController();
+  final _ifscCode = TextEditingController();
+  final _accountNumber = TextEditingController();
+  final _accountHolderName = TextEditingController();
+  final _upiId = TextEditingController();
   String _loginMethod = 'password';
   String _status = 'active';
+  String? _selectedDepartmentName;
+  String? _staffType;
+  String? _salaryCycle;
+  String? _gender;
+  String? _maritalStatus;
+  String? _bloodGroup;
+  String _bankVerificationStatus = 'Pending';
   int? _selectedRoleId;
   int? _selectedBranchId;
   int? _selectedAttendanceModalId;
@@ -649,6 +708,12 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
+  static const List<String> _staffTypes = ['Full Time', 'Part Time', 'Contract'];
+  static const List<String> _salaryCycles = ['Monthly', 'Weekly'];
+  static const List<String> _genders = ['Male', 'Female', 'Other'];
+  static const List<String> _maritalStatuses = ['Single', 'Married', 'Divorced', 'Widowed'];
+  static const List<String> _bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  static const List<String> _bankVerificationStatuses = ['Pending', 'Verified', 'Failed'];
 
   @override
   void initState() {
@@ -675,11 +740,69 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
     _email.dispose();
     _phone.dispose();
     _employeeId.dispose();
-    _department.dispose();
     _designation.dispose();
     _joiningDate.dispose();
     _tempPassword.dispose();
+    _reportingManager.dispose();
+    _grossSalary.dispose();
+    _netSalary.dispose();
+    _dob.dispose();
+    _addressLine1.dispose();
+    _addressCity.dispose();
+    _addressState.dispose();
+    _addressPostalCode.dispose();
+    _addressCountry.dispose();
+    _uan.dispose();
+    _panNumber.dispose();
+    _aadhaarNumber.dispose();
+    _pfNumber.dispose();
+    _esiNumber.dispose();
+    _bankName.dispose();
+    _ifscCode.dispose();
+    _accountNumber.dispose();
+    _accountHolderName.dispose();
+    _upiId.dispose();
     super.dispose();
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: context.textColor,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1950),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: context.accentColor,
+              onPrimary: Colors.white,
+              surface: context.cardColor,
+              onSurface: context.textColor,
+            ),
+            dialogBackgroundColor: context.cardColor,
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      controller.text = DateFormat('yyyy-MM-dd').format(picked);
+    }
   }
 
   Future<void> _loadRolesAndLimits() async {
@@ -751,24 +874,24 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
       );
       return;
     }
+    double? gross;
+    double? net;
+    try {
+      if (_grossSalary.text.trim().isNotEmpty) gross = double.tryParse(_grossSalary.text.trim());
+      if (_netSalary.text.trim().isNotEmpty) net = double.tryParse(_netSalary.text.trim());
+    } catch (_) {}
     setState(() => _saving = true);
     try {
       await widget.onSubmit(
         fullName: name,
         email: email,
         phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
-        employeeId:
-            _employeeId.text.trim().isEmpty ? null : _employeeId.text.trim(),
-        department:
-            _department.text.trim().isEmpty ? null : _department.text.trim(),
-        designation:
-            _designation.text.trim().isEmpty ? null : _designation.text.trim(),
-        joiningDate:
-            _joiningDate.text.trim().isEmpty ? null : _joiningDate.text.trim(),
+        employeeId: _employeeId.text.trim().isEmpty ? null : _employeeId.text.trim(),
+        department: _selectedDepartmentName,
+        designation: _designation.text.trim().isEmpty ? null : _designation.text.trim(),
+        joiningDate: _joiningDate.text.trim().isEmpty ? null : _joiningDate.text.trim(),
         loginMethod: _loginMethod,
-        temporaryPassword: _tempPassword.text.trim().isEmpty
-            ? null
-            : _tempPassword.text.trim(),
+        temporaryPassword: _tempPassword.text.trim().isEmpty ? null : _tempPassword.text.trim(),
         roleId: _selectedRoleId!,
         status: _status,
         branchId: _selectedBranchId,
@@ -776,6 +899,31 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
         shiftModalId: _selectedShiftModalId,
         leaveModalId: _selectedLeaveModalId,
         holidayModalId: _selectedHolidayModalId,
+        staffType: _staffType,
+        reportingManager: _reportingManager.text.trim().isEmpty ? null : _reportingManager.text.trim(),
+        salaryCycle: _salaryCycle,
+        grossSalary: gross,
+        netSalary: net,
+        gender: _gender,
+        dob: _dob.text.trim().isEmpty ? null : _dob.text.trim(),
+        maritalStatus: _maritalStatus,
+        bloodGroup: _bloodGroup,
+        addressLine1: _addressLine1.text.trim().isEmpty ? null : _addressLine1.text.trim(),
+        addressCity: _addressCity.text.trim().isEmpty ? null : _addressCity.text.trim(),
+        addressState: _addressState.text.trim().isEmpty ? null : _addressState.text.trim(),
+        addressPostalCode: _addressPostalCode.text.trim().isEmpty ? null : _addressPostalCode.text.trim(),
+        addressCountry: _addressCountry.text.trim().isEmpty ? null : _addressCountry.text.trim(),
+        uan: _uan.text.trim().isEmpty ? null : _uan.text.trim(),
+        panNumber: _panNumber.text.trim().isEmpty ? null : _panNumber.text.trim(),
+        aadhaarNumber: _aadhaarNumber.text.trim().isEmpty ? null : _aadhaarNumber.text.trim(),
+        pfNumber: _pfNumber.text.trim().isEmpty ? null : _pfNumber.text.trim(),
+        esiNumber: _esiNumber.text.trim().isEmpty ? null : _esiNumber.text.trim(),
+        bankName: _bankName.text.trim().isEmpty ? null : _bankName.text.trim(),
+        ifscCode: _ifscCode.text.trim().isEmpty ? null : _ifscCode.text.trim(),
+        accountNumber: _accountNumber.text.trim().isEmpty ? null : _accountNumber.text.trim(),
+        accountHolderName: _accountHolderName.text.trim().isEmpty ? null : _accountHolderName.text.trim(),
+        upiId: _upiId.text.trim().isEmpty ? null : _upiId.text.trim(),
+        bankVerificationStatus: _bankVerificationStatus,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -803,9 +951,9 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -830,7 +978,7 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 'License is not active. Cannot add staff.',
-                style: TextStyle(color: AppColors.danger, fontSize: 13),
+                style: TextStyle(color: context.dangerColor, fontSize: 13),
               ),
             ),
           if (maxUsers != null)
@@ -838,187 +986,268 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 'Staff: $currentUsers / $maxUsers',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                style: TextStyle(color: context.textSecondaryColor, fontSize: 12),
               ),
             ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(_error!,
-                  style: TextStyle(color: AppColors.danger, fontSize: 13)),
+                  style: TextStyle(color: context.dangerColor, fontSize: 13)),
             ),
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator()),
             )
-          else ...[
-            TextField(
-              controller: _name,
-              decoration: const InputDecoration(
-                labelText: 'Full Name *',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Email *',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _phone,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _employeeId,
-              decoration: const InputDecoration(
-                labelText: 'Employee ID (optional, auto-generated if empty)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _department,
-              decoration: const InputDecoration(
-                labelText: 'Department',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _designation,
-              decoration: const InputDecoration(
-                labelText: 'Designation',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _joiningDate,
-              decoration: const InputDecoration(
-                labelText: 'Joining Date (YYYY-MM-DD)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<int>(
-              value: _selectedRoleId,
-              decoration: const InputDecoration(
-                labelText: 'Role *',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: _roles
-                  .map((r) => DropdownMenuItem(
-                        value: r.id,
-                        child: Text(r.name),
-                      ))
-                  .toList(),
-              onChanged: (v) => setState(() => _selectedRoleId = v),
-            ),
-            const SizedBox(height: 8),
-            if (widget.attendanceModals.isNotEmpty)
-              DropdownButtonFormField<int>(
-                value: _selectedAttendanceModalId,
-                decoration: const InputDecoration(
-                  labelText: 'Attendance Modal *',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: widget.attendanceModals
-                    .map((m) => DropdownMenuItem(
-                          value: m.id,
-                          child: Text(m.name),
-                        ))
-                    .toList(),
-                onChanged: (v) =>
-                    setState(() => _selectedAttendanceModalId = v),
-              ),
-            if (widget.attendanceModals.isNotEmpty) const SizedBox(height: 8),
-            if (widget.shiftModals.isNotEmpty)
-              DropdownButtonFormField<int?>(
-                value: _selectedShiftModalId,
-                decoration: const InputDecoration(
-                  labelText: 'Shift Modal',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  const DropdownMenuItem<int?>(
-                      value: null, child: Text('— None')),
-                  ...widget.shiftModals.map((m) =>
-                      DropdownMenuItem(value: m.id, child: Text(m.name))),
-                ],
-                onChanged: (v) => setState(() => _selectedShiftModalId = v),
-              ),
-            if (widget.shiftModals.isNotEmpty) const SizedBox(height: 8),
-            if (widget.leaveModals.isNotEmpty)
-              DropdownButtonFormField<int?>(
-                value: _selectedLeaveModalId,
-                decoration: const InputDecoration(
-                  labelText: 'Leave Modal',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  const DropdownMenuItem<int?>(
-                      value: null, child: Text('— None')),
-                  ...widget.leaveModals.map((m) =>
-                      DropdownMenuItem(value: m.id, child: Text(m.name))),
-                ],
-                onChanged: (v) => setState(() => _selectedLeaveModalId = v),
-              ),
-            if (widget.leaveModals.isNotEmpty) const SizedBox(height: 8),
-            if (widget.holidayModals.isNotEmpty)
-              DropdownButtonFormField<int?>(
-                value: _selectedHolidayModalId,
-                decoration: const InputDecoration(
-                  labelText: 'Holiday Modal',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  const DropdownMenuItem<int?>(
-                      value: null, child: Text('— None')),
-                  ...widget.holidayModals.map((m) =>
-                      DropdownMenuItem(value: m.id, child: Text(m.name))),
-                ],
-                onChanged: (v) => setState(() => _selectedHolidayModalId = v),
-              ),
-            if (widget.holidayModals.isNotEmpty) const SizedBox(height: 8),
-            if (widget.branches.isNotEmpty)
-              DropdownButtonFormField<int?>(
-                value: _selectedBranchId,
-                decoration: const InputDecoration(
-                  labelText: 'Branch',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('—')),
-                  ...widget.branches.map((b) =>
-                      DropdownMenuItem(value: b.id, child: Text(b.branchName))),
-                ],
-                onChanged: (v) => setState(() => _selectedBranchId = v),
-              ),
-            if (widget.branches.isNotEmpty) const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
+          else
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _sectionTitle('Profile Information'),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _name,
+                            decoration: const InputDecoration(
+                              labelText: 'Name *',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _employeeId,
+                            decoration: const InputDecoration(
+                              labelText: 'Employee ID (auto if empty)',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _designation,
+                            decoration: const InputDecoration(
+                              labelText: 'Designation',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String?>(
+                            value: _staffType,
+                            decoration: const InputDecoration(
+                              labelText: 'Staff Type',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: [
+                              const DropdownMenuItem<String?>(value: null, child: Text('—')),
+                              ..._staffTypes.map((s) => DropdownMenuItem(value: s, child: Text(s))),
+                            ],
+                            onChanged: (v) => setState(() => _staffType = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Contact Number',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: widget.departments.isEmpty
+                              ? TextField(
+                                  onChanged: (_) {},
+                                  decoration: const InputDecoration(
+                                    labelText: 'Department (add in Settings)',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                )
+                              : DropdownButtonFormField<String?>(
+                                  value: _selectedDepartmentName,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Department',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<String?>(value: null, child: Text('—')),
+                                    ...widget.departments.map((d) => DropdownMenuItem(value: d.name, child: Text(d.name))),
+                                  ],
+                                  onChanged: (v) => setState(() => _selectedDepartmentName = v),
+                                ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _reportingManager,
+                            decoration: const InputDecoration(
+                              labelText: 'Reporting Manager',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: _selectedRoleId,
+                            decoration: const InputDecoration(
+                              labelText: 'Role *',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: _roles.map((r) => DropdownMenuItem(value: r.id, child: Text(r.name))).toList(),
+                            onChanged: (v) => setState(() => _selectedRoleId = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _sectionTitle('General Information'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String?>(
+                            value: _salaryCycle,
+                            decoration: const InputDecoration(labelText: 'Salary Cycle', border: OutlineInputBorder(), isDense: true),
+                            items: [const DropdownMenuItem<String?>(value: null, child: Text('—')), ..._salaryCycles.map((s) => DropdownMenuItem(value: s, child: Text(s)))],
+                            onChanged: (v) => setState(() => _salaryCycle = v),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: TextField(controller: _grossSalary, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Gross Salary', border: OutlineInputBorder(), isDense: true))),
+                        const SizedBox(width: 12),
+                        Expanded(child: TextField(controller: _netSalary, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Net Salary', border: OutlineInputBorder(), isDense: true))),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (widget.shiftModals.isNotEmpty)
+                      DropdownButtonFormField<int?>(
+                        value: _selectedShiftModalId,
+                        decoration: const InputDecoration(labelText: 'Shift', border: OutlineInputBorder(), isDense: true),
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ...widget.shiftModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+                        onChanged: (v) => setState(() => _selectedShiftModalId = v),
+                      ),
+                    if (widget.shiftModals.isNotEmpty) const SizedBox(height: 8),
+                    if (widget.attendanceModals.isNotEmpty)
+                      DropdownButtonFormField<int>(
+                        value: _selectedAttendanceModalId,
+                        decoration: const InputDecoration(labelText: 'Attendance Template *', border: OutlineInputBorder(), isDense: true),
+                        items: widget.attendanceModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name))).toList(),
+                        onChanged: (v) => setState(() => _selectedAttendanceModalId = v),
+                      ),
+                    if (widget.attendanceModals.isNotEmpty) const SizedBox(height: 8),
+                    if (widget.leaveModals.isNotEmpty)
+                      DropdownButtonFormField<int?>(
+                        value: _selectedLeaveModalId,
+                        decoration: const InputDecoration(labelText: 'Leave Template', border: OutlineInputBorder(), isDense: true),
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ...widget.leaveModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+                        onChanged: (v) => setState(() => _selectedLeaveModalId = v),
+                      ),
+                    if (widget.leaveModals.isNotEmpty) const SizedBox(height: 8),
+                    if (widget.holidayModals.isNotEmpty)
+                      DropdownButtonFormField<int?>(
+                        value: _selectedHolidayModalId,
+                        decoration: const InputDecoration(labelText: 'Holiday Template', border: OutlineInputBorder(), isDense: true),
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ...widget.holidayModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+                        onChanged: (v) => setState(() => _selectedHolidayModalId = v),
+                      ),
+                    if (widget.holidayModals.isNotEmpty) const SizedBox(height: 8),
+                    if (widget.branches.isNotEmpty)
+                      DropdownButtonFormField<int?>(
+                        value: _selectedBranchId,
+                        decoration: const InputDecoration(labelText: 'Branch', border: OutlineInputBorder(), isDense: true),
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('—')), ...widget.branches.map((b) => DropdownMenuItem(value: b.id, child: Text(b.branchName)))],
+                        onChanged: (v) => setState(() => _selectedBranchId = v),
+                      ),
+                    const SizedBox(height: 16),
+                    _sectionTitle('Personal Information'),
+                    TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email *', border: OutlineInputBorder(), isDense: true)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: DropdownButtonFormField<String?>(value: _gender, decoration: const InputDecoration(labelText: 'Gender', border: OutlineInputBorder(), isDense: true), items: [const DropdownMenuItem<String?>(value: null, child: Text('—')), ..._genders.map((g) => DropdownMenuItem(value: g, child: Text(g)))], onChanged: (v) => setState(() => _gender = v))),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _dob,
+                            readOnly: true,
+                            onTap: () => _selectDate(context, _dob),
+                            decoration: const InputDecoration(
+                              labelText: 'Date of Birth',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                              suffixIcon: Icon(Icons.calendar_today_rounded, size: 18),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: DropdownButtonFormField<String?>(value: _maritalStatus, decoration: const InputDecoration(labelText: 'Marital Status', border: OutlineInputBorder(), isDense: true), items: [const DropdownMenuItem<String?>(value: null, child: Text('—')), ..._maritalStatuses.map((s) => DropdownMenuItem(value: s, child: Text(s)))], onChanged: (v) => setState(() => _maritalStatus = v))),
+                        const SizedBox(width: 12),
+                        Expanded(child: DropdownButtonFormField<String?>(value: _bloodGroup, decoration: const InputDecoration(labelText: 'Blood Group', border: OutlineInputBorder(), isDense: true), items: [const DropdownMenuItem<String?>(value: null, child: Text('—')), ..._bloodGroups.map((b) => DropdownMenuItem(value: b, child: Text(b)))], onChanged: (v) => setState(() => _bloodGroup = v))),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _joiningDate,
+                      readOnly: true,
+                      onTap: () => _selectDate(context, _joiningDate),
+                      decoration: const InputDecoration(
+                        labelText: 'Joining Date',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        suffixIcon: Icon(Icons.calendar_today_rounded, size: 18),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _sectionTitle('Current Address'),
+                    Row(children: [Expanded(child: TextField(controller: _addressLine1, decoration: const InputDecoration(labelText: 'Address Line 1', border: OutlineInputBorder(), isDense: true))), const SizedBox(width: 12), Expanded(child: TextField(controller: _addressCity, decoration: const InputDecoration(labelText: 'City', border: OutlineInputBorder(), isDense: true)))]),
+                    const SizedBox(height: 8),
+                    Row(children: [Expanded(child: TextField(controller: _addressState, decoration: const InputDecoration(labelText: 'State', border: OutlineInputBorder(), isDense: true))), const SizedBox(width: 12), Expanded(child: TextField(controller: _addressPostalCode, decoration: const InputDecoration(labelText: 'Postal Code', border: OutlineInputBorder(), isDense: true))), const SizedBox(width: 12), Expanded(child: TextField(controller: _addressCountry, decoration: const InputDecoration(labelText: 'Country', border: OutlineInputBorder(), isDense: true)))]),
+                    const SizedBox(height: 16),
+                    _sectionTitle('Employment Information'),
+                    Row(children: [Expanded(child: TextField(controller: _uan, decoration: const InputDecoration(labelText: 'UAN', border: OutlineInputBorder(), isDense: true))), const SizedBox(width: 12), Expanded(child: TextField(controller: _panNumber, decoration: const InputDecoration(labelText: 'PAN Number', border: OutlineInputBorder(), isDense: true))), const SizedBox(width: 12), Expanded(child: TextField(controller: _aadhaarNumber, decoration: const InputDecoration(labelText: 'Aadhaar Number', border: OutlineInputBorder(), isDense: true)))]),
+                    const SizedBox(height: 8),
+                    Row(children: [Expanded(child: TextField(controller: _pfNumber, decoration: const InputDecoration(labelText: 'PF Number', border: OutlineInputBorder(), isDense: true))), const SizedBox(width: 12), Expanded(child: TextField(controller: _esiNumber, decoration: const InputDecoration(labelText: 'ESI Number', border: OutlineInputBorder(), isDense: true)))]),
+                    const SizedBox(height: 16),
+                    _sectionTitle('Bank Details'),
+                    Row(children: [Expanded(child: TextField(controller: _bankName, decoration: const InputDecoration(labelText: 'Name of Bank', border: OutlineInputBorder(), isDense: true))), const SizedBox(width: 12), Expanded(child: TextField(controller: _ifscCode, decoration: const InputDecoration(labelText: 'IFSC Code', border: OutlineInputBorder(), isDense: true)))]),
+                    const SizedBox(height: 8),
+                    Row(children: [Expanded(child: TextField(controller: _accountNumber, decoration: const InputDecoration(labelText: 'Account Number', border: OutlineInputBorder(), isDense: true))), const SizedBox(width: 12), Expanded(child: TextField(controller: _accountHolderName, decoration: const InputDecoration(labelText: 'Account Holder Name', border: OutlineInputBorder(), isDense: true)))]),
+                    const SizedBox(height: 8),
+                    Row(children: [Expanded(child: TextField(controller: _upiId, decoration: const InputDecoration(labelText: 'UPI ID', border: OutlineInputBorder(), isDense: true))), const SizedBox(width: 12), Expanded(child: DropdownButtonFormField<String>(value: _bankVerificationStatus, decoration: const InputDecoration(labelText: 'Verification Status', border: OutlineInputBorder(), isDense: true), items: _bankVerificationStatuses.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(), onChanged: (v) => setState(() => _bankVerificationStatus = v ?? 'Pending')))]),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
               value: _loginMethod,
               decoration: const InputDecoration(
                 labelText: 'Login Method',
@@ -1082,9 +1311,12 @@ class _CreateStaffDialogState extends State<_CreateStaffDialog> {
                 ),
               ],
             ),
+                  ],
+                ),
+              ),
+            ),
           ],
-        ],
-      ),
+        ),
     );
   }
 }
@@ -1207,9 +1439,9 @@ class _EditStaffDialogState extends State<_EditStaffDialog> {
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

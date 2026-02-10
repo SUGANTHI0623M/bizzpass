@@ -83,17 +83,17 @@ class _AttendancePageState extends State<AttendancePage> {
                     icon: Icons.check_circle_rounded,
                     label: 'Present',
                     value: '$present',
-                    accentColor: AppColors.success.withOpacity(0.12)),
+                    accentColor: context.successColor.withOpacity(0.12)),
                 StatCard(
                     icon: Icons.schedule_rounded,
                     label: 'Late',
                     value: '$late',
-                    accentColor: AppColors.warning.withOpacity(0.12)),
+                    accentColor: context.warningColor.withOpacity(0.12)),
                 StatCard(
                     icon: Icons.cancel_rounded,
                     label: 'Absent',
                     value: '$absent',
-                    accentColor: AppColors.danger.withOpacity(0.12)),
+                    accentColor: context.dangerColor.withOpacity(0.12)),
               ],
             );
           }),
@@ -102,18 +102,18 @@ class _AttendancePageState extends State<AttendancePage> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded,
+                      color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                       child: Text(_error!,
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.textSecondary))),
+                          style: TextStyle(
+                              fontSize: 13, color: context.textSecondaryColor))),
                   TextButton(onPressed: _load, child: const Text('Retry')),
                 ],
               ),
@@ -133,36 +133,36 @@ class _AttendancePageState extends State<AttendancePage> {
             rows: _attendance
                 .map((a) => DataRow(cells: [
                       DataCell(Text(a.employee,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.text))),
+                              color: context.textColor))),
                       DataCell(Text(a.company)),
                       DataCell(Text(a.punchIn ?? '—',
                           style: TextStyle(
                             fontFamily: 'monospace',
                             color: a.punchIn != null
-                                ? AppColors.textSecondary
-                                : AppColors.textDim,
+                                ? context.textSecondaryColor
+                                : context.textDimColor,
                           ))),
                       DataCell(Text(a.punchOut ?? '—',
                           style: TextStyle(
                             fontFamily: 'monospace',
                             color: a.punchOut != null
-                                ? AppColors.textSecondary
-                                : AppColors.textDim,
+                                ? context.textSecondaryColor
+                                : context.textDimColor,
                           ))),
                       DataCell(StatusBadge(status: a.status)),
                       DataCell(Text(
                         a.workHours > 0 ? a.workHours.toStringAsFixed(1) : '—',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       )),
                       DataCell(Text(
                         '${a.lateMinutes}',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: a.lateMinutes > 0
-                              ? AppColors.warning
-                              : AppColors.textDim,
+                              ? context.warningColor
+                              : context.textDimColor,
                         ),
                       )),
                     ]))

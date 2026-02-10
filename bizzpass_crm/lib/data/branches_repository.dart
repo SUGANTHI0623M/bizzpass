@@ -62,14 +62,31 @@ class BranchesRepository {
     }
   }
 
+  String _handleDioError(DioException e) {
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        (e.type == DioExceptionType.unknown && e.response == null)) {
+      return 'Cannot reach the backend at ${ApiConstants.baseUrl}. ${ApiConstants.backendUnreachableHint}';
+    }
+    if (e.response?.statusCode == 401) return 'Session expired. Please log in again.';
+    if (e.response?.data is Map && e.response?.data['detail'] != null) {
+      return e.response!.data['detail'].toString();
+    }
+    return e.message ?? 'Network error';
+  }
+
   Future<List<Branch>> fetchBranches() async {
     await _addAuthToken();
-    final res = await _dio.get<Map<String, dynamic>>('/branches');
-    if (res.statusCode != 200 || res.data == null) {
-      throw BranchesException('Failed to fetch branches');
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/branches');
+      if (res.statusCode != 200 || res.data == null) {
+        throw BranchesException('Failed to fetch branches');
+      }
+      final list = res.data!['branches'] as List<dynamic>? ?? [];
+      return list.map((e) => Branch.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+    } on DioException catch (e) {
+      throw BranchesException(_handleDioError(e));
     }
-    final list = res.data!['branches'] as List<dynamic>? ?? [];
-    return list.map((e) => Branch.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
 
   Future<Branch> createBranch({
@@ -95,14 +112,18 @@ class BranchesRepository {
     if (latitude != null) data['latitude'] = latitude;
     if (longitude != null) data['longitude'] = longitude;
     if (attendanceRadiusM != null) data['attendanceRadiusM'] = attendanceRadiusM;
-    final res = await _dio.post<Map<String, dynamic>>('/branches', data: data);
-    if (res.statusCode != 200 && res.statusCode != 201) {
-      final d = res.data;
-      throw BranchesException(
-        (d is Map<String, dynamic> && d['detail'] != null) ? d['detail'].toString() : 'Failed to create branch',
-      );
+    try {
+      final res = await _dio.post<Map<String, dynamic>>('/branches', data: data);
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        final d = res.data;
+        throw BranchesException(
+          (d is Map<String, dynamic> && d['detail'] != null) ? d['detail'].toString() : 'Failed to create branch',
+        );
+      }
+      return Branch.fromJson(Map<String, dynamic>.from(res.data as Map));
+    } on DioException catch (e) {
+      throw BranchesException(_handleDioError(e));
     }
-    return Branch.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 
   Future<Branch> updateBranch(
@@ -130,24 +151,32 @@ class BranchesRepository {
     if (latitude != null) data['latitude'] = latitude;
     if (longitude != null) data['longitude'] = longitude;
     if (attendanceRadiusM != null) data['attendanceRadiusM'] = attendanceRadiusM;
-    final res = await _dio.patch<Map<String, dynamic>>('/branches/$branchId', data: data);
-    if (res.statusCode != 200) {
-      final d = res.data;
-      throw BranchesException(
-        (d is Map<String, dynamic> && d['detail'] != null) ? d['detail'].toString() : 'Failed to update branch',
-      );
+    try {
+      final res = await _dio.patch<Map<String, dynamic>>('/branches/$branchId', data: data);
+      if (res.statusCode != 200) {
+        final d = res.data;
+        throw BranchesException(
+          (d is Map<String, dynamic> && d['detail'] != null) ? d['detail'].toString() : 'Failed to update branch',
+        );
+      }
+      return Branch.fromJson(Map<String, dynamic>.from(res.data as Map));
+    } on DioException catch (e) {
+      throw BranchesException(_handleDioError(e));
     }
-    return Branch.fromJson(Map<String, dynamic>.from(res.data as Map));
   }
 
   Future<void> deleteBranch(int branchId) async {
     await _addAuthToken();
-    final res = await _dio.delete('/branches/$branchId');
-    if (res.statusCode != 200 && res.statusCode != 204) {
-      final d = res.data;
-      throw BranchesException(
-        (d is Map<String, dynamic> && d['detail'] != null) ? d['detail'].toString() : 'Failed to delete branch',
-      );
+    try {
+      final res = await _dio.delete('/branches/$branchId');
+      if (res.statusCode != 200 && res.statusCode != 204) {
+        final d = res.data;
+        throw BranchesException(
+          (d is Map<String, dynamic> && d['detail'] != null) ? d['detail'].toString() : 'Failed to delete branch',
+        );
+      }
+    } on DioException catch (e) {
+      throw BranchesException(_handleDioError(e));
     }
   }
 }

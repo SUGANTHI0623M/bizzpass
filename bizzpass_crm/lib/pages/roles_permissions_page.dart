@@ -250,7 +250,7 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Delete', style: TextStyle(color: AppColors.danger)),
+            child: Text('Delete', style: TextStyle(color: ctx.dangerColor)),
           ),
         ],
       ),
@@ -316,18 +316,18 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
                   padding: const EdgeInsets.all(12),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withOpacity(0.1),
+                    color: context.warningColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline_rounded,
-                          color: AppColors.warning, size: 20),
+                      Icon(Icons.info_outline_rounded,
+                          color: context.warningColor, size: 20),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(_error!,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.textSecondary)),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textSecondaryColor)),
                       ),
                       TextButton(onPressed: _load, child: const Text('Retry')),
                     ],
@@ -369,15 +369,15 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(r.name,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontWeight: FontWeight.w600,
-                                              color: AppColors.text)),
+                                              color: context.textColor)),
                                       if (r.description != null &&
                                           r.description!.isNotEmpty)
                                         Text(r.description!,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 fontSize: 11,
-                                                color: AppColors.textDim)),
+                                                color: context.textDimColor)),
                                     ],
                                   ),
                                 ),
@@ -387,33 +387,33 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: r.isSystemRole
-                                          ? AppColors.textMuted
-                                          : AppColors.accent))),
+                                          ? context.textMutedColor
+                                          : context.accentColor))),
                               DataCell(Text(
                                 '${r.permissionCodes.length} permissions',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.textSecondary),
+                                    color: context.textSecondaryColor),
                               )),
                               DataCell(Text(
                                 '${r.staffCount} staff',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.textSecondary),
+                                    color: context.textSecondaryColor),
                               )),
                               DataCell(Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.visibility_outlined,
-                                        size: 20, color: AppColors.textMuted),
+                                    icon: Icon(Icons.visibility_outlined,
+                                        size: 20, color: context.textMutedColor),
                                     onPressed: () => _openView(r),
                                     tooltip: 'View details',
                                   ),
                                   if (r.code.toUpperCase() != 'COMPANY_ADMIN')
                                     IconButton(
-                                      icon: const Icon(Icons.edit_outlined,
-                                          size: 20, color: AppColors.textMuted),
+                                      icon: Icon(Icons.edit_outlined,
+                                          size: 20, color: context.textMutedColor),
                                       onPressed: () => _openEdit(r),
                                       tooltip: 'Edit',
                                     ),
@@ -422,8 +422,8 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
                                       icon: Icon(Icons.delete_outline,
                                           size: 20,
                                           color: r.staffCount > 0
-                                              ? AppColors.textDim
-                                              : AppColors.danger),
+                                              ? context.textDimColor
+                                              : context.dangerColor),
                                       onPressed: () => _deleteRole(r),
                                       tooltip: r.staffCount > 0
                                           ? 'Cannot delete: assigned to staff'
@@ -448,18 +448,18 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('New custom role',
+          Text('New custom role',
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.text)),
+                  color: context.textColor)),
           const SizedBox(height: 12),
           TextField(
             controller: _nameController,
@@ -558,9 +558,9 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -568,10 +568,10 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
           Row(
             children: [
               Text('Edit role: ${r.name}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.text)),
+                      color: context.textColor)),
               const Spacer(),
               IconButton(
                 onPressed: () => setState(() => _editingRole = null),
@@ -599,11 +599,11 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
             maxLines: 2,
           ),
           const SizedBox(height: 12),
-          const Text('Permissions',
+          Text('Permissions',
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textMuted)),
+                  color: context.textMutedColor)),
           const SizedBox(height: 6),
           ..._permissions.entries.map((e) {
             return Padding(
@@ -613,10 +613,10 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
                 children: [
                   Text(
                     e.key.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textDim),
+                        color: context.textDimColor),
                   ),
                   Wrap(
                     spacing: 8,
@@ -681,7 +681,7 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
         ),
         Center(
           child: Material(
-            color: AppColors.card,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(16),
             child: Container(
               width: MediaQuery.of(context).size.width * 0.5,
@@ -696,10 +696,10 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
                       Expanded(
                         child: Text(
                           r.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.text),
+                              color: context.textColor),
                         ),
                       ),
                       IconButton(
@@ -711,8 +711,8 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
                   if (r.description != null && r.description!.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(r.description!,
-                        style: const TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary)),
+                        style: TextStyle(
+                            fontSize: 13, color: context.textSecondaryColor)),
                   ],
                   const SizedBox(height: 12),
                   Wrap(
@@ -724,25 +724,25 @@ class _RolesPermissionsPageState extends State<RolesPermissionsPage> {
                           style: TextStyle(
                               fontSize: 12,
                               color: r.isSystemRole
-                                  ? AppColors.textMuted
-                                  : AppColors.accent),
+                                  ? context.textMutedColor
+                                  : context.accentColor),
                         ),
                       ),
                       Chip(
                         label: Text(
                           'Assigned to ${r.staffCount} staff',
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary),
+                          style: TextStyle(
+                              fontSize: 12, color: context.textSecondaryColor),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text('Permissions',
+                  Text('Permissions',
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textMuted)),
+                          color: context.textMutedColor)),
                   const SizedBox(height: 8),
                   Flexible(
                     child: SingleChildScrollView(

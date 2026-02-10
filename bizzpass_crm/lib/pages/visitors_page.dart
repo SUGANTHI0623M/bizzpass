@@ -67,7 +67,7 @@ class _VisitorsPageState extends State<VisitorsPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          backgroundColor: AppColors.bg,
+          backgroundColor: context.bgColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -77,19 +77,19 @@ class _VisitorsPageState extends State<VisitorsPage> {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: context.borderColor)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Register New Visitor', style: TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.text,
+                      Text('Register New Visitor', style: TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w700, color: context.textColor,
                       )),
                       IconButton(
                         onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textMuted),
-                        style: IconButton.styleFrom(backgroundColor: AppColors.cardHover),
+                        icon: Icon(Icons.close_rounded, size: 20, color: context.textMutedColor),
+                        style: IconButton.styleFrom(backgroundColor: context.cardHoverColor),
                       ),
                     ],
                   ),
@@ -104,29 +104,29 @@ class _VisitorsPageState extends State<VisitorsPage> {
                           padding: const EdgeInsets.all(12),
                           margin: const EdgeInsets.only(bottom: 16),
                           decoration: BoxDecoration(
-                            color: AppColors.danger.withOpacity(0.1),
+                            color: context.dangerColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Text(submitError!, style: const TextStyle(fontSize: 13, color: AppColors.danger)),
+                          child: Text(submitError!, style: TextStyle(fontSize: 13, color: context.dangerColor)),
                         ),
                       ],
                       Row(children: [
                         Expanded(child: FormFieldWrapper(label: 'VISITOR NAME', child: TextFormField(
                           controller: nameCtrl,
-                          style: const TextStyle(fontSize: 13, color: AppColors.text),
+                          style: TextStyle(fontSize: 13, color: context.textColor),
                           decoration: const InputDecoration(hintText: 'Full name'),
                         ))),
                         const SizedBox(width: 14),
                         Expanded(child: FormFieldWrapper(label: 'PHONE', child: TextFormField(
                           controller: phoneCtrl,
-                          style: const TextStyle(fontSize: 13, color: AppColors.text),
+                          style: TextStyle(fontSize: 13, color: context.textColor),
                           decoration: const InputDecoration(hintText: '+91 XXXXX XXXXX'),
                         ))),
                       ]),
                       Row(children: [
                         Expanded(child: FormFieldWrapper(label: 'COMPANY', child: TextFormField(
                           controller: visitorCompanyCtrl,
-                          style: const TextStyle(fontSize: 13, color: AppColors.text),
+                          style: TextStyle(fontSize: 13, color: context.textColor),
                           decoration: const InputDecoration(hintText: "Visitor's organization"),
                         ))),
                         const SizedBox(width: 14),
@@ -134,8 +134,8 @@ class _VisitorsPageState extends State<VisitorsPage> {
                           label: 'VISITING COMPANY',
                           child: DropdownButtonFormField<int>(
                             decoration: const InputDecoration(),
-                            dropdownColor: AppColors.card,
-                            style: const TextStyle(fontSize: 13, color: AppColors.text),
+                            dropdownColor: context.cardColor,
+                            style: TextStyle(fontSize: 13, color: context.textColor),
                             hint: const Text('Select company...'),
                             value: selectedCompanyId,
                             items: companies.map((c) =>
@@ -148,13 +148,13 @@ class _VisitorsPageState extends State<VisitorsPage> {
                       Row(children: [
                         Expanded(child: FormFieldWrapper(label: 'HOST EMPLOYEE', child: TextFormField(
                           controller: hostCtrl,
-                          style: const TextStyle(fontSize: 13, color: AppColors.text),
+                          style: TextStyle(fontSize: 13, color: context.textColor),
                           decoration: const InputDecoration(hintText: 'Who are they meeting?'),
                         ))),
                         const SizedBox(width: 14),
                         Expanded(child: FormFieldWrapper(label: 'PURPOSE', child: TextFormField(
                           controller: purposeCtrl,
-                          style: const TextStyle(fontSize: 13, color: AppColors.text),
+                          style: TextStyle(fontSize: 13, color: context.textColor),
                           decoration: const InputDecoration(hintText: 'Reason for visit'),
                         ))),
                       ]),
@@ -162,8 +162,8 @@ class _VisitorsPageState extends State<VisitorsPage> {
                         label: 'ID PROOF TYPE',
                         child: DropdownButtonFormField<String>(
                           decoration: const InputDecoration(),
-                          dropdownColor: AppColors.card,
-                          style: const TextStyle(fontSize: 13, color: AppColors.text),
+                          dropdownColor: context.cardColor,
+                          style: TextStyle(fontSize: 13, color: context.textColor),
                           hint: const Text('Select...'),
                           value: selectedIdProof,
                           items: const [
@@ -213,7 +213,7 @@ class _VisitorsPageState extends State<VisitorsPage> {
                                   Navigator.pop(ctx);
                                   _load();
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Visitor registered'), backgroundColor: AppColors.success),
+                                    SnackBar(content: Text('Visitor registered'), backgroundColor: context.successColor),
                                   );
                                 }
                               } catch (e) {
@@ -272,14 +272,14 @@ class _VisitorsPageState extends State<VisitorsPage> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded, color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(_error!, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+                  Expanded(child: Text(_error!, style: TextStyle(fontSize: 13, color: context.textSecondaryColor))),
                   TextButton(onPressed: _load, child: const Text('Retry')),
                 ],
               ),
@@ -294,9 +294,9 @@ class _VisitorsPageState extends State<VisitorsPage> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                StatCard(icon: Icons.person_pin_circle_rounded, label: 'Checked In', value: '$checkedIn', accentColor: AppColors.info.withOpacity(0.12)),
-                StatCard(icon: Icons.schedule_rounded, label: 'Expected', value: '$expected', accentColor: AppColors.warning.withOpacity(0.12)),
-                StatCard(icon: Icons.logout_rounded, label: 'Checked Out', value: '$checkedOut', accentColor: AppColors.textMuted.withOpacity(0.12)),
+                StatCard(icon: Icons.person_pin_circle_rounded, label: 'Checked In', value: '$checkedIn', accentColor: context.infoColor.withOpacity(0.12)),
+                StatCard(icon: Icons.schedule_rounded, label: 'Expected', value: '$expected', accentColor: context.warningColor.withOpacity(0.12)),
+                StatCard(icon: Icons.logout_rounded, label: 'Checked Out', value: '$checkedOut', accentColor: context.textMutedColor.withOpacity(0.12)),
               ],
             );
           }),
@@ -309,15 +309,15 @@ class _VisitorsPageState extends State<VisitorsPage> {
               DataCol('Badge'), DataCol('Check In'),
             ],
             rows: _visitors.map((v) => DataRow(cells: [
-              DataCell(Text(v.name, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.text))),
+              DataCell(Text(v.name, style: TextStyle(fontWeight: FontWeight.w600, color: context.textColor))),
               DataCell(Text(v.visitorCompany)),
               DataCell(Text(v.companyVisiting)),
               DataCell(Text(v.host)),
               DataCell(Text(v.purpose)),
               DataCell(StatusBadge(status: v.status)),
-              DataCell(Text(v.badge, style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: AppColors.accent))),
+              DataCell(Text(v.badge, style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: context.accentColor))),
               DataCell(Text(v.checkIn ?? '—', style: TextStyle(
-                fontSize: 12, color: v.checkIn != null ? AppColors.textMuted : AppColors.textDim,
+                fontSize: 12, color: v.checkIn != null ? context.textMutedColor : context.textDimColor,
               ))),
             ])).toList(),
           ),

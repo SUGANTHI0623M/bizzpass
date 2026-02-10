@@ -21,20 +21,20 @@ class PayrollPlaceholderPage extends StatelessWidget {
             child: Column(
               children: [
                 Icon(Icons.payments_rounded,
-                    size: 64, color: AppColors.textMuted.withOpacity(0.5)),
+                    size: 64, color: context.textMutedColor.withOpacity(0.5)),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Payroll module',
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.text),
+                      color: context.textColor),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'View payroll, generate payroll, and download payslips.',
                   style: TextStyle(
-                      fontSize: 14, color: AppColors.textSecondary),
+                      fontSize: 14, color: context.textSecondaryColor),
                   textAlign: TextAlign.center,
                 ),
               ],

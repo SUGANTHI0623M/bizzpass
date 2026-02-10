@@ -79,7 +79,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          backgroundColor: AppColors.bg,
+          backgroundColor: context.bgColor,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: ConstrainedBox(
@@ -92,28 +92,28 @@ class _CompaniesPageState extends State<CompaniesPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 20),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border:
-                          Border(bottom: BorderSide(color: AppColors.border)),
+                          Border(bottom: BorderSide(color: context.borderColor)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Add Company',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.text,
+                            color: context.textColor,
                           ),
                         ),
                         IconButton(
                           onPressed:
                               submitting ? null : () => Navigator.pop(ctx),
-                          icon: const Icon(Icons.close_rounded,
-                              size: 20, color: AppColors.textMuted),
+                          icon: Icon(Icons.close_rounded,
+                              size: 20, color: context.textMutedColor),
                           style: IconButton.styleFrom(
-                              backgroundColor: AppColors.cardHover),
+                              backgroundColor: context.cardHoverColor),
                         ),
                       ],
                     ),
@@ -127,19 +127,19 @@ class _CompaniesPageState extends State<CompaniesPage> {
                             padding: const EdgeInsets.all(12),
                             margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: AppColors.danger.withOpacity(0.1),
+                              color: context.dangerColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline_rounded,
-                                    color: AppColors.danger, size: 20),
+                                Icon(Icons.error_outline_rounded,
+                                    color: context.dangerColor, size: 20),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     submitError!,
-                                    style: const TextStyle(
-                                        fontSize: 13, color: AppColors.danger),
+                                    style: TextStyle(
+                                        fontSize: 13, color: context.dangerColor),
                                   ),
                                 ),
                               ],
@@ -150,8 +150,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                           label: 'COMPANY NAME *',
                           child: TextFormField(
                             controller: nameCtrl,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             decoration: const InputDecoration(
                                 hintText: 'e.g. Acme Solutions'),
                           ),
@@ -162,8 +162,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                           child: TextFormField(
                             controller: emailCtrl,
                             keyboardType: TextInputType.emailAddress,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             decoration: const InputDecoration(
                                 hintText: 'admin@company.com'),
                           ),
@@ -177,8 +177,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                 child: TextFormField(
                                   controller: phoneCtrl,
                                   keyboardType: TextInputType.phone,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                   decoration: const InputDecoration(
                                       hintText: '+91 XXXXX XXXXX'),
                                 ),
@@ -196,9 +196,9 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                           ? plans.first.planName
                                           : 'Starter'),
                                   decoration: const InputDecoration(),
-                                  dropdownColor: AppColors.card,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  dropdownColor: context.cardColor,
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                   items: plans.isNotEmpty
                                       ? plans
                                           .map((p) => DropdownMenuItem<String>(
@@ -235,8 +235,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                 label: 'CITY',
                                 child: TextFormField(
                                   controller: cityCtrl,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                   decoration:
                                       const InputDecoration(hintText: 'City'),
                                 ),
@@ -248,8 +248,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                 label: 'STATE',
                                 child: TextFormField(
                                   controller: stateCtrl,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                   decoration:
                                       const InputDecoration(hintText: 'State'),
                                 ),
@@ -262,9 +262,9 @@ class _CompaniesPageState extends State<CompaniesPage> {
                           label: 'LICENSE KEY (required)',
                           child: TextFormField(
                             controller: licenseKeyCtrl,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 13,
-                                color: AppColors.text,
+                                color: context.textColor,
                                 fontFamily: 'monospace'),
                             decoration: const InputDecoration(
                               hintText: 'Enter an unassigned license key',
@@ -286,13 +286,13 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                 value: isActive,
                                 onChanged: (v) =>
                                     setDialogState(() => isActive = v ?? true),
-                                activeColor: AppColors.accent,
+                                activeColor: context.accentColor,
                               ),
-                              const Text(
+                              Text(
                                 'Company is active',
                                 style: TextStyle(
                                     fontSize: 13,
-                                    color: AppColors.textSecondary),
+                                    color: context.textSecondaryColor),
                               ),
                             ],
                           ),
@@ -304,7 +304,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                             OutlinedButton(
                               onPressed:
                                   submitting ? null : () => Navigator.pop(ctx),
-                              child: const Text('Cancel'),
+                              child: Text('Cancel'),
                             ),
                             const SizedBox(width: 10),
                             ElevatedButton(
@@ -364,8 +364,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                               showDialog(
                                                 context: context,
                                                 builder: (c) => AlertDialog(
-                                                  backgroundColor: AppColors.bg,
-                                                  title: const Text(
+                                                  backgroundColor: context.bgColor,
+                                                  title: Text(
                                                       'Company created – Admin login'),
                                                   content:
                                                       SingleChildScrollView(
@@ -376,24 +376,23 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                        const Text(
+                                                        Text(
                                                           'Company admin can log in with:',
                                                           style: TextStyle(
-                                                              color: AppColors
-                                                                  .textSecondary),
+                                                              color: c.textSecondaryColor),
                                                         ),
                                                         const SizedBox(
                                                             height: 12),
                                                         SelectableText(
                                                           'Email: $em',
-                                                          style: const TextStyle(
+                                                          style: TextStyle(
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w600),
                                                         ),
                                                         SelectableText(
                                                           'Password: $pw',
-                                                          style: const TextStyle(
+                                                          style: TextStyle(
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w600),
@@ -405,10 +404,9 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                                                       'message']
                                                                   ?.toString() ??
                                                               'Ask them to change password after first login.',
-                                                          style: const TextStyle(
+                                                          style: TextStyle(
                                                               fontSize: 12,
-                                                              color: AppColors
-                                                                  .textMuted),
+                                                              color: c.textMutedColor),
                                                         ),
                                                       ],
                                                     ),
@@ -417,7 +415,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                                     TextButton(
                                                       onPressed: () =>
                                                           Navigator.pop(c),
-                                                      child: const Text('OK'),
+                                                      child: Text('OK'),
                                                     ),
                                                   ],
                                                 ),
@@ -426,11 +424,11 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                           }
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Text(
                                                   'Company created successfully'),
                                               backgroundColor:
-                                                  AppColors.success,
+                                                  context.successColor,
                                             ),
                                           );
                                         }
@@ -449,7 +447,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2),
                                     )
-                                  : const Text('Create Company'),
+                                  : Text('Create Company'),
                             ),
                           ],
                         ),
@@ -469,7 +467,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: AppColors.bg,
+        backgroundColor: context.bgColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
@@ -480,8 +478,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: context.borderColor)),
                   ),
                   child: Row(
                     children: [
@@ -492,25 +490,25 @@ class _CompaniesPageState extends State<CompaniesPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(c.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.text,
+                                  color: context.textColor,
                                 )),
                             Text('${c.city}, ${c.state}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.textMuted,
+                                  color: context.textMutedColor,
                                 )),
                           ],
                         ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close_rounded,
-                            size: 20, color: AppColors.textMuted),
+                        icon: Icon(Icons.close_rounded,
+                            size: 20, color: context.textMutedColor),
                         style: IconButton.styleFrom(
-                            backgroundColor: AppColors.cardHover),
+                            backgroundColor: context.cardHoverColor),
                       ),
                     ],
                   ),
@@ -526,7 +524,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                             label: 'LICENSE KEY',
                             value: c.licenseKey,
                             mono: true,
-                            valueColor: AppColors.accent),
+                            valueColor: context.accentColor),
                         DetailTile(label: 'PLAN', value: c.subscriptionPlan),
                       ]),
                       const SizedBox(height: 16),
@@ -551,8 +549,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                             label: 'Active',
                             value: c.isActive ? 'Yes' : 'No',
                             valueColor: c.isActive
-                                ? AppColors.success
-                                : AppColors.danger,
+                                ? context.successColor
+                                : context.dangerColor,
                           )),
                         ],
                       ),
@@ -564,9 +562,9 @@ class _CompaniesPageState extends State<CompaniesPage> {
                               status: c.subscriptionStatus, large: true),
                           const SizedBox(width: 8),
                           Text('Expires: ${c.subscriptionEndDate}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: AppColors.textDim,
+                                color: context.textDimColor,
                               )),
                         ],
                       ),
@@ -579,7 +577,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                               Navigator.pop(ctx);
                               _showEditCompanyDialog(c);
                             },
-                            child: const Text('Edit'),
+                            child: Text('Edit'),
                           ),
                           const SizedBox(width: 10),
                           TextButton(
@@ -587,22 +585,22 @@ class _CompaniesPageState extends State<CompaniesPage> {
                               final confirm = await showDialog<bool>(
                                 context: context,
                                 builder: (dialogCtx) => AlertDialog(
-                                  backgroundColor: AppColors.bg,
-                                  title: const Text('Deactivate company?'),
-                                  content: const Text(
+                                  backgroundColor: context.bgColor,
+                                  title: Text('Deactivate company?'),
+                                  content: Text(
                                     'This will deactivate the company. You can reactivate by editing.',
                                   ),
                                   actions: [
                                     TextButton(
                                         onPressed: () =>
                                             Navigator.pop(dialogCtx, false),
-                                        child: const Text('Cancel')),
+                                        child: Text('Cancel')),
                                     TextButton(
                                         onPressed: () =>
                                             Navigator.pop(dialogCtx, true),
-                                        child: const Text('Deactivate',
+                                        child: Text('Deactivate',
                                             style: TextStyle(
-                                                color: AppColors.danger))),
+                                                color: context.dangerColor))),
                                   ],
                                 ),
                               );
@@ -613,9 +611,9 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                     Navigator.pop(ctx);
                                     _loadCompanies();
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content: Text('Company deactivated'),
-                                        backgroundColor: AppColors.success,
+                                        backgroundColor: context.successColor,
                                       ),
                                     );
                                   }
@@ -625,7 +623,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                       SnackBar(
                                         content: Text(e.toString().replaceAll(
                                             'CompaniesException: ', '')),
-                                        backgroundColor: AppColors.danger,
+                                        backgroundColor: context.dangerColor,
                                       ),
                                     );
                                   }
@@ -633,8 +631,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                               }
                             },
                             style: TextButton.styleFrom(
-                                foregroundColor: AppColors.danger),
-                            child: const Text('Deactivate'),
+                                foregroundColor: context.dangerColor),
+                            child: Text('Deactivate'),
                           ),
                         ],
                       ),
@@ -672,7 +670,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          backgroundColor: AppColors.bg,
+          backgroundColor: context.bgColor,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: ConstrainedBox(
@@ -685,25 +683,25 @@ class _CompaniesPageState extends State<CompaniesPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 20),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border:
-                          Border(bottom: BorderSide(color: AppColors.border)),
+                          Border(bottom: BorderSide(color: context.borderColor)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Edit Company',
+                        Text('Edit Company',
                             style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.text)),
+                                color: context.textColor)),
                         IconButton(
                           onPressed:
                               submitting ? null : () => Navigator.pop(ctx),
-                          icon: const Icon(Icons.close_rounded,
-                              size: 20, color: AppColors.textMuted),
+                          icon: Icon(Icons.close_rounded,
+                              size: 20, color: context.textMutedColor),
                           style: IconButton.styleFrom(
-                              backgroundColor: AppColors.cardHover),
+                              backgroundColor: context.cardHoverColor),
                         ),
                       ],
                     ),
@@ -717,19 +715,19 @@ class _CompaniesPageState extends State<CompaniesPage> {
                             padding: const EdgeInsets.all(12),
                             margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: AppColors.danger.withOpacity(0.1),
+                              color: context.dangerColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline_rounded,
-                                    color: AppColors.danger, size: 20),
+                                Icon(Icons.error_outline_rounded,
+                                    color: context.dangerColor, size: 20),
                                 const SizedBox(width: 10),
                                 Expanded(
                                     child: Text(submitError!,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 13,
-                                            color: AppColors.danger))),
+                                            color: context.dangerColor))),
                               ],
                             ),
                           ),
@@ -738,8 +736,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                           label: 'COMPANY NAME *',
                           child: TextFormField(
                             controller: nameCtrl,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                           ),
                         ),
                         FormFieldWrapper(
@@ -747,8 +745,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                           child: TextFormField(
                             controller: emailCtrl,
                             keyboardType: TextInputType.emailAddress,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                           ),
                         ),
                         FormFieldWrapper(
@@ -756,8 +754,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                           child: TextFormField(
                             controller: phoneCtrl,
                             keyboardType: TextInputType.phone,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                           ),
                         ),
                         Row(
@@ -767,8 +765,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                 label: 'CITY',
                                 child: TextFormField(
                                   controller: cityCtrl,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -778,8 +776,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                 label: 'STATE',
                                 child: TextFormField(
                                   controller: stateCtrl,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: AppColors.text),
+                                  style: TextStyle(
+                                      fontSize: 13, color: context.textColor),
                                 ),
                               ),
                             ),
@@ -797,9 +795,9 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                     ? selectedPlan
                                     : 'Starter'),
                             decoration: const InputDecoration(),
-                            dropdownColor: AppColors.card,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.text),
+                            dropdownColor: context.cardColor,
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
                             items: plans.isNotEmpty
                                 ? plans
                                     .map((p) => DropdownMenuItem<String>(
@@ -833,12 +831,12 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                 value: isActive,
                                 onChanged: (v) =>
                                     setDialogState(() => isActive = v ?? true),
-                                activeColor: AppColors.accent,
+                                activeColor: context.accentColor,
                               ),
-                              const Text('Company is active',
+                              Text('Company is active',
                                   style: TextStyle(
                                       fontSize: 13,
-                                      color: AppColors.textSecondary)),
+                                      color: context.textSecondaryColor)),
                             ],
                           ),
                         ),
@@ -849,7 +847,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                             OutlinedButton(
                               onPressed:
                                   submitting ? null : () => Navigator.pop(ctx),
-                              child: const Text('Cancel'),
+                              child: Text('Cancel'),
                             ),
                             const SizedBox(width: 10),
                             ElevatedButton(
@@ -889,10 +887,10 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                           _loadCompanies();
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Text('Company updated'),
                                               backgroundColor:
-                                                  AppColors.success,
+                                                  context.successColor,
                                             ),
                                           );
                                         }
@@ -910,7 +908,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2))
-                                  : const Text('Save'),
+                                  : Text('Save'),
                             ),
                           ],
                         ),
@@ -959,22 +957,22 @@ class _CompaniesPageState extends State<CompaniesPage> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: context.warningColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.warning, size: 20),
+                  Icon(Icons.info_outline_rounded,
+                      color: context.warningColor, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(_error!,
-                        style: const TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary)),
+                        style: TextStyle(
+                            fontSize: 13, color: context.textSecondaryColor)),
                   ),
                   TextButton(
                     onPressed: _loadCompanies,
-                    child: const Text('Retry'),
+                    child: Text('Retry'),
                   ),
                 ],
               ),
@@ -1055,28 +1053,28 @@ class _CompaniesPageState extends State<CompaniesPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(c.name,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontWeight: FontWeight.w600,
-                                        color: AppColors.text)),
+                                        color: context.textColor)),
                                 Text('${c.city}, ${c.state}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11,
-                                        color: AppColors.textDim)),
+                                        color: context.textDimColor)),
                               ],
                             ),
                           ])),
                           DataCell(Text(c.subscriptionPlan,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontWeight: FontWeight.w600))),
                           DataCell(StatusBadge(status: c.subscriptionStatus)),
                           DataCell(Text('${c.staffCount}')),
                           DataCell(Text('${c.branches}')),
                           DataCell(Text(c.subscriptionEndDate,
-                              style: const TextStyle(
-                                  fontSize: 12, color: AppColors.textMuted))),
+                              style: TextStyle(
+                                  fontSize: 12, color: context.textMutedColor))),
                           DataCell(TextButton(
                             onPressed: () => _showDetail(c),
-                            child: const Text('View',
+                            child: Text('View',
                                 style: TextStyle(fontSize: 12)),
                           )),
                         ],

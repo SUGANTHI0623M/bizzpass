@@ -32,7 +32,7 @@ class _WeeklyHolidaysPageState extends State<WeeklyHolidaysPage> {
                 icon: const Icon(Icons.arrow_back_rounded),
                 tooltip: 'Back',
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.success,
+                  backgroundColor: context.successColor,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -74,20 +74,20 @@ class _WeeklyHolidaysPageState extends State<WeeklyHolidaysPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Weekly Off Pattern',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: AppColors.text,
+            color: context.textColor,
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Choose how weekly offs are calculated for your business.',
           style: TextStyle(
             fontSize: 13,
-            color: AppColors.textMuted,
+            color: context.textMutedColor,
             height: 1.4,
           ),
         ),
@@ -120,11 +120,11 @@ class _WeeklyHolidaysPageState extends State<WeeklyHolidaysPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -132,15 +132,15 @@ class _WeeklyHolidaysPageState extends State<WeeklyHolidaysPage> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.text,
+              color: context.textColor,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             'Configure whether employees can mark attendance on weekly off days. This can be managed per attendance modal.',
             style: TextStyle(
               fontSize: 13,
-              color: AppColors.textMuted,
+              color: context.textMutedColor,
               height: 1.4,
             ),
           ),
@@ -172,10 +172,10 @@ class _TabChip extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: selected ? AppColors.card : Colors.transparent,
+            color: selected ? context.cardColor : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? AppColors.border : AppColors.border.withOpacity(0.6),
+              color: selected ? context.borderColor : context.borderColor.withOpacity(0.6),
             ),
           ),
           child: Text(
@@ -183,7 +183,7 @@ class _TabChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? AppColors.text : AppColors.textMuted,
+              color: selected ? context.textColor : context.textMutedColor,
             ),
           ),
         ),
@@ -218,10 +218,10 @@ class _PatternOption extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected ? AppColors.success : AppColors.border,
+              color: selected ? context.successColor : context.borderColor,
               width: selected ? 2 : 1,
             ),
           ),
@@ -235,12 +235,12 @@ class _PatternOption extends StatelessWidget {
                   value: value,
                   groupValue: groupValue,
                   onChanged: (_) => onTap(),
-                  activeColor: AppColors.success,
+                  activeColor: context.successColor,
                   fillColor: WidgetStateProperty.resolveWith((states) {
                     if (states.contains(WidgetState.selected)) {
-                      return AppColors.success;
+                      return context.successColor;
                     }
-                    return AppColors.success.withOpacity(0.6);
+                    return context.successColor.withOpacity(0.6);
                   }),
                 ),
               ),
@@ -251,18 +251,18 @@ class _PatternOption extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.text,
+                        color: context.textColor,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textMuted,
+                        color: context.textMutedColor,
                         height: 1.4,
                       ),
                     ),
@@ -283,11 +283,11 @@ class _PatternDetailsBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.success.withOpacity(0.12),
+        color: context.successColor.withOpacity(0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.success.withOpacity(0.3)),
+        border: Border.all(color: context.successColor.withOpacity(0.3)),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -295,7 +295,7 @@ class _PatternDetailsBox extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: AppColors.text,
+              color: context.textColor,
             ),
           ),
           SizedBox(height: 12),
@@ -327,25 +327,25 @@ class _Bullet extends StatelessWidget {
             '• ',
             style: TextStyle(
               fontSize: 13,
-              color: AppColors.textMuted,
+              color: context.textMutedColor,
               height: 1.5,
             ),
           ),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textMuted,
+                  color: context.textMutedColor,
                   height: 1.5,
                 ),
                 children: [
                   TextSpan(text: text),
                   TextSpan(
                     text: bold,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: AppColors.text,
+                      color: context.textColor,
                     ),
                   ),
                 ],

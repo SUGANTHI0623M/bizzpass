@@ -34,7 +34,7 @@ class _HolidaysSettingsPageState extends State<HolidaysSettingsPage> {
                 icon: const Icon(Icons.arrow_back_rounded),
                 tooltip: 'Back',
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.success,
+                  backgroundColor: context.successColor,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -94,10 +94,10 @@ class _TabChip extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: selected ? AppColors.card : Colors.transparent,
+            color: selected ? context.cardColor : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? AppColors.border : AppColors.border.withOpacity(0.6),
+              color: selected ? context.borderColor : context.borderColor.withOpacity(0.6),
             ),
           ),
           child: Text(
@@ -105,7 +105,7 @@ class _TabChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? AppColors.text : AppColors.textMuted,
+              color: selected ? context.textColor : context.textMutedColor,
             ),
           ),
         ),
@@ -162,20 +162,20 @@ class _OfficeHolidaysTabState extends State<_OfficeHolidaysTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Office Holidays',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: AppColors.text,
+            color: context.textColor,
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Add and manage company-wide office holidays.',
           style: TextStyle(
             fontSize: 13,
-            color: AppColors.textMuted,
+            color: context.textMutedColor,
             height: 1.4,
           ),
         ),
@@ -197,15 +197,15 @@ class _OfficeHolidaysTabState extends State<_OfficeHolidaysTab> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.danger.withOpacity(0.1),
+              color: context.dangerColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+              border: Border.all(color: context.dangerColor.withOpacity(0.3)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: AppColors.danger),
+                Icon(Icons.error_outline_rounded, color: context.dangerColor),
                 const SizedBox(width: 12),
-                Expanded(child: Text(_error!, style: const TextStyle(color: AppColors.text, fontSize: 13))),
+                Expanded(child: Text(_error!, style: TextStyle(color: context.textColor, fontSize: 13))),
                 TextButton(onPressed: _load, child: const Text('Retry')),
               ],
             ),
@@ -214,14 +214,14 @@ class _OfficeHolidaysTabState extends State<_OfficeHolidaysTab> {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: AppColors.card,
+              color: context.cardColor,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: context.borderColor),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 'No office holidays added yet.',
-                style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 14, color: context.textMutedColor),
               ),
             ),
           )
@@ -230,9 +230,9 @@ class _OfficeHolidaysTabState extends State<_OfficeHolidaysTab> {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.card,
+                  color: context.cardColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: context.borderColor),
                 ),
                 child: Row(
                   children: [
@@ -242,18 +242,18 @@ class _OfficeHolidaysTabState extends State<_OfficeHolidaysTab> {
                         children: [
                           Text(
                             h.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.text,
+                              color: context.textColor,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             h.date,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.textMuted,
+                              color: context.textMutedColor,
                             ),
                           ),
                         ],
@@ -273,7 +273,7 @@ class _OfficeHolidaysTabState extends State<_OfficeHolidaysTab> {
                               ),
                               FilledButton(
                                 onPressed: () => Navigator.pop(ctx, true),
-                                style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+                                style: FilledButton.styleFrom(backgroundColor: context.dangerColor),
                                 child: const Text('Delete'),
                               ),
                             ],
@@ -292,7 +292,7 @@ class _OfficeHolidaysTabState extends State<_OfficeHolidaysTab> {
                           }
                         }
                       },
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                      icon: Icon(Icons.delete_outline_rounded, color: context.dangerColor),
                       tooltip: 'Delete',
                     ),
                   ],
@@ -397,7 +397,7 @@ class _AddOfficeHolidayDialogState extends State<_AddOfficeHolidayDialog> {
             title: const Text('Date'),
             subtitle: Text(
               '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}',
-              style: const TextStyle(color: AppColors.textMuted),
+              style: TextStyle(color: context.textMutedColor),
             ),
             trailing: IconButton(
               icon: const Icon(Icons.calendar_today_rounded),
@@ -410,7 +410,7 @@ class _AddOfficeHolidayDialogState extends State<_AddOfficeHolidayDialog> {
         TextButton(onPressed: _saving ? null : widget.onClose, child: const Text('Cancel')),
         FilledButton(
           onPressed: _saving ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+          style: FilledButton.styleFrom(backgroundColor: context.successColor),
           child: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Add'),
         ),
       ],
@@ -477,20 +477,20 @@ class _HolidayModalTabState extends State<_HolidayModalTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Holiday Modal List',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: AppColors.text,
+            color: context.textColor,
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Manage all created holiday modals. Search, add, edit, delete, or view.',
           style: TextStyle(
             fontSize: 13,
-            color: AppColors.textMuted,
+            color: context.textMutedColor,
             height: 1.4,
           ),
         ),
@@ -514,8 +514,8 @@ class _HolidayModalTabState extends State<_HolidayModalTab> {
           icon: const Icon(Icons.add_rounded, size: 18),
           label: const Text('Add holiday modal'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.accent,
-            side: const BorderSide(color: AppColors.accent),
+            foregroundColor: context.accentColor,
+            side: BorderSide(color: context.accentColor),
           ),
         ),
         const SizedBox(height: 20),
@@ -530,15 +530,15 @@ class _HolidayModalTabState extends State<_HolidayModalTab> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.danger.withOpacity(0.1),
+              color: context.dangerColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+              border: Border.all(color: context.dangerColor.withOpacity(0.3)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: AppColors.danger),
+                Icon(Icons.error_outline_rounded, color: context.dangerColor),
                 const SizedBox(width: 12),
-                Expanded(child: Text(_error!, style: const TextStyle(color: AppColors.text, fontSize: 13))),
+                Expanded(child: Text(_error!, style: TextStyle(color: context.textColor, fontSize: 13))),
                 TextButton(onPressed: _load, child: const Text('Retry')),
               ],
             ),
@@ -547,20 +547,20 @@ class _HolidayModalTabState extends State<_HolidayModalTab> {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: AppColors.card,
+              color: context.cardColor,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: context.borderColor),
             ),
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.calendar_view_week_rounded, size: 48, color: AppColors.textMuted),
+                  Icon(Icons.calendar_view_week_rounded, size: 48, color: context.textMutedColor),
                   const SizedBox(height: 12),
                   Text(
                     _searchController.text.trim().isEmpty
                         ? 'No holiday modals yet. Add one to define a weekly off pattern.'
                         : 'No results for "${_searchController.text.trim()}".',
-                    style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 14, color: context.textMutedColor),
                     textAlign: TextAlign.center,
                   ),
                   if (_searchController.text.trim().isEmpty) ...[
@@ -570,8 +570,8 @@ class _HolidayModalTabState extends State<_HolidayModalTab> {
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Add holiday modal'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.accent,
-                        side: const BorderSide(color: AppColors.accent),
+                        foregroundColor: context.accentColor,
+                        side: BorderSide(color: context.accentColor),
                       ),
                     ),
                   ],
@@ -582,9 +582,9 @@ class _HolidayModalTabState extends State<_HolidayModalTab> {
         else
           Container(
             decoration: BoxDecoration(
-              color: AppColors.card,
+              color: context.cardColor,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: context.borderColor),
             ),
             child: Column(
               children: [
@@ -605,7 +605,7 @@ class _HolidayModalTabState extends State<_HolidayModalTab> {
                         ),
                         IconButton(
                           onPressed: () => _confirmDelete(m),
-                          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                          icon: Icon(Icons.delete_outline_rounded, color: context.dangerColor),
                           tooltip: 'Delete',
                         ),
                       ],
@@ -660,7 +660,7 @@ class _HolidayModalTabState extends State<_HolidayModalTab> {
               Navigator.of(ctx).pop();
               _showAddOrEditModal(existing: m);
             },
-            style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+            style: FilledButton.styleFrom(backgroundColor: context.accentColor),
             child: const Text('Edit'),
           ),
         ],
@@ -683,7 +683,7 @@ class _HolidayModalTabState extends State<_HolidayModalTab> {
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            style: FilledButton.styleFrom(backgroundColor: context.dangerColor),
             child: const Text('Delete'),
           ),
         ],
@@ -718,7 +718,7 @@ class _DetailRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            child: Text(label, style: TextStyle(color: context.textMutedColor, fontSize: 13)),
           ),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
@@ -827,14 +827,14 @@ class _HolidayModalFormDialogState extends State<_HolidayModalFormDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Name *', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              Text('Name *', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
               const SizedBox(height: 6),
               TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(hintText: 'e.g. Standard Sat-Sun'),
               ),
               const SizedBox(height: 20),
-              const Text('Weekly off pattern', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              Text('Weekly off pattern', style: TextStyle(color: context.textMutedColor, fontSize: 12)),
               const SizedBox(height: 8),
               _PatternOption(
                 value: 'sundays',
@@ -882,8 +882,8 @@ class _HolidayModalFormDialogState extends State<_HolidayModalFormDialog> {
                   icon: const Icon(Icons.tune_rounded, size: 18),
                   label: Text('Configure: ${_customDays.map((d) => _dayLabels[d]).join(', ')}'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.accent,
-                    side: const BorderSide(color: AppColors.accent),
+                    foregroundColor: context.accentColor,
+                    side: BorderSide(color: context.accentColor),
                   ),
                 ),
               ],
@@ -895,7 +895,7 @@ class _HolidayModalFormDialogState extends State<_HolidayModalFormDialog> {
         TextButton(onPressed: _saving ? null : widget.onClose, child: const Text('Cancel')),
         FilledButton(
           onPressed: _saving ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+          style: FilledButton.styleFrom(backgroundColor: context.accentColor),
           child: _saving
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : Text(widget.existing == null ? 'Create' : 'Save'),
@@ -952,8 +952,8 @@ class _CustomDaysPickerDialogState extends State<_CustomDaysPickerDialog> {
               label: Text(_dayLabels[i]),
               selected: _daysOff[i],
               onSelected: (v) => setState(() => _daysOff[i] = v),
-              selectedColor: AppColors.accent.withOpacity(0.3),
-              checkmarkColor: AppColors.accent,
+              selectedColor: context.accentColor.withOpacity(0.3),
+              checkmarkColor: context.accentColor,
             ),
         ],
       ),
@@ -961,7 +961,7 @@ class _CustomDaysPickerDialogState extends State<_CustomDaysPickerDialog> {
         TextButton(onPressed: widget.onClose, child: const Text('Cancel')),
         FilledButton(
           onPressed: _selected.isEmpty ? null : () => widget.onSave(_selected),
-          style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+          style: FilledButton.styleFrom(backgroundColor: context.accentColor),
           child: const Text('Save'),
         ),
       ],
@@ -995,10 +995,10 @@ class _PatternOption extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected ? AppColors.success : AppColors.border,
+              color: selected ? context.successColor : context.borderColor,
               width: selected ? 2 : 1,
             ),
           ),
@@ -1012,7 +1012,7 @@ class _PatternOption extends StatelessWidget {
                   value: value,
                   groupValue: groupValue,
                   onChanged: (_) => onTap(),
-                  activeColor: AppColors.success,
+                  activeColor: context.successColor,
                 ),
               ),
               const SizedBox(width: 14),
@@ -1022,18 +1022,18 @@ class _PatternOption extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.text,
+                        color: context.textColor,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textMuted,
+                        color: context.textMutedColor,
                         height: 1.4,
                       ),
                     ),
@@ -1086,11 +1086,11 @@ class _CustomHolidayFormModalState extends State<_CustomHolidayFormModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Select days as weekly holiday (off)',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textMuted,
+                color: context.textMutedColor,
                 height: 1.4,
               ),
             ),
@@ -1104,8 +1104,8 @@ class _CustomHolidayFormModalState extends State<_CustomHolidayFormModal> {
                     label: Text(_dayLabels[i]),
                     selected: _daysOff[i],
                     onSelected: (v) => setState(() => _daysOff[i] = v),
-                    selectedColor: AppColors.success.withOpacity(0.3),
-                    checkmarkColor: AppColors.success,
+                    selectedColor: context.successColor.withOpacity(0.3),
+                    checkmarkColor: context.successColor,
                   ),
               ],
             ),
@@ -1115,7 +1115,7 @@ class _CustomHolidayFormModalState extends State<_CustomHolidayFormModal> {
                 'Select at least one day as holiday.',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.danger.withOpacity(0.9),
+                  color: context.dangerColor.withOpacity(0.9),
                   height: 1.4,
                 ),
               ),
@@ -1131,7 +1131,7 @@ class _CustomHolidayFormModalState extends State<_CustomHolidayFormModal> {
                   widget.onSave(_selectedDays);
                   widget.onClose();
                 },
-          style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+          style: FilledButton.styleFrom(backgroundColor: context.successColor),
           child: const Text('Save'),
         ),
       ],
