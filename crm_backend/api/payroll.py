@@ -12,6 +12,11 @@ from pydantic import BaseModel
 from config.database import get_cursor
 from api.auth import get_current_user, require_permission, _audit_log
 
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None  # type: ignore
+
 router = APIRouter(prefix="/payroll", tags=["payroll"])
 
 
@@ -56,6 +61,33 @@ class SalaryComponentBody(BaseModel):
     priorityOrder: int = 0
     isActive: bool = True
     remarks: str | None = None
+
+
+class SalaryModalComponentItem(BaseModel):
+    """One component in a salary modal, with optional overrides for this template."""
+    componentId: int
+    displayOrder: int = 0
+    typeOverride: str | None = None  # 'earning' | 'deduction'
+    calculationTypeOverride: str | None = None
+    calculationValueOverride: float | None = None
+    isTaxableOverride: bool | None = None
+    isStatutoryOverride: bool | None = None
+
+
+class CreateSalaryModalBody(BaseModel):
+    """Create salary modal (template): name, description, list of components (with optional overrides)."""
+    name: str
+    description: str | None = None
+    components: list[SalaryModalComponentItem] | None = None  # if omitted, empty template
+    componentIds: list[int] | None = None  # legacy: just IDs in order (no overrides)
+
+
+class UpdateSalaryModalBody(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    isActive: bool | None = None
+    components: list[SalaryModalComponentItem] | None = None
+    componentIds: list[int] | None = None  # legacy
 
 
 class PayrollSettingsBody(BaseModel):
@@ -111,6 +143,66 @@ class PayrollSettingsBody(BaseModel):
     reimbursementCategories: dict | None = None
     currency: str = "INR"
     remarks: str | None = None
+
+
+class OvertimeSettingsBody(BaseModel):
+    """Body for PATCH /payroll/settings/overtime (Salary Components > Overtime tab)."""
+    overtimeCalculationMethod: str = "fixed_amount"  # 'fixed_amount' | 'gross_pay_multiplier' | 'basic_pay_multiplier'
+    overtimeFixedAmountPerHour: float | None = None
+    overtimeGrossPayMultiplier: float | None = None
+    overtimeBasicPayMultiplier: float | None = None
+
+
+class OvertimeTemplateBody(BaseModel):
+    """Body for create/update overtime template (universal customizable config)."""
+    name: str | None = None
+    companyType: str | None = None  # manufacturing, it, healthcare, retail, corporate, custom
+    isDefault: bool | None = None
+    config: dict | None = None  # full overtimeRules + optional companyType; default below
+
+
+def _default_overtime_config() -> dict:
+    """Default universal config for new templates. Level 1: calculation base; Level 2: multipliers; Level 3: caps/eligibility/approval/payment."""
+    return {
+        "companyType": "custom",
+        "overtimeRules": {
+            "calculationBase": "gross_salary",  # fixed_amount | gross_salary | basic_da | combination | tiered_rates
+            "defaultMultiplier": 1.5,
+            "fixedAmountPerHour": None,
+            "grossPercentage": None,
+            "basicDaPercentage": None,
+            "combinationRule": "higher_of",  # higher_of | sum
+            "combinationFixedAmount": None,
+            "combinationPercentageOf": None,  # gross_salary | basic_da
+            "combinationPercentage": None,  # e.g. 100 for 100%
+            "tieredRates": {
+                "weekday": 1.5,
+                "saturday": 1.75,
+                "sunday": 2.0,
+                "holiday": 2.5,
+                "nightShift": 1.75,
+                "doubleShift": 2.0,
+            },
+            "caps": {"daily": 4, "weekly": 20, "monthly": 60},
+            "eligibility": {
+                "minServiceDays": 30,
+                "excludeEmployees": [],
+                "excludeRoles": ["trainees", "interns"],
+                "minHoursForOT": 1,
+            },
+            "approvalWorkflow": {
+                "required": True,
+                "levels": 2,
+                "autoApproveUpTo": 10,
+            },
+            "paymentOptions": {
+                "payInSalary": True,
+                "compensatoryOff": False,
+                "carryForward": 5,
+                "lapseAfter": 90,
+            },
+        },
+    }
 
 
 class EmployeeSalaryStructureBody(BaseModel):
@@ -471,6 +563,339 @@ def delete_salary_component(
 
 
 # ============================================================================
+# SALARY MODALS (Templates: name, description, set of components)
+# ============================================================================
+
+def _salary_modal_component_response(row: dict) -> dict:
+    """Build API response for one component in a modal (with base fields + overrides)."""
+    d = dict(_serialize_decimal(row))
+    # RealDictCursor returns lowercase keys
+    return {
+        "id": d.get("id"),
+        "componentId": d.get("componentid"),
+        "displayOrder": d.get("displayorder", 0),
+        "typeOverride": d.get("typeoverride"),
+        "calculationTypeOverride": d.get("calculationtypeoverride"),
+        "calculationValueOverride": d.get("calculationvalueoverride"),
+        "isTaxableOverride": d.get("istaxableoverride"),
+        "isStatutoryOverride": d.get("isstatutoryoverride"),
+        "name": d.get("name"),
+        "displayName": d.get("displayname"),
+        "type": d.get("type"),
+        "calculationType": d.get("calculationtype"),
+        "calculationValue": d.get("calculationvalue"),
+        "isTaxable": d.get("istaxable"),
+        "isStatutory": d.get("isstatutory"),
+    }
+
+
+def _salary_modal_row(row: dict, components: list | None = None) -> dict:
+    """Build API response for a salary modal."""
+    out = {
+        "id": row["id"],
+        "name": row.get("name") or "",
+        "description": row.get("description"),
+        "isActive": bool(row.get("is_active", True)),
+        "createdAt": row.get("created_at").isoformat() if row.get("created_at") and hasattr(row["created_at"], "isoformat") else str(row.get("created_at")) if row.get("created_at") else None,
+        "updatedAt": row.get("updated_at").isoformat() if row.get("updated_at") and hasattr(row["updated_at"], "isoformat") else str(row.get("updated_at")) if row.get("updated_at") else None,
+    }
+    if components is not None:
+        out["components"] = components
+    return out
+
+
+@router.get("/salary-modals")
+def get_salary_modals(
+    active_only: bool = Query(True, alias="activeOnly"),
+    current_user=Depends(get_current_user)
+):
+    """List all salary modals (templates) for the company."""
+    check_permission(current_user, "payroll.view")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    with get_cursor(db_name=db_name) as cur:
+        q = """
+            SELECT id, name, description, is_active, created_at, updated_at
+            FROM salary_modals
+            WHERE company_id = %s
+        """
+        params: list = [_company_id_str(company_id)]
+        if active_only:
+            q += " AND is_active = TRUE"
+        q += " ORDER BY name"
+        cur.execute(q, params)
+        rows = cur.fetchall()
+        modals = []
+        for r in rows:
+            cur.execute(
+                """
+                SELECT smc.id, smc.salary_component_id AS componentId, smc.display_order AS displayOrder,
+                       smc.type_override AS typeOverride, smc.calculation_type_override AS calculationTypeOverride,
+                       smc.calculation_value_override AS calculationValueOverride,
+                       smc.is_taxable_override AS isTaxableOverride,
+                       smc.is_statutory_override AS isStatutoryOverride,
+                       sc.name, sc.display_name AS displayName, sc.type, sc.calculation_type AS calculationType,
+                       sc.calculation_value AS calculationValue, sc.is_taxable AS isTaxable, sc.is_statutory AS isStatutory
+                FROM salary_modal_components smc
+                JOIN salary_components sc ON sc.id = smc.salary_component_id
+                WHERE smc.salary_modal_id = %s
+                ORDER BY smc.display_order, smc.id
+                """,
+                (r["id"],),
+            )
+            comp_rows = cur.fetchall()
+            comp_list = [_salary_modal_component_response(c) for c in comp_rows]
+            modals.append(_salary_modal_row(dict(r), comp_list))
+        return {"modals": modals, "count": len(modals)}
+
+
+@router.post("/salary-modals")
+def create_salary_modal(
+    body: CreateSalaryModalBody,
+    current_user=Depends(get_current_user)
+):
+    """Create a salary modal (template) with name, description, and components."""
+    check_permission(current_user, "payroll.write")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+    if not db_name:
+        raise HTTPException(
+            status_code=503,
+            detail="Company database not configured. Please log in again or contact support.",
+        )
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Modal name is required")
+    try:
+        with get_cursor(db_name=db_name) as cur:
+            cur.execute(
+                """
+                INSERT INTO salary_modals (company_id, name, description, is_active)
+                VALUES (%s, %s, %s, TRUE)
+                RETURNING id, name, description, is_active, created_at, updated_at
+                """,
+                (_company_id_str(company_id), name, (body.description or "").strip() or None),
+            )
+            row = cur.fetchone()
+            modal_id = row["id"]
+            if body.components:
+                for idx, item in enumerate(body.components):
+                    cur.execute(
+                        """
+                        INSERT INTO salary_modal_components (salary_modal_id, salary_component_id, display_order, type_override, calculation_type_override, calculation_value_override, is_taxable_override, is_statutory_override)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (salary_modal_id, salary_component_id) DO UPDATE SET
+                          display_order = EXCLUDED.display_order,
+                          type_override = EXCLUDED.type_override,
+                          calculation_type_override = EXCLUDED.calculation_type_override,
+                          calculation_value_override = EXCLUDED.calculation_value_override,
+                          is_taxable_override = EXCLUDED.is_taxable_override,
+                          is_statutory_override = EXCLUDED.is_statutory_override
+                        """,
+                        (modal_id, item.componentId, item.displayOrder if item.displayOrder else idx,
+                         item.typeOverride, item.calculationTypeOverride,
+                         item.calculationValueOverride, item.isTaxableOverride, item.isStatutoryOverride),
+                    )
+            else:
+                for idx, comp_id in enumerate(body.componentIds or []):
+                    cur.execute(
+                        """
+                        INSERT INTO salary_modal_components (salary_modal_id, salary_component_id, display_order)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (salary_modal_id, salary_component_id) DO UPDATE SET display_order = EXCLUDED.display_order
+                        """,
+                        (modal_id, comp_id, idx),
+                    )
+            _audit_log(user_id, company_id, "created", "salary_modal", str(modal_id))
+            cur.execute(
+                "SELECT id, name, description, is_active, created_at, updated_at FROM salary_modals WHERE id = %s",
+                (modal_id,),
+            )
+            r = cur.fetchone()
+            cur.execute(
+                """
+                SELECT smc.id, smc.salary_component_id AS componentId, smc.display_order AS displayOrder,
+                       smc.type_override AS typeOverride, smc.calculation_type_override AS calculationTypeOverride,
+                       smc.calculation_value_override AS calculationValueOverride,
+                       smc.is_taxable_override AS isTaxableOverride,
+                       smc.is_statutory_override AS isStatutoryOverride,
+                       sc.name, sc.display_name AS displayName, sc.type, sc.calculation_type AS calculationType,
+                       sc.calculation_value AS calculationValue, sc.is_taxable AS isTaxable, sc.is_statutory AS isStatutory
+                FROM salary_modal_components smc
+                JOIN salary_components sc ON sc.id = smc.salary_component_id
+                WHERE smc.salary_modal_id = %s
+                ORDER BY smc.display_order, smc.id
+                """,
+                (modal_id,),
+            )
+            comp_list = [_salary_modal_component_response(c) for c in cur.fetchall()]
+            return _salary_modal_row(dict(r), comp_list)
+    except Exception as e:
+        err_msg = str(e).lower()
+        if psycopg2 and isinstance(e, psycopg2.ProgrammingError):
+            if "salary_modals" in err_msg and ("does not exist" in err_msg or "relation" in err_msg):
+                raise HTTPException(
+                    status_code=503,
+                    detail="Payroll schema not initialized for this tenant. Run the payroll schema migration (init_payroll_schema.py) for your company database.",
+                ) from e
+            if "salary_modal_components" in err_msg and ("does not exist" in err_msg or "relation" in err_msg):
+                raise HTTPException(
+                    status_code=503,
+                    detail="Payroll schema not initialized for this tenant. Run the payroll schema migration (init_payroll_schema.py) for your company database.",
+                ) from e
+        raise HTTPException(status_code=500, detail=f"Failed to create salary modal: {e!s}") from e
+
+
+@router.get("/salary-modals/{modal_id}")
+def get_salary_modal(
+    modal_id: int,
+    current_user=Depends(get_current_user)
+):
+    """Get a single salary modal with its components."""
+    check_permission(current_user, "payroll.view")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    with get_cursor(db_name=db_name) as cur:
+        cur.execute(
+            "SELECT id, name, description, is_active, created_at, updated_at FROM salary_modals WHERE id = %s AND company_id = %s",
+            (modal_id, _company_id_str(company_id)),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Salary modal not found")
+        cur.execute(
+            """
+            SELECT smc.id, smc.salary_component_id AS componentId, smc.display_order AS displayOrder,
+                   smc.type_override AS typeOverride, smc.calculation_type_override AS calculationTypeOverride,
+                   smc.calculation_value_override AS calculationValueOverride,
+                   smc.is_taxable_override AS isTaxableOverride,
+                   smc.is_statutory_override AS isStatutoryOverride,
+                   sc.name, sc.display_name AS displayName, sc.type, sc.calculation_type AS calculationType,
+                   sc.calculation_value AS calculationValue, sc.is_taxable AS isTaxable, sc.is_statutory AS isStatutory
+            FROM salary_modal_components smc
+            JOIN salary_components sc ON sc.id = smc.salary_component_id
+            WHERE smc.salary_modal_id = %s
+            ORDER BY smc.display_order, smc.id
+            """,
+            (modal_id,),
+        )
+        comp_rows = cur.fetchall()
+        comp_list = [_salary_modal_component_response(c) for c in comp_rows]
+        return _salary_modal_row(dict(row), comp_list)
+
+
+@router.patch("/salary-modals/{modal_id}")
+def update_salary_modal(
+    modal_id: int,
+    body: UpdateSalaryModalBody,
+    current_user=Depends(get_current_user)
+):
+    """Update a salary modal (name, description, isActive, or component list)."""
+    check_permission(current_user, "payroll.write")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+    with get_cursor(db_name=db_name) as cur:
+        cur.execute(
+            "SELECT id FROM salary_modals WHERE id = %s AND company_id = %s",
+            (modal_id, _company_id_str(company_id)),
+        )
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Salary modal not found")
+        updates = []
+        params: list = []
+        if body.name is not None:
+            name = (body.name or "").strip()
+            if not name:
+                raise HTTPException(status_code=400, detail="Modal name cannot be empty")
+            updates.append("name = %s")
+            params.append(name)
+        if body.description is not None:
+            updates.append("description = %s")
+            params.append((body.description or "").strip() or None)
+        if body.isActive is not None:
+            updates.append("is_active = %s")
+            params.append(body.isActive)
+        if updates:
+            updates.append("updated_at = NOW()")
+            params.append(modal_id)
+            cur.execute(
+                f"UPDATE salary_modals SET {', '.join(updates)} WHERE id = %s",
+                tuple(params),
+            )
+        if body.components is not None:
+            cur.execute("DELETE FROM salary_modal_components WHERE salary_modal_id = %s", (modal_id,))
+            for idx, item in enumerate(body.components):
+                cur.execute(
+                    """
+                    INSERT INTO salary_modal_components (salary_modal_id, salary_component_id, display_order, type_override, calculation_type_override, calculation_value_override, is_taxable_override, is_statutory_override)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (modal_id, item.componentId, item.displayOrder if item.displayOrder else idx,
+                     item.typeOverride, item.calculationTypeOverride,
+                     item.calculationValueOverride, item.isTaxableOverride, item.isStatutoryOverride),
+                )
+        elif body.componentIds is not None:
+            cur.execute("DELETE FROM salary_modal_components WHERE salary_modal_id = %s", (modal_id,))
+            for idx, comp_id in enumerate(body.componentIds):
+                cur.execute(
+                    """
+                    INSERT INTO salary_modal_components (salary_modal_id, salary_component_id, display_order)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (modal_id, comp_id, idx),
+                )
+        _audit_log(user_id, company_id, "updated", "salary_modal", str(modal_id))
+        cur.execute(
+            "SELECT id, name, description, is_active, created_at, updated_at FROM salary_modals WHERE id = %s",
+            (modal_id,),
+        )
+        r = cur.fetchone()
+        cur.execute(
+            """
+            SELECT smc.id, smc.salary_component_id AS componentId, smc.display_order AS displayOrder,
+                   smc.type_override AS typeOverride, smc.calculation_type_override AS calculationTypeOverride,
+                   smc.calculation_value_override AS calculationValueOverride,
+                   smc.is_taxable_override AS isTaxableOverride,
+                   smc.is_statutory_override AS isStatutoryOverride,
+                   sc.name, sc.display_name AS displayName, sc.type, sc.calculation_type AS calculationType,
+                   sc.calculation_value AS calculationValue, sc.is_taxable AS isTaxable, sc.is_statutory AS isStatutory
+            FROM salary_modal_components smc
+            JOIN salary_components sc ON sc.id = smc.salary_component_id
+            WHERE smc.salary_modal_id = %s
+            ORDER BY smc.display_order, smc.id
+            """,
+            (modal_id,),
+        )
+        comp_list = [_salary_modal_component_response(c) for c in cur.fetchall()]
+        return _salary_modal_row(dict(r), comp_list)
+
+
+@router.delete("/salary-modals/{modal_id}")
+def delete_salary_modal(
+    modal_id: int,
+    current_user=Depends(get_current_user)
+):
+    """Delete a salary modal (and its component links)."""
+    check_permission(current_user, "payroll.write")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+    with get_cursor(db_name=db_name) as cur:
+        cur.execute(
+            "SELECT id FROM salary_modals WHERE id = %s AND company_id = %s",
+            (modal_id, _company_id_str(company_id)),
+        )
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Salary modal not found")
+        cur.execute("DELETE FROM salary_modal_components WHERE salary_modal_id = %s", (modal_id,))
+        cur.execute("DELETE FROM salary_modals WHERE id = %s", (modal_id,))
+    _audit_log(user_id, company_id, "deleted", "salary_modal", str(modal_id))
+    return {"message": "Salary modal deleted"}
+
+
+# ============================================================================
 # PAYROLL SETTINGS ENDPOINTS
 # ============================================================================
 
@@ -627,7 +1052,7 @@ def create_or_update_payroll_settings(
                 body.remarks,
             )
             _placeholders = ", ".join(["%s"] * len(_vals))
-            cur.execute(
+            _sql = (
                 """
                 INSERT INTO payroll_settings (
                     company_id, pay_cycle_type, pay_day, attendance_cutoff_day,
@@ -651,15 +1076,316 @@ def create_or_update_payroll_settings(
                     currency, remarks
                 ) VALUES ("""
                 + _placeholders
-                + ")
-            """,
-                _vals,
+                + ")"
             )
+            cur.execute(_sql, _vals)
             message = "Payroll settings created"
         
         _audit_log(user_id, company_id, "updated" if existing else "created", "payroll_settings", str(company_id))
         
         return {"message": message}
+
+
+@router.patch("/settings/overtime")
+def update_payroll_overtime_settings(
+    body: OvertimeSettingsBody,
+    current_user=Depends(get_current_user),
+):
+    """Update only overtime calculation settings (Salary Components > Overtime tab)."""
+    check_permission(current_user, "payroll.write")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+    with get_cursor(db_name=db_name) as cur:
+        cur.execute(
+            """
+            UPDATE payroll_settings SET
+                overtime_calculation_method = %s,
+                overtime_fixed_amount_per_hour = %s,
+                overtime_gross_pay_multiplier = %s,
+                overtime_basic_pay_multiplier = %s,
+                updated_at = NOW()
+            WHERE company_id = %s
+            """,
+            (
+                body.overtimeCalculationMethod,
+                body.overtimeFixedAmountPerHour,
+                body.overtimeGrossPayMultiplier,
+                body.overtimeBasicPayMultiplier,
+                _company_id_str(company_id),
+            ),
+        )
+        if cur.rowcount == 0:
+            # No settings row yet; create one with just overtime fields (other columns use defaults)
+            cur.execute(
+                """
+                INSERT INTO payroll_settings (
+                    company_id, overtime_calculation_method,
+                    overtime_fixed_amount_per_hour, overtime_gross_pay_multiplier, overtime_basic_pay_multiplier
+                ) VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    _company_id_str(company_id),
+                    body.overtimeCalculationMethod,
+                    body.overtimeFixedAmountPerHour,
+                    body.overtimeGrossPayMultiplier,
+                    body.overtimeBasicPayMultiplier,
+                ),
+            )
+    _audit_log(user_id, company_id, "updated", "payroll_settings_overtime", str(company_id))
+    return {"message": "Overtime settings updated"}
+
+
+# ============================================================================
+# OVERTIME TEMPLATES (Multiple customizable templates per company)
+# ============================================================================
+
+
+def _ensure_overtime_templates_table(cur) -> None:
+    """Create overtime_templates table and indexes if they do not exist (migration for existing DBs)."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS overtime_templates (
+            id BIGSERIAL PRIMARY KEY,
+            company_id VARCHAR(24) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            company_type VARCHAR(50) DEFAULT 'custom',
+            is_default BOOLEAN DEFAULT FALSE,
+            config JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_overtime_templates_company ON overtime_templates(company_id)")
+    cur.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_overtime_templates_company_default
+        ON overtime_templates(company_id) WHERE is_default = TRUE
+    """)
+
+
+@router.get("/overtime-templates")
+def list_overtime_templates(current_user=Depends(get_current_user)):
+    """List all overtime templates for the company."""
+    check_permission(current_user, "payroll.view")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    with get_cursor(db_name=db_name) as cur:
+        _ensure_overtime_templates_table(cur)
+        cur.execute(
+            """
+            SELECT id, company_id, name, company_type, is_default, config, created_at, updated_at
+            FROM overtime_templates
+            WHERE company_id = %s
+            ORDER BY is_default DESC, name
+            """,
+            (_company_id_str(company_id),),
+        )
+        rows = cur.fetchall()
+    return {
+        "templates": [
+            {
+                "id": r["id"],
+                "companyId": r["company_id"],
+                "name": r["name"],
+                "companyType": r["company_type"] or "custom",
+                "isDefault": bool(r["is_default"]),
+                "config": _serialize_decimal(r["config"]) if r.get("config") else _default_overtime_config(),
+                "createdAt": r["created_at"].isoformat() if r.get("created_at") else None,
+                "updatedAt": r["updated_at"].isoformat() if r.get("updated_at") else None,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/overtime-templates/{template_id}")
+def get_overtime_template(
+    template_id: int,
+    current_user=Depends(get_current_user),
+):
+    """Get one overtime template by id."""
+    check_permission(current_user, "payroll.view")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    with get_cursor(db_name=db_name) as cur:
+        _ensure_overtime_templates_table(cur)
+        cur.execute(
+            """
+            SELECT id, company_id, name, company_type, is_default, config, created_at, updated_at
+            FROM overtime_templates
+            WHERE id = %s AND company_id = %s
+            """,
+            (template_id, _company_id_str(company_id)),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Overtime template not found")
+    return {
+        "id": row["id"],
+        "companyId": row["company_id"],
+        "name": row["name"],
+        "companyType": row["company_type"] or "custom",
+        "isDefault": bool(row["is_default"]),
+        "config": _serialize_decimal(row["config"]) if row.get("config") else _default_overtime_config(),
+        "createdAt": row["created_at"].isoformat() if row.get("created_at") else None,
+        "updatedAt": row["updated_at"].isoformat() if row.get("updated_at") else None,
+    }
+
+
+@router.post("/overtime-templates")
+def create_overtime_template(
+    body: OvertimeTemplateBody,
+    current_user=Depends(get_current_user),
+):
+    """Create a new overtime template. If isDefault=True, unsets other defaults."""
+    check_permission(current_user, "payroll.write")
+    if not (body.name or "").strip():
+        raise HTTPException(status_code=400, detail="Template name is required")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+    config = body.config if body.config is not None else _default_overtime_config()
+    if isinstance(config, dict) and "companyType" not in config:
+        config["companyType"] = body.companyType or "custom"
+    with get_cursor(db_name=db_name) as cur:
+        _ensure_overtime_templates_table(cur)
+        if body.isDefault:
+            cur.execute(
+                "UPDATE overtime_templates SET is_default = FALSE WHERE company_id = %s",
+                (_company_id_str(company_id),),
+            )
+        cur.execute(
+            """
+            INSERT INTO overtime_templates (company_id, name, company_type, is_default, config, updated_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            RETURNING id, name, company_type, is_default, config, created_at, updated_at
+            """,
+            (
+                _company_id_str(company_id),
+                (body.name or "").strip(),
+                body.companyType or "custom",
+                body.isDefault if body.isDefault is not None else False,
+                json.dumps(config),
+            ),
+        )
+        row = cur.fetchone()
+    _audit_log(user_id, company_id, "created", "overtime_template", str(row["id"]))
+    return {
+        "id": row["id"],
+        "companyId": _company_id_str(company_id),
+        "name": row["name"],
+        "companyType": row["company_type"] or "custom",
+        "isDefault": bool(row["is_default"]),
+        "config": _serialize_decimal(row["config"]) if row.get("config") else config,
+        "createdAt": row["created_at"].isoformat() if row.get("created_at") else None,
+        "updatedAt": row["updated_at"].isoformat() if row.get("updated_at") else None,
+    }
+
+
+@router.patch("/overtime-templates/{template_id}")
+def update_overtime_template(
+    template_id: int,
+    body: OvertimeTemplateBody,
+    current_user=Depends(get_current_user),
+):
+    """Update an overtime template. Partial update: only sent fields are changed."""
+    check_permission(current_user, "payroll.write")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+    with get_cursor(db_name=db_name) as cur:
+        _ensure_overtime_templates_table(cur)
+        cur.execute(
+            "SELECT id, config FROM overtime_templates WHERE id = %s AND company_id = %s",
+            (template_id, _company_id_str(company_id)),
+        )
+        existing = cur.fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Overtime template not found")
+    updates = []
+    params = []
+    if body.name is not None:
+        updates.append("name = %s")
+        params.append(body.name)
+    if body.companyType is not None:
+        updates.append("company_type = %s")
+        params.append(body.companyType)
+    if body.isDefault is not None:
+        if body.isDefault:
+            with get_cursor(db_name=db_name) as cur2:
+                _ensure_overtime_templates_table(cur2)
+                cur2.execute(
+                    "UPDATE overtime_templates SET is_default = FALSE WHERE company_id = %s AND id != %s",
+                    (_company_id_str(company_id), template_id),
+                )
+        updates.append("is_default = %s")
+        params.append(body.isDefault)
+    if body.config is not None:
+        updates.append("config = %s")
+        params.append(json.dumps(body.config))
+    if not updates:
+        return get_overtime_template(template_id, current_user)
+    params.extend([template_id, _company_id_str(company_id)])
+    with get_cursor(db_name=db_name) as cur:
+        _ensure_overtime_templates_table(cur)
+        cur.execute(
+            f"UPDATE overtime_templates SET {', '.join(updates)}, updated_at = NOW() WHERE id = %s AND company_id = %s",
+            params,
+        )
+    _audit_log(user_id, company_id, "updated", "overtime_template", str(template_id))
+    return get_overtime_template(template_id, current_user)
+
+
+@router.patch("/overtime-templates/{template_id}/set-default")
+def set_default_overtime_template(
+    template_id: int,
+    current_user=Depends(get_current_user),
+):
+    """Set this template as the company default. Unsets other defaults."""
+    check_permission(current_user, "payroll.write")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+    with get_cursor(db_name=db_name) as cur:
+        _ensure_overtime_templates_table(cur)
+        cur.execute(
+            "SELECT id FROM overtime_templates WHERE id = %s AND company_id = %s",
+            (template_id, _company_id_str(company_id)),
+        )
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Overtime template not found")
+        cur.execute(
+            "UPDATE overtime_templates SET is_default = FALSE WHERE company_id = %s",
+            (_company_id_str(company_id),),
+        )
+        cur.execute(
+            "UPDATE overtime_templates SET is_default = TRUE, updated_at = NOW() WHERE id = %s",
+            (template_id,),
+        )
+    _audit_log(user_id, company_id, "updated", "overtime_template_default", str(template_id))
+    return {"message": "Default template set", "templateId": template_id}
+
+
+@router.delete("/overtime-templates/{template_id}")
+def delete_overtime_template(
+    template_id: int,
+    current_user=Depends(get_current_user),
+):
+    """Delete an overtime template."""
+    check_permission(current_user, "payroll.write")
+    db_name = current_user.get("db_name")
+    company_id = current_user.get("company_id")
+    user_id = current_user.get("id")
+    with get_cursor(db_name=db_name) as cur:
+        _ensure_overtime_templates_table(cur)
+        cur.execute(
+            "DELETE FROM overtime_templates WHERE id = %s AND company_id = %s RETURNING id",
+            (template_id, _company_id_str(company_id)),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Overtime template not found")
+    _audit_log(user_id, company_id, "deleted", "overtime_template", str(template_id))
+    return {"message": "Overtime template deleted"}
 
 
 # ============================================================================

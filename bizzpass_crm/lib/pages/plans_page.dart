@@ -764,7 +764,7 @@ class _PlansPageState extends State<PlansPage> {
   Widget build(BuildContext context) {
     final filtered = _filtered;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

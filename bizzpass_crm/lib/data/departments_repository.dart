@@ -7,14 +7,42 @@ class Department {
   final int id;
   final String name;
   final bool active;
+  final String? createdAt;
+  final int? attendanceModalId;
+  final int? overtimeTemplateId;
+  final int? leaveModalId;
+  final int? shiftModalId;
+  final int? holidayModalId;
+  final int? salaryModalId;
+  final int? fineModalId;
 
-  Department({required this.id, required this.name, this.active = true});
+  Department({
+    required this.id,
+    required this.name,
+    this.active = true,
+    this.createdAt,
+    this.attendanceModalId,
+    this.overtimeTemplateId,
+    this.leaveModalId,
+    this.shiftModalId,
+    this.holidayModalId,
+    this.salaryModalId,
+    this.fineModalId,
+  });
 
   factory Department.fromJson(Map<String, dynamic> j) {
     return Department(
       id: (j['id'] as num?)?.toInt() ?? 0,
       name: (j['name'] as String?) ?? '',
       active: j['active'] as bool? ?? true,
+      createdAt: j['createdAt'] as String?,
+      attendanceModalId: (j['attendanceModalId'] as num?)?.toInt(),
+      overtimeTemplateId: (j['overtimeTemplateId'] as num?)?.toInt(),
+      leaveModalId: (j['leaveModalId'] as num?)?.toInt(),
+      shiftModalId: (j['shiftModalId'] as num?)?.toInt(),
+      holidayModalId: (j['holidayModalId'] as num?)?.toInt(),
+      salaryModalId: (j['salaryModalId'] as num?)?.toInt(),
+      fineModalId: (j['fineModalId'] as num?)?.toInt(),
     );
   }
 }
@@ -81,13 +109,31 @@ class DepartmentsRepository {
     }
   }
 
-  Future<Department> createDepartment({required String name, bool active = true}) async {
+  Future<Department> createDepartment({
+    required String name,
+    bool active = true,
+    int? attendanceModalId,
+    int? overtimeTemplateId,
+    int? leaveModalId,
+    int? shiftModalId,
+    int? holidayModalId,
+    int? salaryModalId,
+    int? fineModalId,
+  }) async {
     await _addAuthToken();
     try {
-      final res = await _dio.post<Map<String, dynamic>>(
-        '/departments',
-        data: {'name': name.trim(), 'active': active},
-      );
+      final data = <String, dynamic>{
+        'name': name.trim(),
+        'active': active,
+      };
+      if (attendanceModalId != null) data['attendanceModalId'] = attendanceModalId;
+      if (overtimeTemplateId != null) data['overtimeTemplateId'] = overtimeTemplateId;
+      if (leaveModalId != null) data['leaveModalId'] = leaveModalId;
+      if (shiftModalId != null) data['shiftModalId'] = shiftModalId;
+      if (holidayModalId != null) data['holidayModalId'] = holidayModalId;
+      if (salaryModalId != null) data['salaryModalId'] = salaryModalId;
+      if (fineModalId != null) data['fineModalId'] = fineModalId;
+      final res = await _dio.post<Map<String, dynamic>>('/departments', data: data);
       if (res.statusCode != 200 && res.statusCode != 201) {
         final d = res.data;
         throw DepartmentsException(
@@ -104,12 +150,37 @@ class DepartmentsRepository {
     int departmentId, {
     String? name,
     bool? active,
+    int? attendanceModalId,
+    int? overtimeTemplateId,
+    int? leaveModalId,
+    int? shiftModalId,
+    int? holidayModalId,
+    int? salaryModalId,
+    int? fineModalId,
+    bool includeTemplateIds = false,
   }) async {
     await _addAuthToken();
     try {
       final data = <String, dynamic>{};
       if (name != null) data['name'] = name.trim();
       if (active != null) data['active'] = active;
+      if (includeTemplateIds) {
+        data['attendanceModalId'] = attendanceModalId;
+        data['overtimeTemplateId'] = overtimeTemplateId;
+        data['leaveModalId'] = leaveModalId;
+        data['shiftModalId'] = shiftModalId;
+        data['holidayModalId'] = holidayModalId;
+        data['salaryModalId'] = salaryModalId;
+        data['fineModalId'] = fineModalId;
+      } else {
+        if (attendanceModalId != null) data['attendanceModalId'] = attendanceModalId;
+        if (overtimeTemplateId != null) data['overtimeTemplateId'] = overtimeTemplateId;
+        if (leaveModalId != null) data['leaveModalId'] = leaveModalId;
+        if (shiftModalId != null) data['shiftModalId'] = shiftModalId;
+        if (holidayModalId != null) data['holidayModalId'] = holidayModalId;
+        if (salaryModalId != null) data['salaryModalId'] = salaryModalId;
+        if (fineModalId != null) data['fineModalId'] = fineModalId;
+      }
       final res = await _dio.patch<Map<String, dynamic>>(
         '/departments/$departmentId',
         data: data.isNotEmpty ? data : null,

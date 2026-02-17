@@ -76,6 +76,34 @@ class StaffRepository {
     }
   }
 
+  /// List only company admins (staff with portal login). For Settings > User Management.
+  Future<List<Staff>> fetchAdmins({
+    String? search,
+    String tab = 'all',
+  }) async {
+    await _addAuthToken();
+    try {
+      final queryParams = <String, dynamic>{};
+      if (search != null && search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+      if (tab != 'all') queryParams['tab'] = tab;
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/staff/admins',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+      if (res.statusCode != 200 || res.data == null) {
+        throw StaffException('Failed to fetch admins');
+      }
+      final list = res.data!['staff'] as List<dynamic>? ?? [];
+      return list
+          .map((e) => Staff.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } on DioException catch (e) {
+      throw StaffException(_handleDioError(e));
+    }
+  }
+
   /// Get a single staff by id.
   Future<Staff> getStaff(int staffId) async {
     await _addAuthToken();
@@ -127,6 +155,8 @@ class StaffRepository {
     int? shiftModalId,
     int? leaveModalId,
     int? holidayModalId,
+    int? salaryModalId,
+    int? fineModalId,
     String? staffType,
     String? reportingManager,
     String? salaryCycle,
@@ -173,6 +203,8 @@ class StaffRepository {
       if (shiftModalId != null) data['shiftModalId'] = shiftModalId;
       if (leaveModalId != null) data['leaveModalId'] = leaveModalId;
       if (holidayModalId != null) data['holidayModalId'] = holidayModalId;
+      if (salaryModalId != null) data['salaryModalId'] = salaryModalId;
+      if (fineModalId != null) data['fineModalId'] = fineModalId;
       if (staffType != null) data['staffType'] = staffType;
       if (reportingManager != null) data['reportingManager'] = reportingManager;
       if (salaryCycle != null) data['salaryCycle'] = salaryCycle;
@@ -227,6 +259,8 @@ class StaffRepository {
     int? shiftModalId,
     int? leaveModalId,
     int? holidayModalId,
+    int? salaryModalId,
+    int? fineModalId,
     String? staffType,
     String? reportingManager,
     String? salaryCycle,
@@ -267,6 +301,8 @@ class StaffRepository {
       if (shiftModalId != null) data['shiftModalId'] = shiftModalId;
       if (leaveModalId != null) data['leaveModalId'] = leaveModalId;
       if (holidayModalId != null) data['holidayModalId'] = holidayModalId;
+      if (salaryModalId != null) data['salaryModalId'] = salaryModalId;
+      if (fineModalId != null) data['fineModalId'] = fineModalId;
       if (staffType != null) data['staffType'] = staffType;
       if (reportingManager != null) data['reportingManager'] = reportingManager;
       if (salaryCycle != null) data['salaryCycle'] = salaryCycle;

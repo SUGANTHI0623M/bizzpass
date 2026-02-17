@@ -69,6 +69,100 @@ class SalaryComponent {
   }
 }
 
+/// A salary modal (template): name, description, and a list of salary components.
+/// Can be assigned to a department or to individual staff.
+class SalaryModal {
+  final int id;
+  final String name;
+  final String? description;
+  final bool isActive;
+  final List<SalaryModalComponentRef> components;
+
+  const SalaryModal({
+    required this.id,
+    required this.name,
+    this.description,
+    this.isActive = true,
+    this.components = const [],
+  });
+
+  factory SalaryModal.fromJson(Map<String, dynamic> j) {
+    final compList = j['components'] as List<dynamic>?;
+    return SalaryModal(
+      id: (j['id'] as num?)?.toInt() ?? 0,
+      name: (j['name'] as String?) ?? '',
+      description: j['description'] as String?,
+      isActive: (j['isActive'] as bool?) ?? (j['is_active'] as bool?) ?? true,
+      components: compList != null
+          ? compList.map((c) => SalaryModalComponentRef.fromJson(Map<String, dynamic>.from(c as Map))).toList()
+          : [],
+    );
+  }
+}
+
+/// Reference to a salary component within a modal (base info + optional overrides for this template).
+class SalaryModalComponentRef {
+  final int id;
+  final int componentId;
+  final int displayOrder;
+  final String? name;
+  final String? displayName;
+  final String? type;
+  final String? calculationType;
+  final double? calculationValue;
+  final bool? isTaxable;
+  final bool? isStatutory;
+  final String? typeOverride;
+  final String? calculationTypeOverride;
+  final double? calculationValueOverride;
+  final bool? isTaxableOverride;
+  final bool? isStatutoryOverride;
+
+  const SalaryModalComponentRef({
+    required this.id,
+    required this.componentId,
+    this.displayOrder = 0,
+    this.name,
+    this.displayName,
+    this.type,
+    this.calculationType,
+    this.calculationValue,
+    this.isTaxable,
+    this.isStatutory,
+    this.typeOverride,
+    this.calculationTypeOverride,
+    this.calculationValueOverride,
+    this.isTaxableOverride,
+    this.isStatutoryOverride,
+  });
+
+  String? get effectiveType => typeOverride ?? type;
+  String? get effectiveCalculationType => calculationTypeOverride ?? calculationType;
+  double? get effectiveCalculationValue => calculationValueOverride ?? calculationValue;
+  bool get effectiveIsTaxable => isTaxableOverride ?? isTaxable ?? true;
+  bool get effectiveIsStatutory => isStatutoryOverride ?? isStatutory ?? false;
+
+  factory SalaryModalComponentRef.fromJson(Map<String, dynamic> j) {
+    return SalaryModalComponentRef(
+      id: (j['id'] as num?)?.toInt() ?? 0,
+      componentId: (j['componentId'] as num?)?.toInt() ?? (j['salary_component_id'] as num?)?.toInt() ?? 0,
+      displayOrder: (j['displayOrder'] as num?)?.toInt() ?? (j['display_order'] as num?)?.toInt() ?? 0,
+      name: j['name'] as String?,
+      displayName: (j['displayName'] as String?) ?? (j['display_name'] as String?),
+      type: j['type'] as String?,
+      calculationType: (j['calculationType'] as String?) ?? (j['calculation_type'] as String?),
+      calculationValue: (j['calculationValue'] as num?)?.toDouble(),
+      isTaxable: j['isTaxable'] as bool?,
+      isStatutory: j['isStatutory'] as bool?,
+      typeOverride: j['typeOverride'] as String?,
+      calculationTypeOverride: j['calculationTypeOverride'] as String?,
+      calculationValueOverride: (j['calculationValueOverride'] as num?)?.toDouble(),
+      isTaxableOverride: j['isTaxableOverride'] as bool?,
+      isStatutoryOverride: j['isStatutoryOverride'] as bool?,
+    );
+  }
+}
+
 class PayrollSettings {
   final String payCycleType;
   final int payDay;
@@ -462,6 +556,7 @@ class License {
   final String licenseKey, plan, status;
   final String? company, validFrom, validUntil;
   final int maxUsers;
+  final int maxBranches;
   final bool isTrial;
 
   const License({
@@ -470,6 +565,7 @@ class License {
     this.company,
     required this.plan,
     required this.maxUsers,
+    this.maxBranches = 1,
     required this.status,
     this.validFrom,
     this.validUntil,
@@ -483,6 +579,7 @@ class License {
       company: j['company'] as String?,
       plan: (j['plan'] as String?) ?? '',
       maxUsers: (j['maxUsers'] as num?)?.toInt() ?? 0,
+      maxBranches: (j['maxBranches'] as num?)?.toInt() ?? 1,
       status: (j['status'] as String?) ?? 'unassigned',
       validFrom: j['validFrom'] as String?,
       validUntil: j['validUntil'] as String?,
@@ -494,6 +591,7 @@ class License {
 class Payment {
   final int id;
   final String company,
+      companyEmail,
       status,
       gateway,
       method,
@@ -506,6 +604,7 @@ class Payment {
   const Payment({
     required this.id,
     required this.company,
+    this.companyEmail = '',
     required this.amount,
     required this.currency,
     required this.status,
@@ -520,12 +619,13 @@ class Payment {
     return Payment(
       id: (j['id'] as num?)?.toInt() ?? 0,
       company: (j['company'] as String?) ?? '',
+      companyEmail: (j['companyEmail'] as String?) ?? '',
       amount: (j['amount'] as num?)?.toInt() ?? 0,
       currency: (j['currency'] as String?) ?? 'INR',
       status: ((j['status'] as String?) ?? 'captured').toLowerCase(),
-      gateway: ((j['gateway'] as String?) ?? 'razorpay').toLowerCase(),
+      gateway: ((j['gateway'] as String?) ?? 'paysharp').toLowerCase(),
       method: ((j['method'] as String?) ?? 'upi').toUpperCase(),
-      razorpayId: (j['razorpayId'] as String?) ?? '',
+      razorpayId: (j['razorpayId'] as String?) ?? (j['gatewayPaymentId'] as String?) ?? '',
       paidAt: (j['paidAt'] as String?) ?? '',
       plan: (j['plan'] as String?) ?? '',
     );
@@ -545,12 +645,15 @@ class Staff {
       joiningDate;
   final int? roleId;
   final String? roleName;
+  final int? userId;
   final int? branchId;
   final String? branchName;
   final int? attendanceModalId;
   final int? shiftModalId;
   final int? leaveModalId;
   final int? holidayModalId;
+  final int? salaryModalId;
+  final int? fineModalId;
   final String? staffType;
   final String? reportingManager;
   final String? salaryCycle;
@@ -576,6 +679,7 @@ class Staff {
   final String? accountHolderName;
   final String? upiId;
   final String? bankVerificationStatus;
+  final String? createdAt;
 
   const Staff({
     required this.id,
@@ -590,12 +694,15 @@ class Staff {
     required this.joiningDate,
     this.roleId,
     this.roleName,
+    this.userId,
     this.branchId,
     this.branchName,
     this.attendanceModalId,
     this.shiftModalId,
     this.leaveModalId,
     this.holidayModalId,
+    this.salaryModalId,
+    this.fineModalId,
     this.staffType,
     this.reportingManager,
     this.salaryCycle,
@@ -621,6 +728,7 @@ class Staff {
     this.accountHolderName,
     this.upiId,
     this.bankVerificationStatus,
+    this.createdAt,
   });
 
   factory Staff.fromJson(Map<String, dynamic> j) {
@@ -637,12 +745,15 @@ class Staff {
       joiningDate: (j['joiningDate'] as String?) ?? '',
       roleId: (j['roleId'] as num?)?.toInt(),
       roleName: j['roleName'] as String?,
+      userId: (j['userId'] as num?)?.toInt(),
       branchId: (j['branchId'] as num?)?.toInt(),
       branchName: j['branchName'] as String?,
       attendanceModalId: (j['attendanceModalId'] as num?)?.toInt(),
       shiftModalId: (j['shiftModalId'] as num?)?.toInt(),
       leaveModalId: (j['leaveModalId'] as num?)?.toInt(),
       holidayModalId: (j['holidayModalId'] as num?)?.toInt(),
+      salaryModalId: (j['salaryModalId'] as num?)?.toInt(),
+      fineModalId: (j['fineModalId'] as num?)?.toInt(),
       staffType: j['staffType'] as String?,
       reportingManager: j['reportingManager'] as String?,
       salaryCycle: j['salaryCycle'] as String?,
@@ -668,6 +779,7 @@ class Staff {
       accountHolderName: j['accountHolderName'] as String?,
       upiId: j['upiId'] as String?,
       bankVerificationStatus: j['bankVerificationStatus'] as String?,
+      createdAt: j['createdAt'] as String?,
     );
   }
 }

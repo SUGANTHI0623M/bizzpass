@@ -1,12 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:excel/excel.dart' hide Border;
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../data/mock_data.dart';
 import '../data/companies_repository.dart';
+import '../data/licenses_repository.dart';
 import '../data/plans_repository.dart';
+import '../utils/save_file_stub.dart'
+    if (dart.library.html) '../utils/save_file_web.dart' as save_file;
 
 class CompaniesPage extends StatefulWidget {
-  const CompaniesPage({super.key});
+  /// When set, View company opens this page in a new screen (with sidebar) instead of a dialog.
+  final void Function(Company c)? onViewCompany;
+
+  /// When set, Edit company opens this page in a new screen (with sidebar) instead of a dialog.
+  final void Function(Company c)? onEditCompany;
+
+  const CompaniesPage({
+    super.key,
+    this.onViewCompany,
+    this.onEditCompany,
+  });
   @override
   State<CompaniesPage> createState() => _CompaniesPageState();
 }
@@ -18,6 +32,10 @@ class _CompaniesPageState extends State<CompaniesPage> {
   bool _loading = true;
   String? _error;
   final CompaniesRepository _repo = CompaniesRepository();
+
+  /// When true, selection checkboxes are shown so user can select companies to export.
+  bool _exportMode = false;
+  final Set<int> _selectedCompanyIds = {};
 
   @override
   void initState() {
@@ -57,6 +75,113 @@ class _CompaniesPageState extends State<CompaniesPage> {
     }).toList();
   }
 
+  /// Export selected companies to an Excel file. Call when _exportMode && _selectedCompanyIds.isNotEmpty.
+  void _exportSelectedToExcel() {
+    final filtered = _filtered;
+    final toExport = filtered
+        .where((c) => _selectedCompanyIds.contains(c.id))
+        .toList();
+    if (toExport.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Select at least one company to export.')),
+      );
+      return;
+    }
+
+    final excel = Excel.createExcel();
+    final sheetName = excel.tables.keys.isNotEmpty
+        ? excel.tables.keys.first
+        : 'Sheet1';
+    final sheet = excel[sheetName];
+    if (sheet == null) return;
+
+    // Headers
+    final headers = [
+      'Company',
+      'Email',
+      'Phone',
+      'City',
+      'State',
+      'Plan',
+      'Status',
+      'Staff',
+      'Branches',
+      'Expires',
+      'License Key',
+    ];
+    for (var col = 0; col < headers.length; col++) {
+      final cell = sheet.cell(CellIndex.indexByColumnRow(
+          columnIndex: col, rowIndex: 0));
+      cell.value = TextCellValue(headers[col]);
+    }
+
+    // Data rows
+    for (var row = 0; row < toExport.length; row++) {
+      final c = toExport[row];
+      final r = row + 1;
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: r))
+          .value = TextCellValue(c.name);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: r))
+          .value = TextCellValue(c.email);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: r))
+          .value = TextCellValue(c.phone);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: r))
+          .value = TextCellValue(c.city);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: r))
+          .value = TextCellValue(c.state);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: r))
+          .value = TextCellValue(c.subscriptionPlan);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: r))
+          .value = TextCellValue(c.subscriptionStatus);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: r))
+          .value = IntCellValue(c.staffCount);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: r))
+          .value = IntCellValue(c.branches);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: r))
+          .value = TextCellValue(c.subscriptionEndDate);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 10, rowIndex: r))
+          .value = TextCellValue(c.licenseKey);
+    }
+
+    final bytes = excel.encode();
+    if (bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to generate Excel file.')),
+      );
+      return;
+    }
+
+    final saved = save_file.saveBytesAsFile(
+      bytes is List<int> ? bytes : bytes.toList(),
+      'companies_export_${DateTime.now().millisecondsSinceEpoch}.xlsx',
+    );
+    if (saved && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Exported ${toExport.length} compan${toExport.length == 1 ? 'y' : 'ies'} to Excel.')),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Export is available on web. Open this app in a browser to download Excel.')),
+      );
+    }
+  }
+
   Future<void> _showAddCompanyDialog() async {
     List<Plan> plans = [];
     try {
@@ -74,6 +199,10 @@ class _CompaniesPageState extends State<CompaniesPage> {
     bool isActive = true;
     bool submitting = false;
     String? submitError;
+    bool generateLicenseKey = false;
+    bool generatingLicense = false;
+    String? generateLicenseError;
+    final licensesRepo = LicensesRepository();
 
     showDialog(
       context: context,
@@ -93,8 +222,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 20),
                     decoration: BoxDecoration(
-                      border:
-                          Border(bottom: BorderSide(color: context.borderColor)),
+                      border: Border(
+                          bottom: BorderSide(color: context.borderColor)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -139,7 +268,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                   child: Text(
                                     submitError!,
                                     style: TextStyle(
-                                        fontSize: 13, color: context.dangerColor),
+                                        fontSize: 13,
+                                        color: context.dangerColor),
                                   ),
                                 ),
                               ],
@@ -260,21 +390,109 @@ class _CompaniesPageState extends State<CompaniesPage> {
                         const SizedBox(height: 16),
                         FormFieldWrapper(
                           label: 'LICENSE KEY (required)',
-                          child: TextFormField(
-                            controller: licenseKeyCtrl,
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: context.textColor,
-                                fontFamily: 'monospace'),
-                            decoration: const InputDecoration(
-                              hintText: 'Enter an unassigned license key',
-                            ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'License key is required';
-                              }
-                              return null;
-                            },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: generateLicenseKey,
+                                    onChanged: generatingLicense
+                                        ? null
+                                        : (v) async {
+                                            final enable = v ?? false;
+                                            setDialogState(() {
+                                              generateLicenseKey = enable;
+                                              generateLicenseError = null;
+                                              if (!enable) {
+                                                licenseKeyCtrl.clear();
+                                                return;
+                                              }
+                                            });
+                                            if (!enable) return;
+                                            setDialogState(() {
+                                              generatingLicense = true;
+                                              generateLicenseError = null;
+                                            });
+                                            try {
+                                              final license = await licensesRepo
+                                                  .createLicense(
+                                                subscriptionPlan: selectedPlan,
+                                                isTrial: false,
+                                              );
+                                              if (ctx.mounted) {
+                                                setDialogState(() {
+                                                  licenseKeyCtrl.text =
+                                                      license.licenseKey;
+                                                  generatingLicense = false;
+                                                  generateLicenseError = null;
+                                                });
+                                              }
+                                            } catch (e) {
+                                              if (ctx.mounted) {
+                                                setDialogState(() {
+                                                  generatingLicense = false;
+                                                  generateLicenseError = e
+                                                      .toString()
+                                                      .replaceAll(
+                                                          'LicensesException: ',
+                                                          '');
+                                                });
+                                              }
+                                            }
+                                          },
+                                    activeColor: context.accentColor,
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      'Generate new license key',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: context.textSecondaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                  if (generatingLicense)
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: context.accentColor,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              if (generateLicenseError != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  generateLicenseError!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: context.dangerColor,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 10),
+                              TextFormField(
+                                controller: licenseKeyCtrl,
+                                readOnly: false,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: context.textColor,
+                                    fontFamily: 'monospace'),
+                                decoration: const InputDecoration(
+                                  hintText:
+                                      'Enter an unassigned license key or generate one above',
+                                ),
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) {
+                                    return 'License key is required';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -313,7 +531,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                   : () async {
                                       final name = nameCtrl.text.trim();
                                       final email = emailCtrl.text.trim();
-                                      final licenseKey = licenseKeyCtrl.text.trim();
+                                      final licenseKey =
+                                          licenseKeyCtrl.text.trim();
                                       if (name.isEmpty || email.isEmpty) {
                                         setDialogState(() {
                                           submitError =
@@ -364,7 +583,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                               showDialog(
                                                 context: context,
                                                 builder: (c) => AlertDialog(
-                                                  backgroundColor: context.bgColor,
+                                                  backgroundColor:
+                                                      context.bgColor,
                                                   title: Text(
                                                       'Company created – Admin login'),
                                                   content:
@@ -379,7 +599,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                                         Text(
                                                           'Company admin can log in with:',
                                                           style: TextStyle(
-                                                              color: c.textSecondaryColor),
+                                                              color: c
+                                                                  .textSecondaryColor),
                                                         ),
                                                         const SizedBox(
                                                             height: 12),
@@ -406,7 +627,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                                               'Ask them to change password after first login.',
                                                           style: TextStyle(
                                                               fontSize: 12,
-                                                              color: c.textMutedColor),
+                                                              color: c
+                                                                  .textMutedColor),
                                                         ),
                                                       ],
                                                     ),
@@ -464,6 +686,10 @@ class _CompaniesPageState extends State<CompaniesPage> {
   }
 
   void _showDetail(Company c) {
+    if (widget.onViewCompany != null) {
+      widget.onViewCompany!(c);
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -479,7 +705,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                   decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: context.borderColor)),
+                    border:
+                        Border(bottom: BorderSide(color: context.borderColor)),
                   ),
                   child: Row(
                     children: [
@@ -648,6 +875,10 @@ class _CompaniesPageState extends State<CompaniesPage> {
   }
 
   Future<void> _showEditCompanyDialog(Company c) async {
+    if (widget.onEditCompany != null) {
+      widget.onEditCompany!(c);
+      return;
+    }
     List<Plan> plans = [];
     try {
       plans = await PlansRepository().fetchPlans(activeOnly: true);
@@ -659,12 +890,17 @@ class _CompaniesPageState extends State<CompaniesPage> {
     final phoneCtrl = TextEditingController(text: c.phone);
     final cityCtrl = TextEditingController(text: c.city);
     final stateCtrl = TextEditingController(text: c.state);
+    final adminPasswordCtrl = TextEditingController();
+    final reEnterPasswordCtrl = TextEditingController();
+    bool obscurePassword = true;
+    bool obscureReEnter = true;
     String selectedPlan = plans.any((p) => p.planName == c.subscriptionPlan)
         ? c.subscriptionPlan
         : (plans.isNotEmpty ? plans.first.planName : c.subscriptionPlan);
     bool isActive = c.isActive;
     bool submitting = false;
     String? submitError;
+    String? passwordError;
 
     showDialog(
       context: context,
@@ -684,8 +920,8 @@ class _CompaniesPageState extends State<CompaniesPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 20),
                     decoration: BoxDecoration(
-                      border:
-                          Border(bottom: BorderSide(color: context.borderColor)),
+                      border: Border(
+                          bottom: BorderSide(color: context.borderColor)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -840,6 +1076,62 @@ class _CompaniesPageState extends State<CompaniesPage> {
                             ],
                           ),
                         ),
+                        FormFieldWrapper(
+                          label: 'ADMIN PASSWORD',
+                          child: TextFormField(
+                            controller: adminPasswordCtrl,
+                            obscureText: obscurePassword,
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
+                            decoration: InputDecoration(
+                              hintText: 'Leave blank to keep current password',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  obscurePassword
+                                      ? Icons.visibility_off_rounded
+                                      : Icons.visibility_rounded,
+                                  size: 20,
+                                  color: context.textMutedColor,
+                                ),
+                                onPressed: () => setDialogState(
+                                    () => obscurePassword = !obscurePassword),
+                              ),
+                            ),
+                          ),
+                        ),
+                        FormFieldWrapper(
+                          label: 'RE-ENTER PASSWORD',
+                          child: TextFormField(
+                            controller: reEnterPasswordCtrl,
+                            obscureText: obscureReEnter,
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
+                            decoration: InputDecoration(
+                              hintText: 'Re-enter new password',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  obscureReEnter
+                                      ? Icons.visibility_off_rounded
+                                      : Icons.visibility_rounded,
+                                  size: 20,
+                                  color: context.textMutedColor,
+                                ),
+                                onPressed: () => setDialogState(
+                                    () => obscureReEnter = !obscureReEnter),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (passwordError != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            passwordError!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: context.dangerColor,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -856,14 +1148,41 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                   : () async {
                                       final name = nameCtrl.text.trim();
                                       final email = emailCtrl.text.trim();
+                                      final newPassword =
+                                          adminPasswordCtrl.text.trim();
+                                      final reEnter =
+                                          reEnterPasswordCtrl.text.trim();
                                       if (name.isEmpty || email.isEmpty) {
-                                        setDialogState(() => submitError =
-                                            'Company name and email are required');
+                                        setDialogState(() {
+                                          submitError =
+                                              'Company name and email are required';
+                                          passwordError = null;
+                                        });
                                         return;
+                                      }
+                                      if (newPassword.isNotEmpty ||
+                                          reEnter.isNotEmpty) {
+                                        if (newPassword.length < 8) {
+                                          setDialogState(() {
+                                            passwordError =
+                                                'Password must be at least 8 characters';
+                                            submitError = null;
+                                          });
+                                          return;
+                                        }
+                                        if (newPassword != reEnter) {
+                                          setDialogState(() {
+                                            passwordError =
+                                                'Passwords do not match';
+                                            submitError = null;
+                                          });
+                                          return;
+                                        }
                                       }
                                       setDialogState(() {
                                         submitting = true;
                                         submitError = null;
+                                        passwordError = null;
                                       });
                                       try {
                                         await _repo.updateCompany(
@@ -881,6 +1200,9 @@ class _CompaniesPageState extends State<CompaniesPage> {
                                               : stateCtrl.text.trim(),
                                           subscriptionPlan: selectedPlan,
                                           isActive: isActive,
+                                          adminPassword: newPassword.isEmpty
+                                              ? null
+                                              : newPassword,
                                         );
                                         if (ctx.mounted) {
                                           Navigator.pop(ctx);
@@ -936,20 +1258,107 @@ class _CompaniesPageState extends State<CompaniesPage> {
   Widget build(BuildContext context) {
     final filtered = _filtered;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          SectionHeader(
-            title: 'Companies',
-            subtitle: _loading
-                ? 'Loading...'
-                : '${_companies.length} registered companies',
-            actionLabel: 'Add Company',
-            actionIcon: Icons.add_rounded,
-            onAction: _showAddCompanyDialog,
-            bottomPadding: 12,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Companies',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: context.textColor,
+                            letterSpacing: -0.3,
+                          )),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Text(
+                          _loading
+                              ? 'Loading...'
+                              : '${_companies.length} registered companies',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: context.textMutedColor,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _exportMode = !_exportMode;
+                      if (!_exportMode) _selectedCompanyIds.clear();
+                    });
+                  },
+                  icon: Icon(
+                    Icons.download_for_offline_rounded,
+                    size: 22,
+                    color: _exportMode
+                        ? context.accentColor
+                        : context.textMutedColor,
+                  ),
+                  tooltip: _exportMode
+                      ? 'Exit export (selection on)'
+                      : 'Export – enable selection',
+                  style: IconButton.styleFrom(
+                    backgroundColor: _exportMode
+                        ? context.accentColor.withOpacity(0.12)
+                        : null,
+                  ),
+                ),
+                if (_exportMode) ...[
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _selectedCompanyIds.isEmpty
+                        ? null
+                        : _exportSelectedToExcel,
+                    icon: const Icon(Icons.table_chart_rounded, size: 18),
+                    label: Text(
+                      _selectedCompanyIds.isEmpty
+                          ? 'Export (select companies)'
+                          : 'Export ${_selectedCompanyIds.length} to Excel',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                      backgroundColor: _selectedCompanyIds.isEmpty
+                          ? null
+                          : context.accentColor,
+                      foregroundColor: _selectedCompanyIds.isEmpty
+                          ? null
+                          : Colors.white,
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _showAddCompanyDialog,
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('Add Company'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
@@ -1032,6 +1441,7 @@ class _CompaniesPageState extends State<CompaniesPage> {
                     child: CircularProgressIndicator()))
           else
             AppDataTable(
+              showCheckboxColumn: _exportMode,
               columns: const [
                 DataCol('Company'),
                 DataCol('Plan'),
@@ -1043,7 +1453,19 @@ class _CompaniesPageState extends State<CompaniesPage> {
               ],
               rows: filtered
                   .map((c) => DataRow(
-                        onSelectChanged: (_) => _showDetail(c),
+                        selected:
+                            _exportMode && _selectedCompanyIds.contains(c.id),
+                        onSelectChanged: _exportMode
+                            ? (selected) {
+                                setState(() {
+                                  if (selected == true) {
+                                    _selectedCompanyIds.add(c.id);
+                                  } else {
+                                    _selectedCompanyIds.remove(c.id);
+                                  }
+                                });
+                              }
+                            : (_) => _showDetail(c),
                         cells: [
                           DataCell(Row(children: [
                             AvatarCircle(name: c.name, seed: c.id),
@@ -1064,18 +1486,28 @@ class _CompaniesPageState extends State<CompaniesPage> {
                             ),
                           ])),
                           DataCell(Text(c.subscriptionPlan,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w600))),
+                              style: TextStyle(fontWeight: FontWeight.w600))),
                           DataCell(StatusBadge(status: c.subscriptionStatus)),
                           DataCell(Text('${c.staffCount}')),
                           DataCell(Text('${c.branches}')),
                           DataCell(Text(c.subscriptionEndDate,
                               style: TextStyle(
-                                  fontSize: 12, color: context.textMutedColor))),
-                          DataCell(TextButton(
-                            onPressed: () => _showDetail(c),
-                            child: Text('View',
-                                style: TextStyle(fontSize: 12)),
+                                  fontSize: 12,
+                                  color: context.textMutedColor))),
+                          DataCell(Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextButton(
+                                onPressed: () => _showDetail(c),
+                                child: Text('View',
+                                    style: TextStyle(fontSize: 12)),
+                              ),
+                              TextButton(
+                                onPressed: () => _showEditCompanyDialog(c),
+                                child: Text('Edit',
+                                    style: TextStyle(fontSize: 12)),
+                              ),
+                            ],
                           )),
                         ],
                       ))

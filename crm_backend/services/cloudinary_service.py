@@ -1,4 +1,8 @@
-"""Cloudinary upload service for company logos and other images."""
+"""Cloudinary upload service – all file uploads (company logos and other files) use Cloudinary.
+
+- Company logos: uploaded as images to folder bizzpass/companies.
+- Other files: use upload_file() for raw/documents (PDF, etc.) in folder bizzpass/files.
+"""
 import uuid
 import cloudinary
 import cloudinary.uploader
@@ -13,13 +17,34 @@ cloudinary.config(
 
 
 def upload_image(file_data: bytes, folder: str = "bizzpass", public_id_prefix: str = "company") -> str | None:
-    """Upload image bytes to Cloudinary. Returns URL or None on failure."""
+    """Upload image bytes to Cloudinary (company logos, avatars, etc.). Returns secure URL or None on failure."""
     try:
         unique_id = uuid.uuid4().hex[:12]
         result = cloudinary.uploader.upload(
             file_data,
             folder=folder,
             public_id=f"{public_id_prefix}_{unique_id}",
+            resource_type="image",
+        )
+        return result.get("secure_url")
+    except Exception:
+        return None
+
+
+def upload_file(
+    file_data: bytes,
+    folder: str = "bizzpass/files",
+    public_id_prefix: str = "file",
+    resource_type: str = "raw",
+) -> str | None:
+    """Upload any file (PDF, document, etc.) to Cloudinary. Returns secure URL or None on failure."""
+    try:
+        unique_id = uuid.uuid4().hex[:12]
+        result = cloudinary.uploader.upload(
+            file_data,
+            folder=folder,
+            public_id=f"{public_id_prefix}_{unique_id}",
+            resource_type=resource_type,
         )
         return result.get("secure_url")
     except Exception:

@@ -51,7 +51,9 @@ class _PaymentsPageState extends State<PaymentsPage> {
   List<Payment> get _filtered => _payments
       .where((p) =>
           p.company.toLowerCase().contains(_search.toLowerCase()) ||
-          p.razorpayId.toLowerCase().contains(_search.toLowerCase()))
+          p.companyEmail.toLowerCase().contains(_search.toLowerCase()) ||
+          p.razorpayId.toLowerCase().contains(_search.toLowerCase()) ||
+          p.plan.toLowerCase().contains(_search.toLowerCase()))
       .toList();
 
   @override
@@ -65,7 +67,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
     final filtered = _filtered;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -123,7 +125,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
             ),
           ],
           AppSearchBar(
-              hint: 'Search by company or Razorpay ID...',
+              hint: 'Search by company, email, plan or payment ID...',
               onChanged: (v) => setState(() => _search = v)),
           if (_loading && _payments.isEmpty)
             const Center(
@@ -136,6 +138,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
             AppDataTable(
               columns: const [
                 DataCol('Company'),
+                DataCol('Email'),
                 DataCol('Amount'),
                 DataCol('Plan'),
                 DataCol('Gateway'),
@@ -150,6 +153,10 @@ class _PaymentsPageState extends State<PaymentsPage> {
                             style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: context.textColor))),
+                        DataCell(Text(p.companyEmail,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: context.textMutedColor))),
                         DataCell(Text(fmtINR(p.amount),
                             style: TextStyle(
                                 fontWeight: FontWeight.w700,

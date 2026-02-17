@@ -123,6 +123,71 @@ class AuthRepository {
     }
   }
 
+  /// Request OTP for password change. Sends OTP to current user's email (backend sends it).
+  /// Requires valid token.
+  Future<void> requestPasswordChangeOtp(String token) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/auth/request-password-otp',
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
+      if (response.statusCode == 401) {
+        throw AuthException('Session expired. Please log in again.');
+      }
+      if (response.statusCode != 200) {
+        final detail = response.data is Map && response.data!['detail'] != null
+            ? response.data!['detail'].toString()
+            : 'Failed to send OTP';
+        throw AuthException(detail);
+      }
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.unknown) {
+        throw AuthException(
+          'Cannot reach server. Check your connection and try again.',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  /// Change password using OTP received by email.
+  Future<void> changePasswordWithOtp(String token, String otp, String newPassword) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/auth/change-password-with-otp',
+        data: {'otp': otp.trim(), 'new_password': newPassword},
+        options: Options(
+          contentType: 'application/json',
+          headers: {'Authorization': 'Bearer $token'},
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
+      if (response.statusCode == 401) {
+        throw AuthException('Session expired. Please log in again.');
+      }
+      if (response.statusCode != 200) {
+        final detail = response.data is Map && response.data!['detail'] != null
+            ? response.data!['detail'].toString()
+            : 'Failed to change password';
+        throw AuthException(detail);
+      }
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.unknown) {
+        throw AuthException(
+          'Cannot reach server. Check your connection and try again.',
+        );
+      }
+      rethrow;
+    }
+  }
+
   /// No-auth health check for backend (e.g. on login page). Returns true if GET /health succeeds.
   static Future<bool> checkBackendHealth() async {
     try {

@@ -1,11 +1,25 @@
 """
-Initialize Payroll Schema - Run this script to add payroll tables to existing tenant databases
+Initialize Payroll Schema - Run this script to add payroll tables to existing tenant databases.
+Uses DB_HOST, DB_PORT, DB_USER, DB_PASSWORD from environment or .env in crm_backend.
+
+To avoid local Postgres credentials (e.g. "password authentication failed for user dev"):
+  Run inside the backend container (uses same DB as the API):
+    docker-compose exec crm_backend python scripts/init_payroll_schema.py
+  If no bizzpass_c_* databases exist, the script will offer to init the default DB (e.g. bizzpass).
 """
 import sys
 import os
 
-# Add parent directory to path to import config
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add parent directory to path and load .env from crm_backend before importing config
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_crm_backend_root = os.path.dirname(_script_dir)
+sys.path.insert(0, _crm_backend_root)
+
+# Load .env from crm_backend so DB_* match app / Docker
+_env_file = os.path.join(_crm_backend_root, ".env")
+if os.path.isfile(_env_file):
+    from dotenv import load_dotenv
+    load_dotenv(_env_file)
 
 from config.database import get_cursor
 from config.settings import settings
@@ -31,12 +45,65 @@ def init_payroll_schema(db_name: str):
             # Execute the entire schema
             cur.execute(schema_sql)
             print(f"✓ Payroll schema initialized successfully for {db_name}")
-            
+
+            # Migration: overtime calculation method and values (for Salary Components > Overtime tab)
+            for col, typ in [
+                ("overtime_calculation_method", "VARCHAR(40) DEFAULT 'fixed_amount'"),
+                ("overtime_fixed_amount_per_hour", "DOUBLE PRECISION NULL"),
+                ("overtime_gross_pay_multiplier", "DOUBLE PRECISION NULL"),
+                ("overtime_basic_pay_multiplier", "DOUBLE PRECISION NULL"),
+            ]:
+                try:
+                    cur.execute(f"ALTER TABLE payroll_settings ADD COLUMN IF NOT EXISTS {col} {typ}")
+                except Exception as e:
+                    if "already exists" not in str(e).lower():
+                        print(f"  Migration note (payroll_settings.{col}): {e}")
+
+            # Migration: overtime_templates table (multiple customizable templates per company)
+            try:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS overtime_templates (
+                        id BIGSERIAL PRIMARY KEY,
+                        company_id VARCHAR(24) NOT NULL,
+                        name VARCHAR(255) NOT NULL,
+                        company_type VARCHAR(50) DEFAULT 'custom',
+                        is_default BOOLEAN DEFAULT FALSE,
+                        config JSONB NOT NULL DEFAULT '{}',
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    )
+                """)
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_overtime_templates_company ON overtime_templates(company_id)")
+            except Exception as e:
+                if "already exists" not in str(e).lower():
+                    print(f"  Migration note (overtime_templates): {e}")
+
+            # Migration: grace_config on payroll_settings (company-level default grace rules)
+            try:
+                cur.execute("ALTER TABLE payroll_settings ADD COLUMN IF NOT EXISTS grace_config JSONB NULL")
+            except Exception as e:
+                if "already exists" not in str(e).lower():
+                    print(f"  Migration note (payroll_settings.grace_config): {e}")
+
+            # Migration: salary_modal_components overrides (type, calculation type, value, statutory, taxable per template)
+            for col, typ in [
+                ("type_override", "VARCHAR(20) NULL"),
+                ("calculation_type_override", "VARCHAR(50) NULL"),
+                ("calculation_value_override", "DOUBLE PRECISION NULL"),
+                ("is_taxable_override", "BOOLEAN NULL"),
+                ("is_statutory_override", "BOOLEAN NULL"),
+            ]:
+                try:
+                    cur.execute(f"ALTER TABLE salary_modal_components ADD COLUMN IF NOT EXISTS {col} {typ}")
+                except Exception as e:
+                    if "already exists" not in str(e).lower():
+                        print(f"  Migration note (salary_modal_components.{col}): {e}")
+
             # Seed default salary components
             print(f"  Seeding default salary components...")
             seed_default_components(cur, db_name)
             print(f"✓ Default components seeded")
-            
+
     except Exception as e:
         print(f"✗ Error initializing payroll schema for {db_name}: {e}")
         raise
@@ -210,14 +277,21 @@ def seed_default_components(cur, db_name: str):
 
 def get_all_tenant_databases():
     """Get list of all tenant databases (bizzpass_c_*)"""
-    conn = psycopg2.connect(
-        host=settings.db_host,
-        port=settings.db_port,
-        dbname='postgres',
-        user=settings.db_user,
-        password=settings.db_password,
-    )
-    
+    try:
+        conn = psycopg2.connect(
+            host=settings.db_host,
+            port=settings.db_port,
+            dbname='postgres',
+            user=settings.db_user,
+            password=settings.db_password,
+        )
+    except psycopg2.OperationalError as e:
+        print(f"Database connection failed: {e}")
+        print("  Check that Postgres is running and credentials are correct.")
+        print("  When using Docker: start postgres (e.g. docker-compose up -d postgres), then from host use DB_HOST=localhost.")
+        print("  Set DB_USER and DB_PASSWORD in crm_backend/.env to match your Postgres (e.g. dev / dev1234 from docker-compose).")
+        raise SystemExit(1) from e
+
     try:
         cur = conn.cursor()
         cur.execute("""
@@ -225,7 +299,6 @@ def get_all_tenant_databases():
             WHERE datname LIKE 'bizzpass_c_%'
             ORDER BY datname
         """)
-        
         databases = [row[0] for row in cur.fetchall()]
         return databases
     finally:
@@ -243,20 +316,26 @@ def main():
     print("Fetching tenant databases...")
     databases = get_all_tenant_databases()
     
+    already_confirmed = False
     if not databases:
-        print("No tenant databases found (bizzpass_c_*)")
-        return
-    
-    print(f"Found {len(databases)} tenant database(s):")
-    for db in databases:
-        print(f"  - {db}")
-    print()
-    
-    # Confirm
-    response = input("Initialize payroll schema for all these databases? (yes/no): ")
-    if response.lower() not in ['yes', 'y']:
-        print("Aborted.")
-        return
+        default_db = settings.db_name or "bizzpass"
+        print(f"No tenant databases found (bizzpass_c_*).")
+        print(f"You can initialize the default database '{default_db}' instead (e.g. when using Docker with a single DB).")
+        response = input(f"Initialize payroll schema for '{default_db}'? (yes/no): ").strip().lower()
+        if response not in ("yes", "y"):
+            return
+        databases = [default_db]
+        already_confirmed = True
+        print()
+    else:
+        print(f"Found {len(databases)} tenant database(s):")
+        for db in databases:
+            print(f"  - {db}")
+        print()
+        response = input("Initialize payroll schema for all these databases? (yes/no): ").strip().lower()
+        if response not in ("yes", "y"):
+            print("Aborted.")
+            return
     
     print()
     print("Initializing...")

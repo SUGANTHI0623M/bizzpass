@@ -28,9 +28,13 @@ from api.roles import router as roles_router
 from api.audit_logs import router as audit_logs_router
 from api.branches import router as branches_router
 from api.departments import router as departments_router
+from api.designations import router as designations_router
 from api.subscription import router as subscription_router
 from api.payroll import router as payroll_router
 from api.company_dashboard import router as company_dashboard_router
+from api.company_profile import router as company_profile_router
+from api.integrations import router as integrations_router
+from api.fine_modals import router as fine_modals_router
 
 app = FastAPI(
     title="BizzPass CRM Backend",
@@ -56,6 +60,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
 )
 
 
@@ -69,6 +75,10 @@ async def log_requests(request, call_next):
     return response
 
 app.include_router(auth_router)
+# Register before /companies so GET /company-profile is not matched by /companies/{company_id}
+app.include_router(company_profile_router)
+app.include_router(integrations_router)
+app.include_router(fine_modals_router)
 app.include_router(companies_router)
 app.include_router(licenses_router)
 app.include_router(staff_router)
@@ -88,6 +98,7 @@ app.include_router(roles_router)
 app.include_router(audit_logs_router)
 app.include_router(branches_router)
 app.include_router(departments_router)
+app.include_router(designations_router)
 app.include_router(subscription_router)
 app.include_router(payroll_router)
 app.include_router(company_dashboard_router)

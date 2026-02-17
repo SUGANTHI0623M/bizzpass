@@ -1,4 +1,4 @@
-"""Companies CRUD API with logo upload via Cloudinary."""
+"""Companies CRUD API. Company logo uploads go to Cloudinary (bizzpass/companies)."""
 from typing import Annotated
 
 import bcrypt
@@ -36,6 +36,7 @@ class CompanyUpdate(BaseModel):
     state: str | None = None
     subscription_plan: str | None = None
     is_active: bool | None = None
+    admin_password: str | None = None  # Optional; if set, updates company admin login password
 
 
 def _company_row_to_dict(
@@ -371,17 +372,37 @@ def update_company(
     if body.is_active is not None:
         updates.append("is_active = %s")
         vals.append(body.is_active)
-    if not updates:
-        return get_company(company_id, current_user)
 
-    vals.append(company_id)
-    with get_cursor() as cur:
-        cur.execute(
-            f"UPDATE companies SET {', '.join(updates)}, updated_at = NOW() WHERE id = %s",
-            vals,
-        )
-        if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Company not found")
+    if updates:
+        vals.append(company_id)
+        with get_cursor() as cur:
+            cur.execute(
+                f"UPDATE companies SET {', '.join(updates)}, updated_at = NOW() WHERE id = %s",
+                vals,
+            )
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Company not found")
+
+    # Optionally update company admin password
+    if body.admin_password is not None and body.admin_password.strip():
+        new_password = body.admin_password.strip()
+        if len(new_password) < 8:
+            raise HTTPException(
+                status_code=400,
+                detail="Admin password must be at least 8 characters.",
+            )
+        hashed = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
+        with get_cursor() as cur:
+            cur.execute(
+                """
+                UPDATE users
+                SET password = %s, updated_at = NOW()
+                WHERE company_id_bigint = %s AND role = 'company_admin'
+                """,
+                (hashed, company_id),
+            )
+            if cur.rowcount == 0:
+                pass  # No company_admin user for this company; ignore
 
     return get_company(company_id, current_user)
 
@@ -400,7 +421,7 @@ async def upload_company_logo(
         raise HTTPException(status_code=400, detail="File too large (max 5MB)")
     url = upload_image(data, folder="bizzpass/companies", public_id_prefix=f"logo_{company_id}")
     if not url:
-        raise HTTPException(status_code=500, detail="Upload failed")
+        raise HTTPException(status_code=500, detail="Cloudinary upload failed")
     with get_cursor() as cur:
         cur.execute(
             "UPDATE companies SET logo = %s, updated_at = NOW() WHERE id = %s RETURNING id",

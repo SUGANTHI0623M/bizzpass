@@ -235,7 +235,7 @@ class _LicensesPageState extends State<LicensesPage> {
 
   void _showEditLicenseDialog(License l) {
     final maxUsersCtrl = TextEditingController(text: '${l.maxUsers}');
-    final maxBranchesCtrl = TextEditingController(text: '1');
+    final maxBranchesCtrl = TextEditingController(text: '${l.maxBranches}');
     String selectedStatus = l.status;
     final notesCtrl = TextEditingController();
     bool submitting = false;
@@ -317,6 +317,15 @@ class _LicensesPageState extends State<LicensesPage> {
                           ),
                         ),
                         FormFieldWrapper(
+                          label: 'MAX BRANCHES',
+                          child: TextFormField(
+                            controller: maxBranchesCtrl,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(
+                                fontSize: 13, color: context.textColor),
+                          ),
+                        ),
+                        FormFieldWrapper(
                           label: 'STATUS',
                           child: DropdownButtonFormField<String>(
                             value: selectedStatus,
@@ -363,15 +372,23 @@ class _LicensesPageState extends State<LicensesPage> {
                             ),
                             const SizedBox(width: 10),
                             ElevatedButton(
-                              onPressed: submitting
+                                    onPressed: submitting
                                   ? null
                                   : () async {
                                       final maxUsers = int.tryParse(
                                               maxUsersCtrl.text.trim()) ??
                                           l.maxUsers;
+                                      final maxBranches = int.tryParse(
+                                              maxBranchesCtrl.text.trim()) ??
+                                          l.maxBranches;
                                       if (maxUsers < 1) {
                                         setDialogState(() => submitError =
                                             'Max users must be at least 1');
+                                        return;
+                                      }
+                                      if (maxBranches < 1) {
+                                        setDialogState(() => submitError =
+                                            'Max branches must be at least 1');
                                         return;
                                       }
                                       setDialogState(() {
@@ -382,6 +399,7 @@ class _LicensesPageState extends State<LicensesPage> {
                                         await _repo.updateLicense(
                                           l.id,
                                           maxUsers: maxUsers,
+                                          maxBranches: maxBranches,
                                           status: selectedStatus,
                                           notes: notesCtrl.text.trim().isEmpty
                                               ? null
@@ -696,7 +714,7 @@ class _LicensesPageState extends State<LicensesPage> {
   Widget build(BuildContext context) {
     final filtered = _filtered;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

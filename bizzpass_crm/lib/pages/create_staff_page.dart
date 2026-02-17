@@ -3,8 +3,14 @@ import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
 import '../data/staff_repository.dart';
 import '../data/roles_repository.dart' show Role, RolesRepository;
-import '../data/branches_repository.dart' show Branch;
-import '../data/departments_repository.dart' show Department;
+import '../data/branches_repository.dart' show Branch, BranchesRepository;
+import '../data/departments_repository.dart' show Department, DepartmentsRepository;
+import '../data/attendance_modals_repository.dart';
+import '../data/shift_modals_repository.dart';
+import '../data/leave_modals_repository.dart';
+import '../data/holiday_modals_repository.dart';
+import '../data/payroll_repository.dart';
+import '../data/fine_modals_repository.dart';
 import 'staff_page.dart' show StaffModalOption;
 
 class CreateStaffPage extends StatefulWidget {
@@ -17,11 +23,18 @@ class CreateStaffPage extends StatefulWidget {
   final List<StaffModalOption> shiftModals;
   final List<StaffModalOption> leaveModals;
   final List<StaffModalOption> holidayModals;
+  /// When set, page is in edit mode: load staff and show "Update Staff".
+  final int? initialStaffId;
+  /// Called when back is pressed or after successful create/update (keeps sidebar context).
+  final VoidCallback onBack;
+  /// When true, form is for adding a company admin: title "Add Admin", role fixed to Company Admin (all permissions).
+  final bool isAdminCreation;
 
   const CreateStaffPage({
     super.key,
     required this.staffRepo,
     required this.rolesRepo,
+    required this.onBack,
     this.branches = const [],
     this.departments = const [],
     this.initialBranchId,
@@ -29,6 +42,8 @@ class CreateStaffPage extends StatefulWidget {
     this.shiftModals = const [],
     this.leaveModals = const [],
     this.holidayModals = const [],
+    this.initialStaffId,
+    this.isAdminCreation = false,
   });
 
   @override
@@ -77,17 +92,45 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
   int? _selectedShiftModalId;
   int? _selectedLeaveModalId;
   int? _selectedHolidayModalId;
+  int? _selectedSalaryModalId;
+  int? _selectedFineModalId;
+  bool _useDepartmentTemplates = false;
   List<Role> _roles = [];
   Map<String, dynamic> _limits = {};
   bool _loading = true;
   bool _saving = false;
   String? _error;
+  List<Branch> _branches = [];
+  List<Department> _departments = [];
+  List<StaffModalOption> _attendanceModals = [];
+  List<StaffModalOption> _shiftModals = [];
+  List<StaffModalOption> _leaveModals = [];
+  List<StaffModalOption> _holidayModals = [];
+  List<StaffModalOption> _salaryModals = [];
+  List<StaffModalOption> _fineModals = [];
   static const List<String> _staffTypes = ['Full Time', 'Part Time', 'Contract'];
   static const List<String> _salaryCycles = ['Monthly', 'Weekly'];
   static const List<String> _genders = ['Male', 'Female', 'Other'];
   static const List<String> _maritalStatuses = ['Single', 'Married', 'Divorced', 'Widowed'];
   static const List<String> _bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   static const List<String> _bankVerificationStatuses = ['Pending', 'Verified', 'Failed'];
+
+  bool get _isEditMode => widget.initialStaffId != null;
+
+  List<Branch> get _effectiveBranches =>
+      widget.branches.isNotEmpty ? widget.branches : _branches;
+  List<Department> get _effectiveDepartments =>
+      widget.departments.isNotEmpty ? widget.departments : _departments;
+  List<StaffModalOption> get _effectiveAttendanceModals =>
+      widget.attendanceModals.isNotEmpty ? widget.attendanceModals : _attendanceModals;
+  List<StaffModalOption> get _effectiveShiftModals =>
+      widget.shiftModals.isNotEmpty ? widget.shiftModals : _shiftModals;
+  List<StaffModalOption> get _effectiveLeaveModals =>
+      widget.leaveModals.isNotEmpty ? widget.leaveModals : _leaveModals;
+  List<StaffModalOption> get _effectiveHolidayModals =>
+      widget.holidayModals.isNotEmpty ? widget.holidayModals : _holidayModals;
+  List<StaffModalOption> get _effectiveSalaryModals => _salaryModals;
+  List<StaffModalOption> get _effectiveFineModals => _fineModals;
 
   @override
   void initState() {
@@ -106,6 +149,161 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
       _selectedHolidayModalId = widget.holidayModals.first.id;
     }
     _loadRolesAndLimits();
+    if (widget.branches.isEmpty && widget.departments.isEmpty) {
+      _loadBranchesAndModals();
+    }
+    if (_isEditMode) {
+      _loadStaffForEdit();
+    }
+  }
+
+  Future<void> _loadBranchesAndModals() async {
+    try {
+      final br = await BranchesRepository().fetchBranches();
+      final dept = await DepartmentsRepository().fetchDepartments(activeOnly: true);
+      final att = await AttendanceModalsRepository().fetchModals();
+      final shift = await ShiftModalsRepository().fetchModals();
+      final leave = await LeaveModalsRepository().fetchModals();
+      final holiday = await HolidayModalsRepository().fetchModals();
+      final salaryModals = await PayrollRepository().fetchSalaryModals(activeOnly: false);
+      final fineModals = await FineModalsRepository().fetchModals();
+      if (mounted) {
+        setState(() {
+          _branches = br;
+          _departments = dept;
+          _attendanceModals = att.map((m) => StaffModalOption(m.id, m.name)).toList();
+          _shiftModals = shift.map((m) => StaffModalOption(m.id, m.name)).toList();
+          _leaveModals = leave.map((m) => StaffModalOption(m.id, m.name)).toList();
+          _holidayModals = holiday.map((m) => StaffModalOption(m.id, m.name)).toList();
+          _salaryModals = salaryModals.map((m) => StaffModalOption(m.id, m.name)).toList();
+          _fineModals = fineModals.map((m) => StaffModalOption(m.id, m.name)).toList();
+        });
+        if (_attendanceModals.isNotEmpty && _selectedAttendanceModalId == null) {
+          _selectedAttendanceModalId = _attendanceModals.first.id;
+        }
+        if (_shiftModals.isNotEmpty && _selectedShiftModalId == null) {
+          _selectedShiftModalId = _shiftModals.first.id;
+        }
+        if (_leaveModals.isNotEmpty && _selectedLeaveModalId == null) {
+          _selectedLeaveModalId = _leaveModals.first.id;
+        }
+        if (_holidayModals.isNotEmpty && _selectedHolidayModalId == null) {
+          _selectedHolidayModalId = _holidayModals.first.id;
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _applyDepartmentTemplates(String departmentName) {
+    Department? d;
+    try {
+      d = _effectiveDepartments.firstWhere((x) => x.name == departmentName);
+    } catch (_) {
+      d = null;
+    }
+    if (d == null) return;
+    setState(() {
+      if (d!.attendanceModalId != null) _selectedAttendanceModalId = d.attendanceModalId;
+      if (d.shiftModalId != null) _selectedShiftModalId = d.shiftModalId;
+      if (d.leaveModalId != null) _selectedLeaveModalId = d.leaveModalId;
+      if (d.holidayModalId != null) _selectedHolidayModalId = d.holidayModalId;
+      if (d.salaryModalId != null) _selectedSalaryModalId = d.salaryModalId;
+      if (d.fineModalId != null) _selectedFineModalId = d.fineModalId;
+    });
+  }
+
+  Department? get _selectedDepartment {
+    if (_selectedDepartmentName == null || _selectedDepartmentName!.isEmpty) return null;
+    try {
+      return _effectiveDepartments.firstWhere((d) => d.name == _selectedDepartmentName);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// True when "Use department templates" is on, department is set, and all template selections match the department's templates.
+  bool get _allTemplatesMatchDepartment {
+    final d = _selectedDepartment;
+    if (d == null || !_useDepartmentTemplates) return false;
+    if (d.attendanceModalId != null && _selectedAttendanceModalId != d.attendanceModalId) return false;
+    if (d.attendanceModalId == null && _selectedAttendanceModalId != null) return false;
+    if (d.shiftModalId != _selectedShiftModalId) return false;
+    if (d.leaveModalId != _selectedLeaveModalId) return false;
+    if (d.holidayModalId != _selectedHolidayModalId) return false;
+    if (d.salaryModalId != _selectedSalaryModalId) return false;
+    if (d.fineModalId != _selectedFineModalId) return false;
+    return true;
+  }
+
+  bool _attendanceMatchesDepartment(Department d) =>
+      d.attendanceModalId == _selectedAttendanceModalId;
+  bool _shiftMatchesDepartment(Department d) =>
+      d.shiftModalId == _selectedShiftModalId;
+  bool _leaveMatchesDepartment(Department d) =>
+      d.leaveModalId == _selectedLeaveModalId;
+  bool _holidayMatchesDepartment(Department d) =>
+      d.holidayModalId == _selectedHolidayModalId;
+  bool _salaryMatchesDepartment(Department d) =>
+      d.salaryModalId == _selectedSalaryModalId;
+  bool _fineMatchesDepartment(Department d) =>
+      d.fineModalId == _selectedFineModalId;
+
+  Future<void> _loadStaffForEdit() async {
+    if (widget.initialStaffId == null) return;
+    setState(() => _loading = true);
+    try {
+      final s = await widget.staffRepo.getStaff(widget.initialStaffId!);
+      if (!mounted) return;
+      _name.text = s.name;
+      _email.text = s.email;
+      _phone.text = s.phone;
+      _employeeId.text = s.employeeId;
+      _designation.text = s.designation;
+      _joiningDate.text = s.joiningDate;
+      _selectedDepartmentName = s.department.isEmpty ? null : s.department;
+      _reportingManager.text = s.reportingManager ?? '';
+      _grossSalary.text = s.grossSalary != null ? s.grossSalary.toString() : '';
+      _netSalary.text = s.netSalary != null ? s.netSalary.toString() : '';
+      _dob.text = s.dob ?? '';
+      _addressLine1.text = s.addressLine1 ?? '';
+      _addressCity.text = s.addressCity ?? '';
+      _addressState.text = s.addressState ?? '';
+      _addressPostalCode.text = s.addressPostalCode ?? '';
+      _addressCountry.text = s.addressCountry ?? '';
+      _uan.text = s.uan ?? '';
+      _panNumber.text = s.panNumber ?? '';
+      _aadhaarNumber.text = s.aadhaarNumber ?? '';
+      _pfNumber.text = s.pfNumber ?? '';
+      _esiNumber.text = s.esiNumber ?? '';
+      _bankName.text = s.bankName ?? '';
+      _ifscCode.text = s.ifscCode ?? '';
+      _accountNumber.text = s.accountNumber ?? '';
+      _accountHolderName.text = s.accountHolderName ?? '';
+      _upiId.text = s.upiId ?? '';
+      _status = (s.status == 'active') ? 'active' : 'inactive';
+      _selectedRoleId = s.roleId;
+      _selectedBranchId = s.branchId;
+      _selectedAttendanceModalId = s.attendanceModalId;
+      _selectedShiftModalId = s.shiftModalId;
+      _selectedLeaveModalId = s.leaveModalId;
+      _selectedHolidayModalId = s.holidayModalId;
+      _selectedSalaryModalId = s.salaryModalId;
+      _selectedFineModalId = s.fineModalId;
+      _staffType = s.staffType;
+      _salaryCycle = s.salaryCycle;
+      _gender = s.gender;
+      _maritalStatus = s.maritalStatus;
+      _bloodGroup = s.bloodGroup;
+      _bankVerificationStatus = s.bankVerificationStatus ?? 'Pending';
+      setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString().replaceAll('StaffException: ', '');
+        });
+      }
+    }
   }
 
   @override
@@ -193,7 +391,12 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
           _limits = limits;
           _loading = false;
           if (_roles.isNotEmpty && _selectedRoleId == null) {
-            _selectedRoleId = _roles.first.id;
+            if (widget.isAdminCreation) {
+              final companyAdminList = _roles.where((r) => r.code.toUpperCase() == 'COMPANY_ADMIN').toList();
+              _selectedRoleId = companyAdminList.isNotEmpty ? companyAdminList.first.id : _roles.first.id;
+            } else {
+              _selectedRoleId = _roles.first.id;
+            }
           }
         });
       }
@@ -273,6 +476,8 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
         shiftModalId: _selectedShiftModalId,
         leaveModalId: _selectedLeaveModalId,
         holidayModalId: _selectedHolidayModalId,
+        salaryModalId: _selectedSalaryModalId,
+        fineModalId: _selectedFineModalId,
         staffType: _staffType,
         reportingManager: _reportingManager.text.trim().isEmpty ? null : _reportingManager.text.trim(),
         salaryCycle: _salaryCycle,
@@ -301,9 +506,86 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Staff created successfully')),
+          SnackBar(content: Text(widget.isAdminCreation ? 'Admin created successfully' : 'Staff created successfully')),
         );
-        Navigator.of(context).pop(true); // Return true to indicate success
+        widget.onBack();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(e.toString().replaceAll('StaffException: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _submitUpdate() async {
+    final name = _name.text.trim();
+    final email = _email.text.trim();
+    if (name.isEmpty || email.isEmpty) {
+      setState(() => _error = 'Name and email are required.');
+      return;
+    }
+    if (_selectedRoleId == null) {
+      setState(() => _error = 'Please select a role.');
+      return;
+    }
+    double? gross;
+    double? net;
+    try {
+      if (_grossSalary.text.trim().isNotEmpty) gross = double.tryParse(_grossSalary.text.trim());
+      if (_netSalary.text.trim().isNotEmpty) net = double.tryParse(_netSalary.text.trim());
+    } catch (_) {}
+    setState(() => _saving = true);
+    try {
+      await widget.staffRepo.updateStaff(
+        widget.initialStaffId!,
+        fullName: name,
+        phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+        department: _selectedDepartmentName,
+        designation: _designation.text.trim().isEmpty ? null : _designation.text.trim(),
+        roleId: _selectedRoleId!,
+        status: _status,
+        branchId: _selectedBranchId,
+        attendanceModalId: _selectedAttendanceModalId,
+        shiftModalId: _selectedShiftModalId,
+        leaveModalId: _selectedLeaveModalId,
+        holidayModalId: _selectedHolidayModalId,
+        salaryModalId: _selectedSalaryModalId,
+        fineModalId: _selectedFineModalId,
+        staffType: _staffType,
+        reportingManager: _reportingManager.text.trim().isEmpty ? null : _reportingManager.text.trim(),
+        salaryCycle: _salaryCycle,
+        grossSalary: gross,
+        netSalary: net,
+        gender: _gender,
+        dob: _dob.text.trim().isEmpty ? null : _dob.text.trim(),
+        maritalStatus: _maritalStatus,
+        bloodGroup: _bloodGroup,
+        addressLine1: _addressLine1.text.trim().isEmpty ? null : _addressLine1.text.trim(),
+        addressCity: _addressCity.text.trim().isEmpty ? null : _addressCity.text.trim(),
+        addressState: _addressState.text.trim().isEmpty ? null : _addressState.text.trim(),
+        addressPostalCode: _addressPostalCode.text.trim().isEmpty ? null : _addressPostalCode.text.trim(),
+        addressCountry: _addressCountry.text.trim().isEmpty ? null : _addressCountry.text.trim(),
+        uan: _uan.text.trim().isEmpty ? null : _uan.text.trim(),
+        panNumber: _panNumber.text.trim().isEmpty ? null : _panNumber.text.trim(),
+        aadhaarNumber: _aadhaarNumber.text.trim().isEmpty ? null : _aadhaarNumber.text.trim(),
+        pfNumber: _pfNumber.text.trim().isEmpty ? null : _pfNumber.text.trim(),
+        esiNumber: _esiNumber.text.trim().isEmpty ? null : _esiNumber.text.trim(),
+        bankName: _bankName.text.trim().isEmpty ? null : _bankName.text.trim(),
+        ifscCode: _ifscCode.text.trim().isEmpty ? null : _ifscCode.text.trim(),
+        accountNumber: _accountNumber.text.trim().isEmpty ? null : _accountNumber.text.trim(),
+        accountHolderName: _accountHolderName.text.trim().isEmpty ? null : _accountHolderName.text.trim(),
+        upiId: _upiId.text.trim().isEmpty ? null : _upiId.text.trim(),
+        bankVerificationStatus: _bankVerificationStatus,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Staff updated successfully')),
+        );
+        widget.onBack();
       }
     } catch (e) {
       if (mounted) {
@@ -329,10 +611,14 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_rounded, color: context.textColor),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => widget.onBack(),
         ),
         title: Text(
-          'Add New Staff',
+          _isEditMode
+              ? 'Edit Staff'
+              : widget.isAdminCreation
+                  ? 'Add Admin'
+                  : 'Add New Staff',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -353,14 +639,16 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: ElevatedButton.icon(
-                onPressed: (_loading ||
-                        !licenseActive ||
-                        (widget.attendanceModals.isNotEmpty &&
-                            _selectedAttendanceModalId == null))
-                    ? null
-                    : _submit,
+                onPressed: _isEditMode
+                    ? (_loading ? null : _submitUpdate)
+                    : (_loading ||
+                            !licenseActive ||
+                            (_effectiveAttendanceModals.isNotEmpty &&
+                                _selectedAttendanceModalId == null))
+                        ? null
+                        : _submit,
                 icon: Icon(Icons.check_rounded, size: 18),
-                label: const Text('Create Staff'),
+                label: Text(_isEditMode ? 'Update Staff' : widget.isAdminCreation ? 'Create Admin' : 'Create Staff'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: context.accentColor,
                   foregroundColor: Colors.white,
@@ -373,7 +661,7 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 1200),
                 child: Column(
@@ -511,7 +799,7 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: widget.departments.isEmpty
+                          child: _effectiveDepartments.isEmpty
                               ? TextField(
                                   onChanged: (_) {},
                                   decoration: const InputDecoration(
@@ -529,9 +817,14 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
                                   ),
                                   items: [
                                     const DropdownMenuItem<String?>(value: null, child: Text('—')),
-                                    ...widget.departments.where((d) => d.name != null).map((d) => DropdownMenuItem(value: d.name!, child: Text(d.name!))),
+                                    ..._effectiveDepartments.where((d) => d.name.isNotEmpty).map((d) => DropdownMenuItem(value: d.name, child: Text(d.name))),
                                   ],
-                                  onChanged: (v) => setState(() => _selectedDepartmentName = v),
+                                  onChanged: (v) {
+                                    setState(() {
+                                      _selectedDepartmentName = v;
+                                      if (_useDepartmentTemplates && v != null) _applyDepartmentTemplates(v);
+                                    });
+                                  },
                                 ),
                         ),
                       ],
@@ -551,16 +844,31 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: DropdownButtonFormField<int>(
-                            value: _selectedRoleId,
-                            decoration: const InputDecoration(
-                              labelText: 'Role *',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            items: _roles.map((r) => DropdownMenuItem(value: r.id, child: Text(r.name))).toList(),
-                            onChanged: (v) => setState(() => _selectedRoleId = v),
-                          ),
+                          child: widget.isAdminCreation
+                              ? InputDecorator(
+                                  decoration: const InputDecoration(
+                                    labelText: 'Role',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                  child: Text(
+                                    () {
+                                      final list = _roles.where((r) => r.id == _selectedRoleId).map((r) => r.name).toList();
+                                      return list.isEmpty ? 'Company Admin' : list.first;
+                                    }(),
+                                    style: TextStyle(color: context.textSecondaryColor, fontSize: 16),
+                                  ),
+                                )
+                              : DropdownButtonFormField<int>(
+                                  value: _selectedRoleId,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Role *',
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                  items: _roles.map((r) => DropdownMenuItem(value: r.id, child: Text(r.name))).toList(),
+                                  onChanged: (v) => setState(() => _selectedRoleId = v),
+                                ),
                         ),
                       ],
                     ),
@@ -582,43 +890,128 @@ class _CreateStaffPageState extends State<CreateStaffPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    if (widget.shiftModals.isNotEmpty)
+                    CheckboxListTile(
+                      value: _useDepartmentTemplates,
+                      onChanged: (v) {
+                        setState(() {
+                          _useDepartmentTemplates = v ?? false;
+                          if (_useDepartmentTemplates && _selectedDepartmentName != null) _applyDepartmentTemplates(_selectedDepartmentName!);
+                        });
+                      },
+                      title: Text('Use department templates', style: TextStyle(fontSize: 14, color: context.textColor)),
+                      subtitle: Text('When checked, templates from the selected department are applied above.', style: TextStyle(fontSize: 12, color: context.textMutedColor)),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
+                    if (_effectiveShiftModals.isNotEmpty) ...[
                       DropdownButtonFormField<int?>(
                         value: _selectedShiftModalId,
                         decoration: const InputDecoration(labelText: 'Shift', border: OutlineInputBorder(), isDense: true),
-                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ...widget.shiftModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._effectiveShiftModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
                         onChanged: (v) => setState(() => _selectedShiftModalId = v),
                       ),
-                    if (widget.shiftModals.isNotEmpty) const SizedBox(height: 8),
-                    if (widget.attendanceModals.isNotEmpty)
+                      if (_selectedDepartment != null && _useDepartmentTemplates && !_shiftMatchesDepartment(_selectedDepartment!)) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'This is not the default template of department ${_selectedDepartment!.name}.',
+                          style: TextStyle(fontSize: 12, color: Colors.purple.shade200),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                    if (_effectiveAttendanceModals.isNotEmpty) ...[
                       DropdownButtonFormField<int>(
                         value: _selectedAttendanceModalId,
                         decoration: const InputDecoration(labelText: 'Attendance Template *', border: OutlineInputBorder(), isDense: true),
-                        items: widget.attendanceModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name))).toList(),
+                        items: _effectiveAttendanceModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name))).toList(),
                         onChanged: (v) => setState(() => _selectedAttendanceModalId = v),
                       ),
-                    if (widget.attendanceModals.isNotEmpty) const SizedBox(height: 8),
-                    if (widget.leaveModals.isNotEmpty)
+                      if (_selectedDepartment != null && _useDepartmentTemplates && !_attendanceMatchesDepartment(_selectedDepartment!)) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'This is not the default template of department ${_selectedDepartment!.name}.',
+                          style: TextStyle(fontSize: 12, color: Colors.purple.shade200),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                    if (_effectiveLeaveModals.isNotEmpty) ...[
                       DropdownButtonFormField<int?>(
                         value: _selectedLeaveModalId,
                         decoration: const InputDecoration(labelText: 'Leave Template', border: OutlineInputBorder(), isDense: true),
-                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ...widget.leaveModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._effectiveLeaveModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
                         onChanged: (v) => setState(() => _selectedLeaveModalId = v),
                       ),
-                    if (widget.leaveModals.isNotEmpty) const SizedBox(height: 8),
-                    if (widget.holidayModals.isNotEmpty)
+                      if (_selectedDepartment != null && _useDepartmentTemplates && !_leaveMatchesDepartment(_selectedDepartment!)) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'This is not the default template of department ${_selectedDepartment!.name}.',
+                          style: TextStyle(fontSize: 12, color: Colors.purple.shade200),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                    if (_effectiveHolidayModals.isNotEmpty) ...[
                       DropdownButtonFormField<int?>(
                         value: _selectedHolidayModalId,
                         decoration: const InputDecoration(labelText: 'Holiday Template', border: OutlineInputBorder(), isDense: true),
-                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ...widget.holidayModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._effectiveHolidayModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
                         onChanged: (v) => setState(() => _selectedHolidayModalId = v),
                       ),
-                    if (widget.holidayModals.isNotEmpty) const SizedBox(height: 8),
-                    if (widget.branches.isNotEmpty)
+                      if (_selectedDepartment != null && _useDepartmentTemplates && !_holidayMatchesDepartment(_selectedDepartment!)) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'This is not the default template of department ${_selectedDepartment!.name}.',
+                          style: TextStyle(fontSize: 12, color: Colors.purple.shade200),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                    if (_effectiveSalaryModals.isNotEmpty) ...[
+                      DropdownButtonFormField<int?>(
+                        value: _selectedSalaryModalId,
+                        decoration: const InputDecoration(labelText: 'Salary Template', border: OutlineInputBorder(), isDense: true),
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._effectiveSalaryModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+                        onChanged: (v) => setState(() => _selectedSalaryModalId = v),
+                      ),
+                      if (_selectedDepartment != null && _useDepartmentTemplates && _selectedDepartment!.salaryModalId != null && !_salaryMatchesDepartment(_selectedDepartment!)) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'This is not the default template of department ${_selectedDepartment!.name}.',
+                          style: TextStyle(fontSize: 12, color: Colors.purple.shade200),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                    if (_effectiveFineModals.isNotEmpty) ...[
+                      DropdownButtonFormField<int?>(
+                        value: _selectedFineModalId,
+                        decoration: const InputDecoration(labelText: 'Fine Template', border: OutlineInputBorder(), isDense: true),
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._effectiveFineModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+                        onChanged: (v) => setState(() => _selectedFineModalId = v),
+                      ),
+                      if (_selectedDepartment != null && _useDepartmentTemplates && _selectedDepartment!.fineModalId != null && !_fineMatchesDepartment(_selectedDepartment!)) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'This is not the default template of department ${_selectedDepartment!.name}.',
+                          style: TextStyle(fontSize: 12, color: Colors.purple.shade200),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                    if (_allTemplatesMatchDepartment) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'These are the templates selected for this department.',
+                        style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                      ),
+                    ],
+                    if (_effectiveBranches.isNotEmpty)
                       DropdownButtonFormField<int?>(
                         value: _selectedBranchId,
                         decoration: const InputDecoration(labelText: 'Branch', border: OutlineInputBorder(), isDense: true),
-                        items: [const DropdownMenuItem<int?>(value: null, child: Text('—')), ...widget.branches.where((b) => b.id != null && b.branchName != null).map((b) => DropdownMenuItem(value: b.id!, child: Text(b.branchName!)))],
+                        items: [const DropdownMenuItem<int?>(value: null, child: Text('—')), ..._effectiveBranches.where((b) => b.branchName.isNotEmpty).map((b) => DropdownMenuItem(value: b.id, child: Text(b.branchName)))],
                         onChanged: (v) => setState(() => _selectedBranchId = v),
                       ),
                     _sectionTitle('Personal Information'),

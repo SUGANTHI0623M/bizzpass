@@ -71,21 +71,21 @@ class LicensesRepository {
     }
   }
 
-  /// Create a new license.
+  /// Create a new license. If [maxUsers]/[maxBranches] are null, backend uses plan defaults.
   Future<License> createLicense({
     required String subscriptionPlan,
-    required int maxUsers,
-    required int maxBranches,
-    required bool isTrial,
+    int? maxUsers,
+    int? maxBranches,
+    bool isTrial = false,
     String? notes,
   }) async {
     await _addAuthToken();
     final body = <String, dynamic>{
       'subscription_plan': subscriptionPlan,
-      'max_users': maxUsers,
-      'max_branches': maxBranches,
       'is_trial': isTrial,
     };
+    if (maxUsers != null) body['max_users'] = maxUsers;
+    if (maxBranches != null) body['max_branches'] = maxBranches;
     if (notes != null && notes.trim().isNotEmpty) body['notes'] = notes.trim();
 
     try {

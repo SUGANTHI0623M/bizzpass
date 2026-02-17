@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'bloc/auth_bloc.dart';
 import 'data/auth_repository.dart';
@@ -10,9 +11,14 @@ import 'theme/app_theme.dart';
 import 'widgets/app_shell.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/companies_page.dart';
+import 'pages/company_detail_page.dart';
 import 'pages/licenses_page.dart';
 import 'pages/payments_page.dart';
 import 'pages/staff_page.dart';
+import 'pages/create_staff_page.dart';
+import 'pages/staff_details_page.dart';
+import 'data/staff_repository.dart';
+import 'data/roles_repository.dart';
 import 'pages/attendance_page.dart';
 import 'pages/visitors_page.dart';
 import 'pages/notifications_page.dart';
@@ -29,10 +35,28 @@ import 'pages/tasks_placeholder_page.dart';
 import 'pages/payroll_page.dart';
 import 'pages/reports_placeholder_page.dart';
 import 'pages/subscription_page.dart';
+import 'pages/company_profile_page.dart';
+import 'pages/branch_detail_page.dart';
+import 'pages/user_management_page.dart';
+import 'pages/super_admin_user_management_page.dart';
+import 'pages/create_platform_admin_page.dart';
+import 'pages/integrations_page.dart';
+import 'pages/shifts_page.dart';
+import 'pages/holidays_settings_page.dart';
+import 'pages/designations_page.dart';
 import 'widgets/company_admin_shell.dart';
 import 'data/branches_repository.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Load saved theme before first frame so light theme applies immediately (no dark flash on refresh).
+  ThemeMode initialTheme = ThemeMode.dark;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('theme_mode') ?? 'dark';
+    initialTheme = saved == 'light' ? ThemeMode.light : ThemeMode.dark;
+  } catch (_) {}
+
   // Show a visible error instead of white screen if the app throws during build
   if (kDebugMode) {
     ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -64,7 +88,7 @@ void main() {
   runZonedGuarded(() {
     runApp(
       ChangeNotifierProvider(
-        create: (_) => ThemeNotifier(),
+        create: (_) => ThemeNotifier(initialTheme),
         child: const BizzPassApp(),
       ),
     );
@@ -291,6 +315,11 @@ class __CompanyAdminScreenStatefulState
   List<Branch> _branches = [];
   int? _selectedBranchId;
   String? _selectedBranchName;
+  Branch? _selectedBranchForDetail;
+  Branch? _initialEditBranch;
+  Branch? _branchForDetailAfterEdit;
+  int? _editStaffId;
+  int? _staffDetailId;
 
   @override
   void initState() {
@@ -313,21 +342,118 @@ class __CompanyAdminScreenStatefulState
   Widget _buildPage() {
     switch (_currentPage) {
       case 'dashboard':
-        return const NewCompanyAdminDashboard();
+        return NewCompanyAdminDashboard(
+          companyName: (widget.user['company_name'] as String?) ?? '',
+        );
       case 'staff':
         return StaffPage(
           enableCreate: true,
           branchId: _selectedBranchId,
           branchName: _selectedBranchName,
-        );
-      case 'branches':
-        return BranchesPage(
-          onSelectBranch: (id, name) => setState(() {
-            _selectedBranchId = id;
-            _selectedBranchName = name;
-            _currentPage = 'staff';
+          onAddStaff: () => setState(() => _currentPage = 'create-staff'),
+          onEditStaff: (s) => setState(() {
+            _editStaffId = s.id;
+            _currentPage = 'edit-staff';
+          }),
+          onViewStaff: (s) => setState(() {
+            _staffDetailId = s.id;
+            _currentPage = 'staff-detail';
           }),
         );
+      case 'create-staff':
+        return CreateStaffPage(
+          staffRepo: StaffRepository(),
+          rolesRepo: RolesRepository(),
+          onBack: () => setState(() => _currentPage = 'staff'),
+        );
+      case 'edit-staff':
+        return _editStaffId != null
+            ? CreateStaffPage(
+                staffRepo: StaffRepository(),
+                rolesRepo: RolesRepository(),
+                initialStaffId: _editStaffId,
+                onBack: () => setState(() {
+                  _editStaffId = null;
+                  _currentPage = 'staff';
+                }),
+              )
+            : const SizedBox.shrink();
+      case 'staff-detail':
+        return _staffDetailId != null
+            ? StaffDetailsPage(
+                staffId: _staffDetailId!,
+                onBack: () => setState(() {
+                  _staffDetailId = null;
+                  _currentPage = 'staff';
+                }),
+                onEdit: (staff) => setState(() {
+                  _editStaffId = staff.id;
+                  _currentPage = 'edit-staff';
+                }),
+                onStaffUpdated: () => setState(() {}),
+              )
+            : const SizedBox.shrink();
+      case 'branches':
+        final initialEdit = _initialEditBranch;
+        if (initialEdit != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _initialEditBranch = null);
+          });
+        }
+        return BranchesPage(
+          initialEditBranch: initialEdit,
+          onBranchTap: (branch) => setState(() {
+            _selectedBranchForDetail = branch;
+            _currentPage = 'branch-detail';
+          }),
+          onEditFormClosed: _branchForDetailAfterEdit != null
+              ? () => setState(() {
+                    _selectedBranchForDetail = _branchForDetailAfterEdit;
+                    _branchForDetailAfterEdit = null;
+                    _initialEditBranch = null;
+                    _currentPage = 'branch-detail';
+                  })
+              : null,
+        );
+      case 'branch-detail':
+        return _selectedBranchForDetail != null
+            ? BranchDetailPage(
+                branch: _selectedBranchForDetail!,
+                onBack: () => setState(() {
+                  _selectedBranchForDetail = null;
+                  _initialEditBranch = null;
+                  _branchForDetailAfterEdit = null;
+                  _currentPage = 'branches';
+                }),
+                onEdit: () => setState(() {
+                  _branchForDetailAfterEdit = _selectedBranchForDetail;
+                  _initialEditBranch = _selectedBranchForDetail;
+                  _selectedBranchForDetail = null;
+                  _currentPage = 'branches';
+                }),
+                onStatusChanged: () async {
+                  final branch = _selectedBranchForDetail!;
+                  try {
+                    await BranchesRepository().setBranchStatus(
+                      branch.id,
+                      branch.isActive ? 'inactive' : 'active',
+                    );
+                    await _loadBranchesIfAllowed();
+                    if (!mounted) return;
+                    final updated = _branches.where((b) => b.id == branch.id).toList();
+                    if (updated.isNotEmpty) {
+                      setState(() => _selectedBranchForDetail = updated.first);
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString())),
+                      );
+                    }
+                  }
+                },
+              )
+            : const SizedBox.shrink();
       case 'departments':
         return const DepartmentsPage();
       case 'roles':
@@ -346,12 +472,48 @@ class __CompanyAdminScreenStatefulState
         return const ReportsPlaceholderPage();
       case 'subscription':
         return const SubscriptionPage();
+      case 'profile':
+        return CompanyProfilePage(
+          onBack: () => setState(() => _currentPage = 'dashboard'),
+        );
       case 'settings':
-        return const SettingsPage();
+        return SettingsPage(
+          onNavigateToPage: (page) => setState(() => _currentPage = page),
+        );
+      case 'user-management':
+        return UserManagementPage(
+          onBack: () => setState(() => _currentPage = 'settings'),
+          onAddAdmin: () => setState(() => _currentPage = 'create-admin'),
+          onSelectAdmin: (staff) => setState(() {
+            _staffDetailId = staff.id;
+            _currentPage = 'staff-detail';
+          }),
+        );
+      case 'create-admin':
+        return CreateStaffPage(
+          staffRepo: StaffRepository(),
+          rolesRepo: RolesRepository(),
+          onBack: () => setState(() => _currentPage = 'user-management'),
+          isAdminCreation: true,
+        );
       case 'audit-logs':
         return const AuditLogsPage();
+      case 'shifts':
+        return ShiftsPage(
+          onBack: () => setState(() => _currentPage = 'settings'),
+        );
+      case 'holidays-settings':
+        return HolidaysSettingsPage(
+          onBack: () => setState(() => _currentPage = 'settings'),
+        );
+      case 'designations':
+        return DesignationsPage(
+          onBack: () => setState(() => _currentPage = 'settings'),
+        );
       default:
-        return const NewCompanyAdminDashboard();
+        return NewCompanyAdminDashboard(
+          companyName: (widget.user['company_name'] as String?) ?? '',
+        );
     }
   }
 
@@ -361,7 +523,13 @@ class __CompanyAdminScreenStatefulState
     final hasBranchView =
         permissions?.any((p) => p.toString() == 'branch.view') ?? false;
     return CompanyAdminShell(
-      activePage: _currentPage,
+      activePage: _currentPage == 'branch-detail'
+          ? 'branches'
+          : (_currentPage == 'create-staff' || _currentPage == 'edit-staff' || _currentPage == 'staff-detail')
+              ? 'staff'
+              : (_currentPage == 'user-management' || _currentPage == 'create-admin' || _currentPage == 'shifts' || _currentPage == 'holidays-settings' || _currentPage == 'designations')
+                  ? 'settings'
+                  : _currentPage,
       companyName: (widget.user['company_name'] as String?) ?? '',
       permissions: permissions,
       branches: hasBranchView ? _branches : null,
@@ -398,13 +566,37 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   String _currentPage = 'companies';
+  int? _companyDetailId;
+  bool _companyDetailIsEdit = false;
 
   Widget _buildPage() {
     switch (_currentPage) {
       case 'dashboard':
         return const DashboardPage();
       case 'companies':
-        return const CompaniesPage();
+        return CompaniesPage(
+          onViewCompany: (c) => setState(() {
+            _companyDetailId = c.id;
+            _companyDetailIsEdit = false;
+            _currentPage = 'company-detail';
+          }),
+          onEditCompany: (c) => setState(() {
+            _companyDetailId = c.id;
+            _companyDetailIsEdit = true;
+            _currentPage = 'company-detail';
+          }),
+        );
+      case 'company-detail':
+        return _companyDetailId != null
+            ? CompanyDetailPage(
+                companyId: _companyDetailId!,
+                initialIsEdit: _companyDetailIsEdit,
+                onBack: () => setState(() {
+                  _companyDetailId = null;
+                  _currentPage = 'companies';
+                }),
+              )
+            : const SizedBox.shrink();
       case 'licenses':
         return const LicensesPage();
       case 'payments':
@@ -419,8 +611,22 @@ class _MainScreenState extends State<MainScreen> {
         return const NotificationsPage();
       case 'plans':
         return const PlansPage();
+      case 'integrations':
+        return const IntegrationsPage();
       case 'settings':
-        return const SettingsPage();
+        return SettingsPage(
+          isSuperAdmin: true,
+          onNavigateToPage: (page) => setState(() => _currentPage = page),
+        );
+      case 'user-management':
+        return SuperAdminUserManagementPage(
+          onBack: () => setState(() => _currentPage = 'settings'),
+          onAddAdmin: () => setState(() => _currentPage = 'create-admin'),
+        );
+      case 'create-admin':
+        return CreatePlatformAdminPage(
+          onBack: () => setState(() => _currentPage = 'user-management'),
+        );
       default:
         return const DashboardPage();
     }
@@ -429,7 +635,11 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return AppShell(
-      activePage: _currentPage,
+      activePage: _currentPage == 'company-detail'
+          ? 'companies'
+          : (_currentPage == 'user-management' || _currentPage == 'create-admin')
+              ? 'settings'
+              : _currentPage,
       onPageChanged: (page) => setState(() => _currentPage = page),
       onLogout: () => context.read<AuthBloc>().add(AuthLogoutRequested()),
       child: AnimatedSwitcher(
@@ -453,3 +663,4 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 }
+

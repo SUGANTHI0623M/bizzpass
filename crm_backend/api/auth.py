@@ -1,4 +1,6 @@
-"""Auth routes: login (superadmin and company admin), JWT."""
+"""Auth routes: login (superadmin and company admin), JWT, password change via OTP."""
+import random
+import string
 from datetime import datetime, timedelta
 from typing import Annotated
 
@@ -14,6 +16,11 @@ from config.database import get_cursor
 router = APIRouter(prefix="/auth", tags=["auth"])
 security = HTTPBearer(auto_error=False)
 
+# In-memory OTP store: user_id -> {"otp": str, "expires_at": datetime}. For production use Redis/DB.
+_password_otp_store: dict[int, dict] = {}
+OTP_EXPIRE_MINUTES = 10
+OTP_LENGTH = 6
+
 
 class LoginRequest(BaseModel):
     """identifier: license key, email, or phone. Accept 'identifier' or 'email' for compatibility."""
@@ -25,6 +32,11 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     token: str
     user: dict
+
+
+class ChangePasswordWithOtpRequest(BaseModel):
+    otp: str
+    new_password: str
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -240,6 +252,50 @@ def get_current_user(
 def get_me(current_user: dict = Depends(get_current_user)):
     """Return current user info from JWT. Used by both Super Admin and Company Admin."""
     return {"user": current_user}
+
+
+def _generate_otp() -> str:
+    return "".join(random.choices(string.digits, k=OTP_LENGTH))
+
+
+@router.post("/request-password-otp")
+def request_password_otp(current_user: dict = Depends(get_current_user)):
+    """Send OTP to current user's email for password change. OTP is valid for 10 minutes."""
+    user_id = current_user["id"]
+    otp = _generate_otp()
+    expires_at = datetime.utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES)
+    _password_otp_store[user_id] = {"otp": otp, "expires_at": expires_at}
+    # TODO: send email with OTP (e.g. via SendGrid, SES). For now OTP is stored server-side only.
+    # In development you may log: logger.info("OTP for user %s: %s", user_id, otp)
+    return {"message": "OTP sent to your email. Check your inbox."}
+
+
+@router.post("/change-password-with-otp")
+def change_password_with_otp(
+    body: ChangePasswordWithOtpRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Verify OTP and set new password for current user."""
+    user_id = current_user["id"]
+    stored = _password_otp_store.get(user_id)
+    if not stored:
+        raise HTTPException(status_code=400, detail="No OTP requested or OTP expired. Request a new OTP.")
+    if datetime.utcnow() > stored["expires_at"]:
+        del _password_otp_store[user_id]
+        raise HTTPException(status_code=400, detail="OTP expired. Request a new OTP.")
+    if (body.otp or "").strip() != stored["otp"]:
+        raise HTTPException(status_code=400, detail="Invalid OTP.")
+    new_password = (body.new_password or "").strip()
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+    hashed = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
+    with get_cursor() as cur:
+        cur.execute(
+            "UPDATE users SET password = %s, updated_at = NOW() WHERE id = %s",
+            (hashed, user_id),
+        )
+    del _password_otp_store[user_id]
+    return {"message": "Password updated successfully."}
 
 
 def get_current_super_admin(

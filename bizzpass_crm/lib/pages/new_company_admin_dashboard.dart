@@ -6,7 +6,10 @@ import '../theme/app_theme.dart';
 import '../data/company_dashboard_repository.dart';
 
 class NewCompanyAdminDashboard extends StatefulWidget {
-  const NewCompanyAdminDashboard({super.key});
+  /// Company name to show in the welcome banner instead of user name.
+  final String companyName;
+
+  const NewCompanyAdminDashboard({super.key, this.companyName = ''});
 
   @override
   State<NewCompanyAdminDashboard> createState() => _NewCompanyAdminDashboardState();
@@ -138,7 +141,7 @@ class _NewCompanyAdminDashboardState extends State<NewCompanyAdminDashboard> {
     return Scaffold(
       backgroundColor: context.bgColor,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -397,6 +400,9 @@ class _NewCompanyAdminDashboardState extends State<NewCompanyAdminDashboard> {
   }
 
   Widget _buildWelcomeSection(DashboardOverview overview, DateTime now) {
+    final displayName = widget.companyName.isNotEmpty
+        ? widget.companyName
+        : 'Company';
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -413,9 +419,9 @@ class _NewCompanyAdminDashboardState extends State<NewCompanyAdminDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Welcome, Vasantha Kumar',
-                  style: TextStyle(
+                Text(
+                  displayName,
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,

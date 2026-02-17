@@ -30,8 +30,23 @@ class StaffPage extends StatefulWidget {
   /// When set, filter staff by this branch (e.g. when viewing a branch).
   final int? branchId;
   final String? branchName;
-  const StaffPage(
-      {super.key, this.enableCreate = false, this.branchId, this.branchName});
+
+  /// When set, Add Staff navigates to create-staff page (sidebar kept). Otherwise opens full-screen.
+  final VoidCallback? onAddStaff;
+  /// When set, Edit opens edit-staff page (sidebar kept). Otherwise opens edit dialog.
+  final void Function(Staff)? onEditStaff;
+  /// When set, View opens staff-detail page (sidebar kept). Otherwise pushes full-screen.
+  final void Function(Staff)? onViewStaff;
+
+  const StaffPage({
+    super.key,
+    this.enableCreate = false,
+    this.branchId,
+    this.branchName,
+    this.onAddStaff,
+    this.onEditStaff,
+    this.onViewStaff,
+  });
   @override
   State<StaffPage> createState() => _StaffPageState();
 }
@@ -158,6 +173,15 @@ class _StaffPageState extends State<StaffPage> {
     }).toList();
   }
 
+  static String _formatCreatedAt(String iso) {
+    try {
+      final dt = DateTime.parse(iso);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return iso;
+    }
+  }
+
   Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -185,11 +209,16 @@ class _StaffPageState extends State<StaffPage> {
   }
 
   void _openCreateStaff() {
+    if (widget.onAddStaff != null) {
+      widget.onAddStaff!();
+      return;
+    }
     Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (ctx) => CreateStaffPage(
           staffRepo: _repo,
           rolesRepo: _rolesRepo,
+          onBack: () => Navigator.of(ctx).pop(true),
           branches: _branches,
           departments: _departments,
           initialBranchId: _effectiveBranchId,
@@ -201,12 +230,35 @@ class _StaffPageState extends State<StaffPage> {
       ),
     ).then((result) {
       if (result == true && mounted) {
-        _load(); // Reload staff list after successful creation
+        _load();
       }
     });
   }
 
+  /// Wraps cell content so the entire cell is clickable (like branches). Full row tap opens staff details.
+  Widget _staffCellTap(Staff s, Widget child, {AlignmentGeometry alignment = Alignment.centerLeft}) {
+    if (!widget.enableCreate) return child;
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: InkWell(
+        onTap: () => _openStaffDetails(s),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        child: Align(
+          alignment: alignment,
+          child: child,
+        ),
+      ),
+    );
+  }
+
   void _openStaffDetails(Staff s) {
+    if (widget.onViewStaff != null) {
+      widget.onViewStaff!(s);
+      return;
+    }
     Navigator.of(context).push<Staff?>(
       MaterialPageRoute<Staff?>(
         builder: (ctx) => Scaffold(
@@ -256,7 +308,7 @@ class _StaffPageState extends State<StaffPage> {
   Widget build(BuildContext context) {
     final filtered = _filtered;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -278,7 +330,7 @@ class _StaffPageState extends State<StaffPage> {
                 ),
             ],
           ),
-          if (_editingStaff != null)
+          if (_editingStaff != null && widget.onEditStaff == null)
             _EditStaffDialog(
               staff: _editingStaff!,
               branches: _branches,
@@ -475,17 +527,18 @@ class _StaffPageState extends State<StaffPage> {
                 ],
                 const DataCol('Status'),
                 const DataCol('Joined'),
-                if (widget.enableCreate) const DataCol('Actions'),
+                const DataCol('Created at'),
               ],
               rows: filtered
                   .map((s) => DataRow(
+                        onSelectChanged: widget.enableCreate
+                            ? (_) => _openStaffDetails(s)
+                            : null,
                         cells: [
                           DataCell(
-                            InkWell(
-                              onTap: widget.enableCreate
-                                  ? () => _openStaffDetails(s)
-                                  : null,
-                              child: Row(children: [
+                            _staffCellTap(
+                              s,
+                              Row(children: [
                                 AvatarCircle(
                                     name: s.name, seed: s.id, round: true),
                                 const SizedBox(width: 10),
@@ -506,78 +559,17 @@ class _StaffPageState extends State<StaffPage> {
                               ]),
                             ),
                           ),
-                          if (!widget.enableCreate) DataCell(Text(s.company)),
-                          DataCell(Text(s.designation)),
-                          DataCell(Text(s.department)),
+                          if (!widget.enableCreate)
+                            DataCell(_staffCellTap(s, Text(s.company))),
+                          DataCell(_staffCellTap(s, Text(s.designation))),
+                          DataCell(_staffCellTap(s, Text(s.department))),
                           if (widget.enableCreate) ...[
-                            DataCell(Text(s.roleName ?? '—')),
-                            DataCell(Text(s.branchName ?? '—')),
+                            DataCell(_staffCellTap(s, Text(s.roleName ?? '—'))),
+                            DataCell(_staffCellTap(s, Text(s.branchName ?? '—'))),
                           ],
-                          DataCell(StatusBadge(status: s.status)),
-                          DataCell(Text(s.joiningDate)),
-                          if (widget.enableCreate)
-                            DataCell(Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.visibility_outlined,
-                                      size: 20),
-                                  onPressed: () => _openStaffDetails(s),
-                                  tooltip: 'View',
-                                ),
-                                IconButton(
-                                  icon:
-                                      const Icon(Icons.edit_outlined, size: 20),
-                                  onPressed: () =>
-                                      setState(() => _editingStaff = s),
-                                  tooltip: 'Edit',
-                                ),
-                                if (s.status == 'active')
-                                  IconButton(
-                                    icon: Icon(Icons.toggle_on_rounded,
-                                        size: 24, color: context.accentColor),
-                                    onPressed: () async {
-                                      try {
-                                        await _updateStaff(s.id,
-                                            status: 'inactive');
-                                        if (mounted)
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(const SnackBar(
-                                                  content: Text(
-                                                      'Staff deactivated')));
-                                      } catch (e) {
-                                        if (mounted)
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(SnackBar(
-                                                  content: Text(e.toString())));
-                                      }
-                                    },
-                                    tooltip: 'Deactivate',
-                                  )
-                                else
-                                  IconButton(
-                                    icon: const Icon(Icons.toggle_off_rounded,
-                                        size: 24),
-                                    onPressed: () async {
-                                      try {
-                                        await _updateStaff(s.id,
-                                            status: 'active');
-                                        if (mounted)
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(const SnackBar(
-                                                  content:
-                                                      Text('Staff activated')));
-                                      } catch (e) {
-                                        if (mounted)
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(SnackBar(
-                                                  content: Text(e.toString())));
-                                      }
-                                    },
-                                    tooltip: 'Activate',
-                                  ),
-                              ],
-                            )),
+                          DataCell(_staffCellTap(s, StatusBadge(status: s.status))),
+                          DataCell(_staffCellTap(s, Text(s.joiningDate))),
+                          DataCell(_staffCellTap(s, Text(s.createdAt != null && s.createdAt!.isNotEmpty ? _formatCreatedAt(s.createdAt!) : '—'))),
                         ],
                       ))
                   .toList(),

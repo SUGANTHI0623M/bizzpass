@@ -3,7 +3,7 @@ class ApiConstants {
   ApiConstants._();
 
   /// Base URL for crm_backend (Python FastAPI).
-  /// Use same host as app (localhost) for Flutter web to avoid cross-host issues.
+  /// Use same host as app (localTR to avoid cross-host issues.
   static const String baseUrl = 'http://localhost:8000';
 
   static const String authTokenKey = 'bizzpass_crm_auth_token';

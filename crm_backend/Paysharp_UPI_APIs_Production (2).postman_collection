@@ -1,0 +1,194 @@
+{
+	"info": {
+		"_postman_id": "8a2568d0-fcdc-4dde-bb5e-f39947229d61",
+		"name": "PaySharp - UPI APIs Production",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "27367169"
+	},
+	"item": [
+		{
+			"name": "Intent Url API",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR-PRODUCTION-API-TOKEN"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\"orderId\":\"APR891005\",\r\n\"amount\":500,\r\n\"customerId\":\"C_1112\",\r\n\"customerName\":\"Ram\",\r\n\"customerMobileNo\":\"\",\r\n\"customerEmail\":\"\",\r\n\"remarks\":\"InvoiceNo-APR8910005\"\r\n}"
+				},
+				"url": {
+					"raw": "https://api.paysharp.in/v1/upi/order/intent",
+					"protocol": "https",
+					"host": [
+						"api",
+						"paysharp",
+						"in"
+					],
+					"path": [
+						"v1",
+						"upi",
+						"order",
+						"intent"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Dynamic QR Code API",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR-PRODUCTION-API-TOKEN"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\"orderId\":\"APR8910005\",\r\n\"amount\":500,\r\n\"customerId\":\"C_1112\",\r\n\"customerName\":\"Ram\",\r\n\"customerMobileNo\":\"\",\r\n\"customerEmail\":\"\",\r\n\"remarks\":\"InvoiceNo-APR8910005\"\r\n}"
+				},
+				"url": {
+					"raw": "https://api.paysharp.in/v1/upi/order/qrcode",
+					"protocol": "https",
+					"host": [
+						"api",
+						"paysharp",
+						"in"
+					],
+					"path": [
+						"v1",
+						"upi",
+						"order",
+						"qrcode"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Collection Request API",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR-PRODUCTION-API-TOKEN"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\"orderId\":\"APR8910000005\",\r\n\"amount\":500,\r\n\"customerVPA\":\"pstest2@yesb\",\r\n\"customerId\":\"C_1112\",\r\n\"customerName\":\"Ram\",\r\n\"customerMobileNo\":\"\",\r\n\"customerEmail\":\"\",\r\n\"remarks\":\"InvoiceNo-APR8910005\"\r\n}"
+				},
+				"url": {
+					"raw": "https://api.paysharp.in/v1/upi/order/request",
+					"protocol": "https",
+					"host": [
+						"api",
+						"paysharp",
+						"in"
+					],
+					"path": [
+						"v1",
+						"upi",
+						"order",
+						"request"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Order Status API",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true,
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR-PRODUCTION-API-TOKEN"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "https://api.paysharp.in/v1/upi/order/APR89105",
+					"protocol": "https",
+					"host": [
+						"api",
+						"paysharp",
+						"in"
+					],
+					"path": [
+						"v1",
+						"upi",
+						"order",
+						"APR89105"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Validate VPA API",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR-PRODUCTION-API-TOKEN"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n \"customerVPA\" : \"pstest2@yesb\"\r\n}\r\n"
+				},
+				"url": {
+					"raw": "https://api.paysharp.in/v1/upi/vpa/validate",
+					"protocol": "https",
+					"host": [
+						"api",
+						"paysharp",
+						"in"
+					],
+					"path": [
+						"v1",
+						"upi",
+						"vpa",
+						"validate"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

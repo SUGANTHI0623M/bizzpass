@@ -44,22 +44,27 @@ class AppColorsLight {
 
 // Theme Notifier
 class ThemeNotifier extends ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode _themeMode;
   static const String _themeKey = 'theme_mode';
 
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 
-  ThemeNotifier() {
-    _loadTheme();
+  /// [initialMode] should be the theme loaded from storage before runApp
+  /// so the first frame uses the correct theme (no dark flash on refresh).
+  ThemeNotifier([ThemeMode? initialMode]) : _themeMode = initialMode ?? ThemeMode.dark {
+    _loadTheme(); // sync from storage (no extra notify if same)
   }
 
   Future<void> _loadTheme() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedTheme = prefs.getString(_themeKey) ?? 'dark';
-      _themeMode = savedTheme == 'light' ? ThemeMode.light : ThemeMode.dark;
-      notifyListeners();
+      final mode = savedTheme == 'light' ? ThemeMode.light : ThemeMode.dark;
+      if (_themeMode != mode) {
+        _themeMode = mode;
+        notifyListeners();
+      }
     } catch (_) {}
   }
 

@@ -347,7 +347,7 @@ class _PayrollSettingsConfigPageState extends State<PayrollSettingsConfigPage> {
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(28),
+                      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

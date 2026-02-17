@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_days: int = 30
 
+    # Integrations - encryption key for Paysharp/Email secrets (32 bytes base64)
+    integration_encryption_key: str = ""
+
     # Cloudinary
     cloudinary_cloud_name: str = "dyi7xoqhy"
     cloudinary_api_key: str = "587679965546116"

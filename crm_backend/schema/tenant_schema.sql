@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS branches (
     email               VARCHAR(255) NULL,
     contact_number      VARCHAR(50) NULL,
     country_code        VARCHAR(10) NULL,
+    address_apt_building TEXT NULL,
     address_street      TEXT NULL,
     address_city        VARCHAR(100) NULL,
     address_state       VARCHAR(100) NULL,

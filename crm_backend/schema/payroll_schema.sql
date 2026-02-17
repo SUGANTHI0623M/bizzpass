@@ -34,6 +34,40 @@ CREATE INDEX IF NOT EXISTS idx_salary_components_company ON salary_components(co
 CREATE INDEX IF NOT EXISTS idx_salary_components_type ON salary_components(type);
 
 -- ============================================================================
+-- 1b. SALARY MODALS (Templates: name, description, set of salary components)
+--     Assignable to department or staff for industry/department-specific salary structures.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS salary_modals (
+    id                  BIGSERIAL PRIMARY KEY,
+    company_id          VARCHAR(24) NOT NULL,
+    name                VARCHAR(255) NOT NULL,
+    description         TEXT NULL,
+    is_active           BOOLEAN DEFAULT TRUE,
+    created_at          TIMESTAMP DEFAULT NOW(),
+    updated_at          TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_salary_modals_company ON salary_modals(company_id);
+
+-- Links a salary modal to salary components (many components per modal).
+-- Optional overrides allow template-specific value, taxable, statutory per component.
+CREATE TABLE IF NOT EXISTS salary_modal_components (
+    id                          BIGSERIAL PRIMARY KEY,
+    salary_modal_id             BIGINT NOT NULL REFERENCES salary_modals(id) ON DELETE CASCADE,
+    salary_component_id         BIGINT NOT NULL,
+    display_order               INTEGER DEFAULT 0,
+    type_override               VARCHAR(20) NULL,
+    calculation_type_override   VARCHAR(50) NULL,
+    calculation_value_override  DOUBLE PRECISION NULL,
+    is_taxable_override         BOOLEAN NULL,
+    is_statutory_override       BOOLEAN NULL,
+    created_at                  TIMESTAMP DEFAULT NOW(),
+    UNIQUE(salary_modal_id, salary_component_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_salary_modal_components_modal ON salary_modal_components(salary_modal_id);
+
+-- ============================================================================
 -- 2. PAYROLL SETTINGS (Company-wide configuration)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS payroll_settings (
@@ -61,12 +95,17 @@ CREATE TABLE IF NOT EXISTS payroll_settings (
     lop_calculation_method      VARCHAR(50) DEFAULT 'per_day',    -- 'per_day', 'per_hour', 'progressive'
     lop_deduction_multiplier    DOUBLE PRECISION DEFAULT 1.0,     -- 1.0 = normal, 2.0 = double deduction
     grace_days_per_month        INTEGER DEFAULT 0,
+    grace_config                JSONB NULL,                       -- Company-level grace: lateLogin, earlyLogout rules
     late_coming_rules           JSONB NULL,                       -- Grace minutes, penalties
     half_day_rules              JSONB NULL,                       -- Entry after X, exit before Y
     
     -- Overtime Configuration
     overtime_enabled            BOOLEAN DEFAULT FALSE,
     overtime_calculation_basis   VARCHAR(30) DEFAULT 'hourly',     -- 'hourly', 'daily'
+    overtime_calculation_method VARCHAR(40) DEFAULT 'fixed_amount', -- 'fixed_amount', 'gross_pay_multiplier', 'basic_pay_multiplier'
+    overtime_fixed_amount_per_hour DOUBLE PRECISION NULL,
+    overtime_gross_pay_multiplier  DOUBLE PRECISION NULL,
+    overtime_basic_pay_multiplier  DOUBLE PRECISION NULL,
     weekday_ot_multiplier       DOUBLE PRECISION DEFAULT 1.5,
     weekend_ot_multiplier       DOUBLE PRECISION DEFAULT 2.0,
     holiday_ot_multiplier       DOUBLE PRECISION DEFAULT 2.5,
@@ -125,6 +164,25 @@ CREATE TABLE IF NOT EXISTS payroll_settings (
     created_at                  TIMESTAMP DEFAULT NOW(),
     updated_at                  TIMESTAMP DEFAULT NOW()
 );
+
+-- ============================================================================
+-- 2b. OVERTIME TEMPLATES (Multiple customizable templates per company)
+-- ============================================================================
+-- Universal config: calculationBase, tieredRates, caps, eligibility, approvalWorkflow, paymentOptions
+CREATE TABLE IF NOT EXISTS overtime_templates (
+    id                      BIGSERIAL PRIMARY KEY,
+    company_id              VARCHAR(24) NOT NULL,
+    name                    VARCHAR(255) NOT NULL,                -- e.g. "Manufacturing", "IT Standard", "Custom"
+    company_type            VARCHAR(50) DEFAULT 'custom',        -- manufacturing, it, healthcare, retail, corporate, custom
+    is_default              BOOLEAN DEFAULT FALSE,                -- one default per company
+    config                  JSONB NOT NULL DEFAULT '{}',         -- full universal template (see below)
+    created_at              TIMESTAMP DEFAULT NOW(),
+    updated_at              TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_overtime_templates_company ON overtime_templates(company_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_overtime_templates_company_default
+    ON overtime_templates(company_id) WHERE is_default = TRUE;
 
 -- ============================================================================
 -- 3. EMPLOYEE SALARY STRUCTURE (Individual assignments)

@@ -74,7 +74,7 @@ class _DashboardPageState extends State<DashboardPage> {
             children: [
               Text(_error!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textSecondary)),
+                  style: TextStyle(color: context.textSecondaryColor)),
               const SizedBox(height: 16),
               TextButton(onPressed: _load, child: const Text('Retry')),
             ],
@@ -91,7 +91,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final expiredLicenses = s.expiredLicenses;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -121,7 +121,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   sub: '$totalCompanies total registered',
                   trend: '+12%',
                   trendUp: true,
-                  accentColor: AppColors.accent.withOpacity(0.12),
+                  accentColor: context.accentColor.withOpacity(0.12),
                 ),
                 StatCard(
                   icon: Icons.vpn_key_rounded,
@@ -130,7 +130,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   sub: '$expiredLicenses expired',
                   trend: '+3',
                   trendUp: true,
-                  accentColor: AppColors.success.withOpacity(0.12),
+                  accentColor: context.successColor.withOpacity(0.12),
                 ),
                 StatCard(
                   icon: Icons.currency_rupee_rounded,
@@ -139,7 +139,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   sub: '${s.paymentCount} transactions',
                   trend: '+18%',
                   trendUp: true,
-                  accentColor: AppColors.info.withOpacity(0.12),
+                  accentColor: context.infoColor.withOpacity(0.12),
                 ),
                 StatCard(
                   icon: Icons.people_rounded,
@@ -148,7 +148,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   sub: 'Across all companies',
                   trend: '+8%',
                   trendUp: true,
-                  accentColor: AppColors.warning.withOpacity(0.12),
+                  accentColor: context.warningColor.withOpacity(0.12),
                 ),
               ],
             );
@@ -195,9 +195,9 @@ class _DashboardPageState extends State<DashboardPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,25 +205,25 @@ class _DashboardPageState extends State<DashboardPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Companies',
+              Text('Companies',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.text,
+                    color: context.textColor,
                   )),
               Text('${_companies.length} total',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textMuted,
+                    color: context.textMutedColor,
                   )),
             ],
           ),
           const SizedBox(height: 16),
           if (_companies.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
+              Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text('No companies yet.',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                  style: TextStyle(color: context.textMutedColor, fontSize: 13)),
             )
           else
             ..._companies.take(10).map((c) => Padding(
@@ -234,11 +234,11 @@ class _DashboardPageState extends State<DashboardPage> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: AppColors.accent.withOpacity(0.12),
+                          color: context.accentColor.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.business_rounded,
-                            color: AppColors.accent, size: 20),
+                        child: Icon(Icons.business_rounded,
+                            color: context.accentColor, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -246,17 +246,17 @@ class _DashboardPageState extends State<DashboardPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(c.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.text,
+                                  color: context.textColor,
                                 ),
                                 overflow: TextOverflow.ellipsis),
                             Text(
                                 '${c.staffCount} staff · ${c.subscriptionPlan}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.textMuted,
+                                  color: context.textMutedColor,
                                 )),
                           ],
                         ),
@@ -266,8 +266,8 @@ class _DashboardPageState extends State<DashboardPage> {
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: c.subscriptionStatus == 'active'
-                                ? AppColors.success
-                                : AppColors.textMuted,
+                                ? context.successColor
+                                : context.textMutedColor,
                           )),
                     ],
                   ),
@@ -276,9 +276,9 @@ class _DashboardPageState extends State<DashboardPage> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text('+ ${_companies.length - 10} more',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textMuted,
+                    color: context.textMutedColor,
                   )),
             ),
         ],
@@ -296,11 +296,11 @@ class _DashboardPageState extends State<DashboardPage> {
     final total = byPlan.values.fold<int>(0, (a, b) => a + b);
     Color planColor(String name) {
       final n = name.toLowerCase();
-      if (n.contains('enterprise')) return AppColors.accent;
+      if (n.contains('enterprise')) return context.accentColor;
       if (n.contains('professional') || n.contains('pro'))
-        return AppColors.info;
-      if (n.contains('starter')) return AppColors.warning;
-      return AppColors.textMuted;
+        return context.infoColor;
+      if (n.contains('starter')) return context.warningColor;
+      return context.textMutedColor;
     }
 
     final revenueData = byPlan.entries.map((e) {
@@ -308,24 +308,24 @@ class _DashboardPageState extends State<DashboardPage> {
       return _RevItem(e.key, e.value, pct, planColor(e.key));
     }).toList();
     if (revenueData.isEmpty) {
-      revenueData.add(const _RevItem('—', 0, 0, AppColors.textMuted));
+      revenueData.add(_RevItem('—', 0, 0, context.textMutedColor));
     }
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Revenue by Plan',
+          Text('Revenue by Plan',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: AppColors.text,
+                color: context.textColor,
               )),
           const SizedBox(height: 18),
           ...revenueData.map((r) => Padding(
@@ -336,15 +336,15 @@ class _DashboardPageState extends State<DashboardPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(r.plan,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.textSecondary,
+                              color: context.textSecondaryColor,
                               fontWeight: FontWeight.w500,
                             )),
                         Text(fmtINR(r.amount),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.textMuted,
+                              color: context.textMutedColor,
                               fontWeight: FontWeight.w600,
                             )),
                       ],
@@ -355,7 +355,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: LinearProgressIndicator(
                         value: r.pct / 100,
                         minHeight: 6,
-                        backgroundColor: AppColors.border,
+                        backgroundColor: context.borderColor,
                         color: r.color,
                       ),
                     ),
@@ -375,7 +375,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Icons.credit_card_rounded,
           '${p.company} paid ${fmtINR(p.amount)}',
           _timeAgo(p.paidAt),
-          AppColors.success,
+          context.successColor,
         ));
       }
     }
@@ -385,41 +385,41 @@ class _DashboardPageState extends State<DashboardPage> {
           Icons.shield_rounded,
           '${l.company ?? "License"} license suspended',
           '—',
-          AppColors.danger,
+          context.dangerColor,
         ));
       }
     }
     if (activities.isEmpty) {
-      activities.add(const _Activity(
+      activities.add(_Activity(
         Icons.inbox_rounded,
         'No recent activity',
         '—',
-        AppColors.textMuted,
+        context.textMutedColor,
       ));
     }
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Recent Activity',
+          Text('Recent Activity',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: AppColors.text,
+                color: context.textColor,
               )),
           const SizedBox(height: 18),
           ...activities.map((a) => Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.cardHover,
+                  color: context.cardHoverColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -439,15 +439,15 @@ class _DashboardPageState extends State<DashboardPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(a.text,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: AppColors.textSecondary,
+                                color: context.textSecondaryColor,
                                 fontWeight: FontWeight.w500,
                               ),
                               overflow: TextOverflow.ellipsis),
                           Text(a.time,
-                              style: const TextStyle(
-                                  fontSize: 11, color: AppColors.textDim)),
+                              style: TextStyle(
+                                  fontSize: 11, color: context.textDimColor)),
                         ],
                       ),
                     ),
@@ -462,27 +462,27 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildLicenseHealth() {
     final s = _stats!;
     final items = [
-      _HealthItem('Active', s.activeLicenses, AppColors.success),
-      _HealthItem('Expired', s.expiredLicenses, AppColors.danger),
-      _HealthItem('Suspended', s.suspendedLicenses, const Color(0xFFF97316)),
-      _HealthItem('Unassigned', s.unassignedLicenses, AppColors.textMuted),
+      _HealthItem('Active', s.activeLicenses, context.successColor),
+      _HealthItem('Expired', s.expiredLicenses, context.dangerColor),
+      _HealthItem('Suspended', s.suspendedLicenses, context.warningColor),
+      _HealthItem('Unassigned', s.unassignedLicenses, context.textMutedColor),
     ];
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('License Health Overview',
+          Text('License Health Overview',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: AppColors.text,
+                color: context.textColor,
               )),
           const SizedBox(height: 18),
           LayoutBuilder(builder: (context, constraints) {
@@ -513,10 +513,10 @@ class _DashboardPageState extends State<DashboardPage> {
                                 )),
                             const SizedBox(height: 4),
                             Text(s.label,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.textMuted,
+                                  color: context.textMutedColor,
                                 )),
                           ],
                         ),

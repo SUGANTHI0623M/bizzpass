@@ -24,12 +24,18 @@ services:
       dockerfile: crm_backend/Dockerfile
     container_name: crm_backend
     restart: unless-stopped
+    dns: [8.8.8.8, 8.8.4.4]
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: bizzpass
       DB_USER: dev
       DB_PASSWORD: dev1234
+      # Paysharp: try Secret as Bearer token (some dashboards use Secret for API auth)
+      PAYSHARP_TOKEN: v24d4364c231b718d8307243d32e0d7ee19b8dd358be31da4750a8c00ec3c6c671
+      PAYSHARP_API_KEY: 8C57EFD4EE4C27C4CDDDC31F66E83939
+      PAYSHARP_SECRET: v24d4364c231b718d8307243d32e0d7ee19b8dd358be31da4750a8c00ec3c6c671
+      PAYSHARP_MERCHANT_ID: PM2303RPRGE8TUS6
       CLOUDINARY_CLOUD_NAME: dyi7xoqhy
       CLOUDINARY_API_KEY: 587679965546116
       CLOUDINARY_API_SECRET: SnmyCwCyL1rjiMMGlmOeR7kHttI

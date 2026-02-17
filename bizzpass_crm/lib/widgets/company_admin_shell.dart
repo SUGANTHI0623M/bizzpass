@@ -25,21 +25,6 @@ const companyNavItems = [
       icon: Icons.people_rounded,
       permission: 'user.view'),
   CompanyNavItem(
-      id: 'branches',
-      label: 'Branches',
-      icon: Icons.business_rounded,
-      permission: 'branch.view'),
-  CompanyNavItem(
-      id: 'departments',
-      label: 'Departments',
-      icon: Icons.category_rounded,
-      permission: 'department.view'),
-  CompanyNavItem(
-      id: 'roles',
-      label: 'Roles & Permissions',
-      icon: Icons.admin_panel_settings_rounded,
-      permission: 'role.view'),
-  CompanyNavItem(
       id: 'attendance',
       label: 'Attendance',
       icon: Icons.calendar_today_rounded,
@@ -132,6 +117,26 @@ class _CompanyAdminShellState extends State<CompanyAdminShell> {
   bool _collapsed = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
 
+  static const Map<String, String> _settingsSubPageTitles = {
+    'branches': 'Branches',
+    'departments': 'Departments',
+    'roles': 'Roles & Permissions',
+    'user-management': 'User Management',
+  };
+
+  String _headerTitle(String activePage, List<dynamic>? permissions) {
+    if (activePage == 'profile') return 'Company Profile';
+    final subTitle = _settingsSubPageTitles[activePage];
+    if (subTitle != null) return subTitle;
+    final items = companyNavItemsForPermissions(permissions);
+    return items
+        .firstWhere(
+          (n) => n.id == activePage,
+          orElse: () => items.first,
+        )
+        .label;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width > 768;
@@ -194,12 +199,7 @@ class _CompanyAdminShellState extends State<CompanyAdminShell> {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          companyNavItemsForPermissions(widget.permissions)
-                              .firstWhere((n) => n.id == widget.activePage,
-                                  orElse: () => companyNavItemsForPermissions(
-                                          widget.permissions)
-                                      .first)
-                              .label,
+                          _headerTitle(widget.activePage, widget.permissions),
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -218,19 +218,29 @@ class _CompanyAdminShellState extends State<CompanyAdminShell> {
                               widget.onPageChanged('branches'),
                         ),
                       if (widget.companyName.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: context.accentColor.withOpacity(0.1),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => widget.onPageChanged('profile'),
                             borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            widget.companyName,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: context.accentColor,
+                            child: Tooltip(
+                              message: 'Company profile',
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: context.accentColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  widget.companyName,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: context.accentColor,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -279,7 +289,9 @@ class _CompanyAdminShellState extends State<CompanyAdminShell> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Company Portal!!',
+                      widget.companyName.isNotEmpty
+                          ? widget.companyName
+                          : 'Company Portal',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,

@@ -3,6 +3,13 @@ import '../core/constants.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../data/departments_repository.dart';
+import '../data/attendance_modals_repository.dart';
+import '../data/shift_modals_repository.dart';
+import '../data/leave_modals_repository.dart';
+import '../data/holiday_modals_repository.dart';
+import '../data/payroll_repository.dart';
+import '../data/fine_modals_repository.dart';
+import '../data/mock_data.dart';
 
 class DepartmentsPage extends StatefulWidget {
   const DepartmentsPage({super.key});
@@ -16,7 +23,9 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
   List<Department> _departments = [];
   bool _loading = true;
   String? _error;
-  bool _showCreateDialog = false;
+  /// When true, show Add/Edit form as a separate screen (with Back). When false, show list.
+  bool _showingFormScreen = false;
+  /// When on form screen: null = Add department, non-null = Edit this department.
   Department? _editingDepartment;
   String _search = '';
   bool? _filterActive; // null = all, true = active, false = inactive
@@ -53,60 +62,43 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
     }
   }
 
-  Future<void> _deleteDepartment(Department dept) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete department'),
-        content: Text('Delete "${dept.name}"?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text('Delete', style: TextStyle(color: ctx.dangerColor))),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted) return;
+  static String _formatCreatedAt(String iso) {
     try {
-      await _repo.deleteDepartment(dept.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Department deleted')));
-        _load();
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      final dt = DateTime.parse(iso);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return iso;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_showingFormScreen) {
+      return _DepartmentFormScreen(
+        department: _editingDepartment,
+        repo: _repo,
+        onBack: () => setState(() {
+          _showingFormScreen = false;
+          _editingDepartment = null;
+        }),
+        onSaved: () {
+          setState(() {
+            _showingFormScreen = false;
+            _editingDepartment = null;
+          });
+          _load();
+        },
+      );
+    }
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SectionHeader(
             title: 'Manage departments',
-            subtitle: 'Add, edit, or delete departments.',
+            subtitle: 'Add, edit, or set active/inactive for departments.',
           ),
-          if (_showCreateDialog)
-            _DepartmentFormDialog(
-              onClose: () => setState(() => _showCreateDialog = false),
-              onSaved: () {
-                setState(() => _showCreateDialog = false);
-                _load();
-              },
-              repo: _repo,
-            ),
-          if (_editingDepartment != null)
-            _DepartmentFormDialog(
-              department: _editingDepartment,
-              onClose: () => setState(() => _editingDepartment = null),
-              onSaved: () {
-                setState(() => _editingDepartment = null);
-                _load();
-              },
-              repo: _repo,
-            ),
           if (_error != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -136,7 +128,10 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
           Row(
             children: [
               ElevatedButton.icon(
-                onPressed: () => setState(() => _showCreateDialog = true),
+                onPressed: () => setState(() {
+                  _showingFormScreen = true;
+                  _editingDepartment = null;
+                }),
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('Add department'),
               ),
@@ -192,26 +187,20 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
             const Center(child: Padding(padding: EdgeInsets.all(48), child: CircularProgressIndicator()))
           else
             AppDataTable(
-              columns: const [DataCol('Name'), DataCol('Status'), DataCol('Actions')],
+              columns: const [DataCol('Name'), DataCol('Status'), DataCol('Created at'), DataCol('Actions')],
               rows: _departments
                   .map((d) => DataRow(
                         cells: [
                           DataCell(Text(d.name)),
                           DataCell(Text(d.active ? 'Active' : 'Inactive')),
-                          DataCell(Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit_outlined, size: 20),
-                                onPressed: () => setState(() => _editingDepartment = d),
-                                tooltip: 'Edit',
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                                onPressed: () => _deleteDepartment(d),
-                                tooltip: 'Delete',
-                              ),
-                            ],
+                          DataCell(Text(d.createdAt != null && d.createdAt!.isNotEmpty ? _formatCreatedAt(d.createdAt!) : '—')),
+                          DataCell(IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            onPressed: () => setState(() {
+                              _showingFormScreen = true;
+                              _editingDepartment = d;
+                            }),
+                            tooltip: 'Edit',
                           )),
                         ],
                       ))
@@ -223,17 +212,65 @@ class _DepartmentsPageState extends State<DepartmentsPage> {
   }
 }
 
+/// Full-screen Add/Edit department form with Back button in the app bar.
+class _DepartmentFormScreen extends StatelessWidget {
+  final Department? department;
+  final DepartmentsRepository repo;
+  final VoidCallback onBack;
+  final VoidCallback onSaved;
+
+  const _DepartmentFormScreen({
+    this.department,
+    required this.repo,
+    required this.onBack,
+    required this.onSaved,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: context.bgColor,
+      appBar: AppBar(
+        backgroundColor: context.bgColor,
+        foregroundColor: context.textColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: onBack,
+          tooltip: 'Back',
+        ),
+        title: Text(
+          department != null ? 'Edit department' : 'Add department',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.textColor),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
+        child: _DepartmentFormDialog(
+          department: department,
+          onClose: onBack,
+          onSaved: onSaved,
+          repo: repo,
+          showHeader: false,
+        ),
+      ),
+    );
+  }
+}
+
 class _DepartmentFormDialog extends StatefulWidget {
   final Department? department;
   final VoidCallback onClose;
   final VoidCallback onSaved;
   final DepartmentsRepository repo;
+  final bool showHeader;
 
   const _DepartmentFormDialog({
     this.department,
     required this.onClose,
     required this.onSaved,
     required this.repo,
+    this.showHeader = true,
   });
 
   @override
@@ -244,6 +281,21 @@ class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
   final _name = TextEditingController();
   bool _saving = false;
   late bool _active;
+  int? _attendanceModalId;
+  int? _overtimeTemplateId;
+  int? _leaveModalId;
+  int? _shiftModalId;
+  int? _holidayModalId;
+  int? _salaryModalId;
+  int? _fineModalId;
+  List<AttendanceModal> _attendanceModals = [];
+  List<ShiftModal> _shiftModals = [];
+  List<LeaveModal> _leaveModals = [];
+  List<HolidayModal> _holidayModals = [];
+  List<Map<String, dynamic>> _overtimeTemplates = [];
+  List<SalaryModal> _salaryModals = [];
+  List<FineModal> _fineModals = [];
+  bool _loadingTemplates = true;
 
   @override
   void initState() {
@@ -251,8 +303,47 @@ class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
     if (widget.department != null) {
       _name.text = widget.department!.name;
       _active = widget.department!.active;
+      _attendanceModalId = widget.department!.attendanceModalId;
+      _overtimeTemplateId = widget.department!.overtimeTemplateId;
+      _leaveModalId = widget.department!.leaveModalId;
+      _shiftModalId = widget.department!.shiftModalId;
+      _holidayModalId = widget.department!.holidayModalId;
+      _salaryModalId = widget.department!.salaryModalId;
+      _fineModalId = widget.department!.fineModalId;
     } else {
       _active = true;
+    }
+    _loadTemplates();
+  }
+
+  Future<void> _loadTemplates() async {
+    final attRepo = AttendanceModalsRepository();
+    final shiftRepo = ShiftModalsRepository();
+    final leaveRepo = LeaveModalsRepository();
+    final holidayRepo = HolidayModalsRepository();
+    final payrollRepo = PayrollRepository();
+    // Load each list independently so one API failure does not leave all dropdowns empty
+    final fineRepo = FineModalsRepository();
+    final results = await Future.wait([
+      attRepo.fetchModals().catchError((_) => <AttendanceModal>[]),
+      shiftRepo.fetchModals().catchError((_) => <ShiftModal>[]),
+      leaveRepo.fetchModals().catchError((_) => <LeaveModal>[]),
+      holidayRepo.fetchModals().catchError((_) => <HolidayModal>[]),
+      payrollRepo.fetchOvertimeTemplates().catchError((_) => <Map<String, dynamic>>[]),
+      payrollRepo.fetchSalaryModals(activeOnly: false).catchError((_) => <SalaryModal>[]),
+      fineRepo.fetchModals().catchError((_) => <FineModal>[]),
+    ]);
+    if (mounted) {
+      setState(() {
+        _attendanceModals = results[0] as List<AttendanceModal>;
+        _shiftModals = results[1] as List<ShiftModal>;
+        _leaveModals = results[2] as List<LeaveModal>;
+        _holidayModals = results[3] as List<HolidayModal>;
+        _overtimeTemplates = results[4] as List<Map<String, dynamic>>;
+        _salaryModals = results[5] as List<SalaryModal>;
+        _fineModals = results[6] as List<FineModal>;
+        _loadingTemplates = false;
+      });
     }
   }
 
@@ -274,9 +365,27 @@ class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
           widget.department!.id,
           name: _name.text.trim(),
           active: _active,
+          attendanceModalId: _attendanceModalId,
+          overtimeTemplateId: _overtimeTemplateId,
+          leaveModalId: _leaveModalId,
+          shiftModalId: _shiftModalId,
+          holidayModalId: _holidayModalId,
+          salaryModalId: _salaryModalId,
+          fineModalId: _fineModalId,
+          includeTemplateIds: true,
         );
       } else {
-        await widget.repo.createDepartment(name: _name.text.trim(), active: _active);
+        await widget.repo.createDepartment(
+          name: _name.text.trim(),
+          active: _active,
+          attendanceModalId: _attendanceModalId,
+          overtimeTemplateId: _overtimeTemplateId,
+          leaveModalId: _leaveModalId,
+          shiftModalId: _shiftModalId,
+          holidayModalId: _holidayModalId,
+          salaryModalId: _salaryModalId,
+          fineModalId: _fineModalId,
+        );
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(widget.department != null ? 'Department updated' : 'Department created')));
@@ -304,15 +413,17 @@ class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(widget.department != null ? 'Edit department' : 'Add department',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: context.textColor)),
-              const Spacer(),
-              IconButton(onPressed: widget.onClose, icon: const Icon(Icons.close_rounded)),
-            ],
-          ),
-          const SizedBox(height: 12),
+          if (widget.showHeader) ...[
+            Row(
+              children: [
+                Text(widget.department != null ? 'Edit department' : 'Add department',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: context.textColor)),
+                const Spacer(),
+                IconButton(onPressed: widget.onClose, icon: const Icon(Icons.close_rounded)),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name *', border: OutlineInputBorder(), isDense: true)),
           const SizedBox(height: 12),
           CheckboxListTile(
@@ -323,6 +434,112 @@ class _DepartmentFormDialogState extends State<_DepartmentFormDialog> {
             contentPadding: EdgeInsets.zero,
             dense: true,
           ),
+          const SizedBox(height: 12),
+          Text('Templates (optional – staff in this department can use these by default)',
+              style: TextStyle(fontSize: 12, color: context.textMutedColor)),
+          const SizedBox(height: 8),
+          if (!_loadingTemplates &&
+              _attendanceModals.isEmpty &&
+              _overtimeTemplates.isEmpty &&
+              _leaveModals.isEmpty &&
+              _shiftModals.isEmpty &&
+              _holidayModals.isEmpty &&
+              _salaryModals.isEmpty &&
+              _fineModals.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Add templates in Settings (Attendance, Shift, Leave, Holiday) and Payroll (Overtime, Salary modals) to select them here.',
+                style: TextStyle(fontSize: 12, color: context.textMutedColor, fontStyle: FontStyle.italic),
+              ),
+            ),
+          if (_loadingTemplates)
+            const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+          else ...[
+            DropdownButtonFormField<int?>(
+              value: _attendanceModalId,
+              decoration: InputDecoration(
+                labelText: 'Attendance template',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                hintText: _attendanceModals.isEmpty ? 'Add in Settings' : null,
+              ),
+              items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._attendanceModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+              onChanged: (v) => setState(() => _attendanceModalId = v),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int?>(
+              value: _overtimeTemplateId,
+              decoration: InputDecoration(
+                labelText: 'Overtime template',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                hintText: _overtimeTemplates.isEmpty ? 'Add in Payroll' : null,
+              ),
+              items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._overtimeTemplates.map((t) => DropdownMenuItem(value: (t['id'] as num?)?.toInt(), child: Text((t['name'] as String?) ?? '')))],
+              onChanged: (v) => setState(() => _overtimeTemplateId = v),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int?>(
+              value: _leaveModalId,
+              decoration: InputDecoration(
+                labelText: 'Leave template',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                hintText: _leaveModals.isEmpty ? 'Add in Settings' : null,
+              ),
+              items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._leaveModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+              onChanged: (v) => setState(() => _leaveModalId = v),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int?>(
+              value: _shiftModalId,
+              decoration: InputDecoration(
+                labelText: 'Shift time template',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                hintText: _shiftModals.isEmpty ? 'Add in Settings' : null,
+              ),
+              items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._shiftModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+              onChanged: (v) => setState(() => _shiftModalId = v),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int?>(
+              value: _holidayModalId,
+              decoration: InputDecoration(
+                labelText: 'Holiday template',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                hintText: _holidayModals.isEmpty ? 'Add in Settings' : null,
+              ),
+              items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._holidayModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+              onChanged: (v) => setState(() => _holidayModalId = v),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int?>(
+              value: _salaryModalId,
+              decoration: InputDecoration(
+                labelText: 'Salary template',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                hintText: _salaryModals.isEmpty ? 'Add in Payroll > Salary Modals' : null,
+              ),
+              items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._salaryModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+              onChanged: (v) => setState(() => _salaryModalId = v),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int?>(
+              value: _fineModalId,
+              decoration: InputDecoration(
+                labelText: 'Fine template',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                hintText: _fineModals.isEmpty ? 'Add in Settings > Fine Modals' : null,
+              ),
+              items: [const DropdownMenuItem<int?>(value: null, child: Text('— None')), ..._fineModals.map((m) => DropdownMenuItem(value: m.id, child: Text(m.name)))],
+              onChanged: (v) => setState(() => _fineModalId = v),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [

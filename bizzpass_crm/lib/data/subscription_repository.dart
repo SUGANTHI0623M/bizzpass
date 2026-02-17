@@ -61,11 +61,14 @@ class InitiateSubscriptionResult {
   final String? planName;
   final int durationMonths;
   final int amount;
+  final int? gatewayAmount; // Amount charged at gateway (e.g. Rs 1 for testing)
   final String currency;
   final String? checkoutUrl;
+  final String? qrImageUrl;
   final String? paymentIntentId;
   final String status;
   final String? message;
+  final bool razorpayAvailable;
 
   const InitiateSubscriptionResult({
     required this.paymentId,
@@ -74,12 +77,18 @@ class InitiateSubscriptionResult {
     this.planName,
     required this.durationMonths,
     required this.amount,
+    this.gatewayAmount,
     required this.currency,
     this.checkoutUrl,
+    this.qrImageUrl,
     this.paymentIntentId,
     required this.status,
     this.message,
+    this.razorpayAvailable = false,
   });
+
+  /// Amount to display in payment UI (gateway amount for testing, else plan amount)
+  int get displayAmount => gatewayAmount ?? amount;
 
   factory InitiateSubscriptionResult.fromJson(Map<String, dynamic> j) {
     return InitiateSubscriptionResult(
@@ -89,11 +98,14 @@ class InitiateSubscriptionResult {
       planName: j['planName'] as String?,
       durationMonths: (j['durationMonths'] as num?)?.toInt() ?? 12,
       amount: (j['amount'] as num?)?.toInt() ?? 0,
+      gatewayAmount: (j['gatewayAmount'] as num?)?.toInt(),
       currency: (j['currency'] as String?) ?? 'INR',
       checkoutUrl: j['checkoutUrl'] as String?,
+      qrImageUrl: j['qrImageUrl'] as String?,
       paymentIntentId: j['paymentIntentId'] as String?,
       status: (j['status'] as String?) ?? 'pending',
       message: j['message'] as String?,
+      razorpayAvailable: (j['razorpayAvailable'] as bool?) ?? false,
     );
   }
 }
@@ -131,6 +143,64 @@ class PaymentHistoryItem {
       createdAt: (j['createdAt'] as String?) ?? '',
     );
   }
+}
+
+/// Full payment details for status check (single payment).
+class PaymentDetail {
+  final int id;
+  final int amount;
+  final int taxAmount;
+  final String currency;
+  final String status;
+  final String gateway;
+  final String paymentMethod;
+  final String planName;
+  final int? durationMonths;
+  final String? gatewayOrderId;
+  final String? gatewayPaymentId;
+  final String transactionRef;
+  final String paidAt;
+  final String createdAt;
+
+  const PaymentDetail({
+    required this.id,
+    required this.amount,
+    required this.taxAmount,
+    required this.currency,
+    required this.status,
+    required this.gateway,
+    required this.paymentMethod,
+    required this.planName,
+    this.durationMonths,
+    this.gatewayOrderId,
+    this.gatewayPaymentId,
+    required this.transactionRef,
+    required this.paidAt,
+    required this.createdAt,
+  });
+
+  factory PaymentDetail.fromJson(Map<String, dynamic> j) {
+    return PaymentDetail(
+      id: (j['id'] as num?)?.toInt() ?? 0,
+      amount: (j['amount'] as num?)?.toInt() ?? 0,
+      taxAmount: (j['taxAmount'] as num?)?.toInt() ?? 0,
+      currency: (j['currency'] as String?) ?? 'INR',
+      status: (j['status'] as String?) ?? '',
+      gateway: (j['gateway'] as String?) ?? '',
+      paymentMethod: (j['paymentMethod'] as String?) ?? 'upi',
+      planName: (j['planName'] as String?) ?? '',
+      durationMonths: (j['durationMonths'] as num?)?.toInt(),
+      gatewayOrderId: j['gatewayOrderId'] as String?,
+      gatewayPaymentId: j['gatewayPaymentId'] as String?,
+      transactionRef: (j['transactionRef'] as String?) ?? '',
+      paidAt: (j['paidAt'] as String?) ?? '',
+      createdAt: (j['createdAt'] as String?) ?? '',
+    );
+  }
+
+  bool get isSuccess => status == 'captured' || status == 'success' || status == 'paid';
+  bool get isFailed =>
+      status == 'failed' || status == 'expired' || status == 'cancelled' || status == 'rejected';
 }
 
 class SubscriptionRepository {
@@ -210,6 +280,77 @@ class SubscriptionRepository {
           ? e.response!.data['detail'].toString()
           : (e.message ?? 'Network error');
       throw SubscriptionException(detail);
+    }
+  }
+
+  /// Send UPI payment request to customer's UPI ID (VPA).
+  Future<void> sendUpiRequest({
+    required int paymentId,
+    required String customerVpa,
+  }) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/subscription/send-upi-request',
+        data: {'payment_id': paymentId, 'customer_vpa': customerVpa.trim()},
+      );
+      if (res.statusCode != 200) {
+        final detail = res.data is Map && res.data!['detail'] != null
+            ? res.data!['detail'].toString()
+            : 'Failed to send UPI request';
+        throw SubscriptionException(detail);
+      }
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map && e.response?.data['detail'] != null
+          ? e.response!.data['detail'].toString()
+          : (e.message ?? 'Network error');
+      throw SubscriptionException(detail);
+    }
+  }
+
+  /// Initiate Razorpay subscription (Card, UPI, Netbanking, Wallets). Returns checkout URL.
+  Future<InitiateSubscriptionResult> initiateRazorpaySubscription({
+    required int planId,
+    int durationMonths = 12,
+  }) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/subscription/initiate-razorpay',
+        data: {'plan_id': planId, 'duration_months': durationMonths},
+      );
+      if (res.statusCode != 200 || res.data == null) {
+        final detail = res.data is Map && res.data!['detail'] != null
+            ? res.data!['detail'].toString()
+            : 'Failed to create payment link';
+        throw SubscriptionException(detail);
+      }
+      return InitiateSubscriptionResult.fromJson(res.data!);
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map && e.response?.data['detail'] != null
+          ? e.response!.data['detail'].toString()
+          : (e.message ?? 'Network error');
+      throw SubscriptionException(detail);
+    }
+  }
+
+  /// Get single payment status and details by ID.
+  Future<PaymentDetail> getPaymentStatus(int paymentId) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/subscription/payments/$paymentId');
+      if (res.statusCode != 200 || res.data == null) {
+        throw SubscriptionException('Failed to load payment status');
+      }
+      return PaymentDetail.fromJson(res.data!);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        throw SubscriptionException('Payment not found');
+      }
+      if (e.response?.statusCode == 401) {
+        throw SubscriptionException('Session expired. Please log in again.');
+      }
+      throw SubscriptionException(e.message ?? 'Failed to load payment status');
     }
   }
 

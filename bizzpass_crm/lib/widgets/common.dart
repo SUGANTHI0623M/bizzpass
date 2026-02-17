@@ -408,8 +408,15 @@ class TabItem {
 class AppDataTable extends StatelessWidget {
   final List<DataCol> columns;
   final List<DataRow> rows;
+  /// When false, checkbox column is hidden (e.g. when using row tap for navigation).
+  final bool showCheckboxColumn;
 
-  const AppDataTable({super.key, required this.columns, required this.rows});
+  const AppDataTable({
+    super.key,
+    required this.columns,
+    required this.rows,
+    this.showCheckboxColumn = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -427,6 +434,7 @@ class AppDataTable extends StatelessWidget {
             constraints: BoxConstraints(
                 minWidth: MediaQuery.of(context).size.width - 320),
             child: DataTable(
+              showCheckboxColumn: showCheckboxColumn,
               headingRowColor: WidgetStateProperty.all(context.cardHoverColor),
               headingTextStyle: TextStyle(
                 fontSize: 11,

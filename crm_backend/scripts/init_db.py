@@ -128,7 +128,8 @@ def run_migrations(cur):
                 ADD COLUMN IF NOT EXISTS billing_email       VARCHAR(255) NULL,
                 ADD COLUMN IF NOT EXISTS billing_address     TEXT NULL,
                 ADD COLUMN IF NOT EXISTS max_users_allowed   INTEGER NULL,
-                ADD COLUMN IF NOT EXISTS registered_via       VARCHAR(50) NULL
+                ADD COLUMN IF NOT EXISTS registered_via       VARCHAR(50) NULL,
+                ADD COLUMN IF NOT EXISTS logo                TEXT NULL
             """
         )
         cur.execute(
@@ -152,6 +153,7 @@ def run_migrations(cur):
 
     # Branches: geofence columns for lat/long and attendance check-in radius (tenant_schema may already have them)
     for col, typ in [
+        ("address_apt_building", "TEXT NULL"),
         ("geofence_latitude", "DOUBLE PRECISION NULL"),
         ("geofence_longitude", "DOUBLE PRECISION NULL"),
         ("geofence_radius", "DOUBLE PRECISION NULL"),
@@ -160,7 +162,7 @@ def run_migrations(cur):
             cur.execute(f"ALTER TABLE branches ADD COLUMN IF NOT EXISTS {col} {typ}")
         except Exception as e:
             if "already exists" not in str(e).lower():
-                print("Migration note (branches geofence):", e)
+                print("Migration note (branches):", e)
 
     # Departments table (company-scoped list of department names)
     try:
@@ -186,6 +188,32 @@ def run_migrations(cur):
     except Exception as e:
         if "already exists" not in str(e).lower():
             print("Migration note (departments active):", e)
+    # Migration: department template IDs (attendance, overtime, leave, shift, holiday)
+    for col in ("attendance_modal_id", "overtime_template_id", "leave_modal_id", "shift_modal_id", "holiday_modal_id", "salary_modal_id"):
+        try:
+            cur.execute(f"ALTER TABLE departments ADD COLUMN IF NOT EXISTS {col} BIGINT NULL")
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                print(f"Migration note (departments {col}):", e)
+
+    # Designations table (company-scoped list of job designations/titles)
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS designations (
+                id BIGSERIAL PRIMARY KEY,
+                company_id BIGINT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_designations_company_id ON designations(company_id)"
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (designations):", e)
 
     # Attendance templates: add company_id for company-scoped attendance modals
     try:
@@ -309,12 +337,14 @@ def run_migrations(cur):
         if "already exists" not in str(e).lower():
             print("Migration note (office_holidays):", e)
 
-    # Staff: CRM modal IDs (attendance, shift, leave, holiday) and extra fields
+    # Staff: CRM modal IDs (attendance, shift, leave, holiday, fine) and extra fields
     for col, typ in [
         ("attendance_modal_id", "BIGINT NULL"),
         ("shift_modal_id", "BIGINT NULL"),
         ("leave_modal_id", "BIGINT NULL"),
         ("holiday_modal_id", "BIGINT NULL"),
+        ("salary_modal_id", "BIGINT NULL"),
+        ("fine_modal_id", "BIGINT NULL"),
         ("staff_type", "VARCHAR(50) NULL"),
         ("reporting_manager", "VARCHAR(255) NULL"),
         ("salary_cycle", "VARCHAR(50) NULL"),
@@ -330,18 +360,94 @@ def run_migrations(cur):
             if "already exists" not in str(e).lower():
                 print("Migration note (staff %s): %s", col, e)
 
-    # Ensure "basic" plan exists for CRM UI (idempotent). Max 30 staff, 1 branch.
+    # Staff extended: experience, education, onboarding documents (for staff details tabs)
+    for table_sql in [
+        """
+        CREATE TABLE IF NOT EXISTS staff_experience (
+            id BIGSERIAL PRIMARY KEY,
+            staff_id BIGINT NOT NULL,
+            company_name VARCHAR(255) NULL,
+            job_title VARCHAR(255) NULL,
+            from_date DATE NULL,
+            to_date DATE NULL,
+            is_current BOOLEAN NOT NULL DEFAULT FALSE,
+            description TEXT NULL,
+            created_at TIMESTAMP NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_staff_experience_staff_id ON staff_experience(staff_id)",
+        """
+        CREATE TABLE IF NOT EXISTS staff_education (
+            id BIGSERIAL PRIMARY KEY,
+            staff_id BIGINT NOT NULL,
+            institution VARCHAR(255) NULL,
+            degree_or_course VARCHAR(255) NULL,
+            from_date DATE NULL,
+            to_date DATE NULL,
+            created_at TIMESTAMP NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_staff_education_staff_id ON staff_education(staff_id)",
+        """
+        CREATE TABLE IF NOT EXISTS staff_onboarding_documents (
+            id BIGSERIAL PRIMARY KEY,
+            staff_id BIGINT NOT NULL,
+            document_type VARCHAR(100) NOT NULL,
+            file_name VARCHAR(255) NULL,
+            file_url TEXT NOT NULL,
+            uploaded_at TIMESTAMP NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_staff_onboarding_docs_staff_id ON staff_onboarding_documents(staff_id)",
+    ]:
+        try:
+            cur.execute(table_sql)
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                print("Migration note (staff extended):", e)
+
+    # Ensure "basic" plan exists for CRM UI (idempotent). Max 30 staff, 3 branches.
     try:
         cur.execute(
             """
             INSERT INTO subscription_plans (plan_code, plan_name, description, price, currency, duration_months, max_users, max_branches, is_active, trial_days, created_at, updated_at)
-            VALUES ('basic', 'Basic', 'Basic plan', 9999, 'INR', 12, 30, 1, TRUE, 0, NOW(), NOW())
-            ON CONFLICT (plan_code) DO UPDATE SET max_users = 30, max_branches = 1, updated_at = NOW()
+            VALUES ('basic', 'Basic', 'Basic plan', 9999, 'INR', 12, 30, 3, TRUE, 0, NOW(), NOW())
+            ON CONFLICT (plan_code) DO UPDATE SET max_users = 30, max_branches = 3, updated_at = NOW()
             """
         )
     except Exception as e:
         if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
             print("Migration note (basic plan):", e)
+
+    # Platform integrations (Paysharp, Email) - encrypted credentials for Super Admin
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS platform_integrations (
+                id BIGSERIAL PRIMARY KEY,
+                integration_key VARCHAR(64) NOT NULL UNIQUE,
+                config_encrypted TEXT NULL,
+                config_meta JSONB NULL,
+                updated_by BIGINT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_integrations_key ON platform_integrations(integration_key)"
+        )
+    except Exception as e:
+        if "already exists" not in str(e).lower():
+            print("Migration note (platform_integrations):", e)
+
+    # Payments: add paysharp columns for gateway-agnostic storage
+    for col in ["paysharp_order_id", "paysharp_payment_id"]:
+        try:
+            cur.execute(f"ALTER TABLE payments ADD COLUMN IF NOT EXISTS {col} VARCHAR(255) NULL")
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                print(f"Migration note (payments {col}):", e)
 
 
 def seed_subscription_plans(cur):
@@ -352,7 +458,7 @@ def seed_subscription_plans(cur):
         print("Subscription plans already exist.")
         return
     plans = [
-        ("basic", "Basic", "Basic plan", 9999, 12, 10, 1, True, 0),
+        ("basic", "Basic", "Basic plan", 9999, 12, 30, 3, True, 0),
         ("starter", "Starter", "Starter plan", 19999, 12, 30, 1, True, 0),
         ("professional", "Professional", "Pro plan", 59999, 12, 100, 5, True, 0),
         ("enterprise", "Enterprise", "Enterprise plan", 149999, 12, 300, None, True, 0),

@@ -71,7 +71,24 @@ class CompaniesRepository {
     }
   }
 
-  /// Update a company.
+  /// Fetch a single company by id.
+  Future<Company> getCompany(int id) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/companies/$id');
+      if (res.statusCode != 200 || res.data == null) {
+        throw CompaniesException('Failed to fetch company');
+      }
+      return Company.fromJson(Map<String, dynamic>.from(res.data!));
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        throw CompaniesException('Company not found');
+      }
+      throw CompaniesException(_handleDioError(e));
+    }
+  }
+
+  /// Update a company. [adminPassword] updates the company admin login password (optional).
   Future<Company> updateCompany(
     int id, {
     String? name,
@@ -81,6 +98,7 @@ class CompaniesRepository {
     String? state,
     String? subscriptionPlan,
     bool? isActive,
+    String? adminPassword,
   }) async {
     await _addAuthToken();
     final body = <String, dynamic>{};
@@ -91,6 +109,9 @@ class CompaniesRepository {
     if (state != null) body['state'] = state.trim();
     if (subscriptionPlan != null) body['subscription_plan'] = subscriptionPlan;
     if (isActive != null) body['is_active'] = isActive;
+    if (adminPassword != null && adminPassword.trim().isNotEmpty) {
+      body['admin_password'] = adminPassword.trim();
+    }
     if (body.isEmpty) {
       final res = await _dio.get<Map<String, dynamic>>('/companies/$id');
       if (res.statusCode != 200 || res.data == null) {

@@ -128,6 +128,7 @@ class PayrollRepository {
     int componentId, {
     required String name,
     required String displayName,
+    required String type,
     String? category,
     required String calculationType,
     double? calculationValue,
@@ -148,6 +149,7 @@ class PayrollRepository {
       final data = <String, dynamic>{
         'name': name,
         'displayName': displayName,
+        'type': type,
         'category': category,
         'calculationType': calculationType,
         'calculationValue': calculationValue,
@@ -219,6 +221,269 @@ class PayrollRepository {
       
       if (res.statusCode != 200) {
         throw PayrollException('Failed to save payroll settings');
+      }
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  /// Save only overtime calculation settings (Salary Components > Overtime tab).
+  Future<void> saveOvertimeSettings({
+    required String overtimeCalculationMethod,
+    double? overtimeFixedAmountPerHour,
+    double? overtimeGrossPayMultiplier,
+    double? overtimeBasicPayMultiplier,
+  }) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.patch(
+        '/payroll/settings/overtime',
+        data: {
+          'overtimeCalculationMethod': overtimeCalculationMethod,
+          'overtimeFixedAmountPerHour': overtimeFixedAmountPerHour,
+          'overtimeGrossPayMultiplier': overtimeGrossPayMultiplier,
+          'overtimeBasicPayMultiplier': overtimeBasicPayMultiplier,
+        },
+      );
+      if (res.statusCode != 200) {
+        throw PayrollException('Failed to save overtime settings');
+      }
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  // ============================================================================
+  // OVERTIME TEMPLATES (multiple customizable templates per company)
+  // ============================================================================
+
+  Future<List<Map<String, dynamic>>> fetchOvertimeTemplates() async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/payroll/overtime-templates');
+      if (res.statusCode != 200 || res.data == null) {
+        throw PayrollException('Failed to fetch overtime templates');
+      }
+      final list = res.data!['templates'] as List<dynamic>? ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  Future<Map<String, dynamic>> getOvertimeTemplate(int templateId) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/payroll/overtime-templates/$templateId');
+      if (res.statusCode != 200 || res.data == null) {
+        throw PayrollException('Failed to fetch overtime template');
+      }
+      return Map<String, dynamic>.from(res.data!);
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  Future<Map<String, dynamic>> createOvertimeTemplate({
+    required String name,
+    String companyType = 'custom',
+    bool isDefault = false,
+    Map<String, dynamic>? config,
+  }) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/payroll/overtime-templates',
+        data: {
+          'name': name,
+          'companyType': companyType,
+          'isDefault': isDefault,
+          if (config != null) 'config': config,
+        },
+      );
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        throw PayrollException('Failed to create overtime template');
+      }
+      return Map<String, dynamic>.from(res.data!);
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  Future<Map<String, dynamic>> updateOvertimeTemplate(
+    int templateId, {
+    String? name,
+    String? companyType,
+    bool? isDefault,
+    Map<String, dynamic>? config,
+  }) async {
+    await _addAuthToken();
+    try {
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (companyType != null) data['companyType'] = companyType;
+      if (isDefault != null) data['isDefault'] = isDefault;
+      if (config != null) data['config'] = config;
+      final res = await _dio.patch<Map<String, dynamic>>(
+        '/payroll/overtime-templates/$templateId',
+        data: data,
+      );
+      if (res.statusCode != 200) {
+        throw PayrollException('Failed to update overtime template');
+      }
+      return Map<String, dynamic>.from(res.data!);
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  Future<void> setDefaultOvertimeTemplate(int templateId) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.patch('/payroll/overtime-templates/$templateId/set-default');
+      if (res.statusCode != 200) {
+        throw PayrollException('Failed to set default template');
+      }
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  Future<void> deleteOvertimeTemplate(int templateId) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.delete('/payroll/overtime-templates/$templateId');
+      if (res.statusCode != 200) {
+        throw PayrollException('Failed to delete overtime template');
+      }
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  // ============================================================================
+  // SALARY MODALS (Templates: name, description, set of salary components)
+  // ============================================================================
+
+  Future<List<SalaryModal>> fetchSalaryModals({bool activeOnly = true}) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/payroll/salary-modals',
+        queryParameters: {'activeOnly': activeOnly},
+      );
+      if (res.statusCode != 200 || res.data == null) {
+        throw PayrollException('Failed to fetch salary modals');
+      }
+      final list = res.data!['modals'] as List<dynamic>? ?? [];
+      return list
+          .map((e) => SalaryModal.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  Future<SalaryModal> getSalaryModal(int modalId) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/payroll/salary-modals/$modalId');
+      if (res.statusCode != 200 || res.data == null) {
+        throw PayrollException('Failed to fetch salary modal');
+      }
+      return SalaryModal.fromJson(Map<String, dynamic>.from(res.data!));
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  /// One component in a salary modal; overrides are optional (null = use component default).
+  static Map<String, dynamic> salaryModalComponent({
+    required int componentId,
+    int displayOrder = 0,
+    String? typeOverride,
+    String? calculationTypeOverride,
+    double? calculationValueOverride,
+    bool? isTaxableOverride,
+    bool? isStatutoryOverride,
+  }) {
+    final m = <String, dynamic>{
+      'componentId': componentId,
+      'displayOrder': displayOrder,
+    };
+    if (typeOverride != null) m['typeOverride'] = typeOverride;
+    if (calculationTypeOverride != null) m['calculationTypeOverride'] = calculationTypeOverride;
+    if (calculationValueOverride != null) m['calculationValueOverride'] = calculationValueOverride;
+    if (isTaxableOverride != null) m['isTaxableOverride'] = isTaxableOverride;
+    if (isStatutoryOverride != null) m['isStatutoryOverride'] = isStatutoryOverride;
+    return m;
+  }
+
+  Future<SalaryModal> createSalaryModal({
+    required String name,
+    String? description,
+    List<int> componentIds = const [],
+    List<Map<String, dynamic>>? components,
+  }) async {
+    await _addAuthToken();
+    try {
+      final data = <String, dynamic>{
+        'name': name,
+        'description': description,
+      };
+      if (components != null && components.isNotEmpty) {
+        data['components'] = components;
+      } else {
+        data['componentIds'] = componentIds;
+      }
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/payroll/salary-modals',
+        data: data,
+      );
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        throw PayrollException('Failed to create salary modal');
+      }
+      return SalaryModal.fromJson(Map<String, dynamic>.from(res.data!));
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  Future<SalaryModal> updateSalaryModal(
+    int modalId, {
+    String? name,
+    String? description,
+    bool? isActive,
+    List<int>? componentIds,
+    List<Map<String, dynamic>>? components,
+  }) async {
+    await _addAuthToken();
+    try {
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (description != null) data['description'] = description;
+      if (isActive != null) data['isActive'] = isActive;
+      if (components != null) data['components'] = components;
+      else if (componentIds != null) data['componentIds'] = componentIds;
+      final res = await _dio.patch<Map<String, dynamic>>(
+        '/payroll/salary-modals/$modalId',
+        data: data,
+      );
+      if (res.statusCode != 200) {
+        throw PayrollException('Failed to update salary modal');
+      }
+      return SalaryModal.fromJson(Map<String, dynamic>.from(res.data!));
+    } on DioException catch (e) {
+      throw PayrollException(_handleDioError(e));
+    }
+  }
+
+  Future<void> deleteSalaryModal(int modalId) async {
+    await _addAuthToken();
+    try {
+      final res = await _dio.delete('/payroll/salary-modals/$modalId');
+      if (res.statusCode != 200) {
+        throw PayrollException('Failed to delete salary modal');
       }
     } on DioException catch (e) {
       throw PayrollException(_handleDioError(e));

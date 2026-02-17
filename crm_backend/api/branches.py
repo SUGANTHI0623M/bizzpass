@@ -12,8 +12,12 @@ class CreateBranchBody(BaseModel):
     branchName: str
     branchCode: str | None = None
     isHeadOffice: bool = False
+    addressAptBuilding: str | None = None  # apt, suite, building name
+    addressStreet: str | None = None  # street address
     addressCity: str | None = None
     addressState: str | None = None
+    addressZip: str | None = None
+    addressCountry: str | None = None
     contactNumber: str | None = None
     latitude: float | None = None
     longitude: float | None = None
@@ -24,8 +28,12 @@ class UpdateBranchBody(BaseModel):
     branchName: str | None = None
     branchCode: str | None = None
     isHeadOffice: bool | None = None
+    addressAptBuilding: str | None = None
+    addressStreet: str | None = None
     addressCity: str | None = None
     addressState: str | None = None
+    addressZip: str | None = None
+    addressCountry: str | None = None
     contactNumber: str | None = None
     status: str | None = None
     latitude: float | None = None
@@ -39,14 +47,26 @@ def _branch_row(row) -> dict:
         "branchName": row.get("branch_name") or "",
         "branchCode": row.get("branch_code") or "",
         "isHeadOffice": bool(row.get("is_head_office")),
+        "addressAptBuilding": row.get("address_apt_building"),
+        "addressStreet": row.get("address_street"),
         "addressCity": row.get("address_city"),
         "addressState": row.get("address_state"),
+        "addressZip": row.get("address_zip"),
+        "addressCountry": row.get("address_country"),
         "contactNumber": row.get("contact_number"),
         "status": (row.get("status") or "active").lower(),
         "latitude": row.get("geofence_latitude"),
         "longitude": row.get("geofence_longitude"),
         "attendanceRadiusM": row.get("geofence_radius"),
+        "createdAt": _ts_str(row.get("created_at")),
     }
+
+
+def _ts_str(ts):
+    """Format timestamp for API (ISO string or None)."""
+    if ts is None:
+        return None
+    return ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
 
 
 @router.get("")
@@ -61,10 +81,13 @@ def list_branches(
         cur.execute(
             """
             SELECT id, branch_name, branch_code, is_head_office,
-                   address_city, address_state, contact_number, status
+                   address_apt_building, address_street, address_city, address_state, address_zip, address_country,
+                   contact_number, status,
+                   geofence_latitude, geofence_longitude, geofence_radius, created_at
             FROM branches
             WHERE company_id = %s
-            ORDER BY is_head_office DESC NULLS LAST, branch_name
+            ORDER BY (CASE WHEN status IS NULL OR LOWER(TRIM(status)) = 'active' THEN 0 ELSE 1 END),
+                     is_head_office DESC NULLS LAST, branch_name
             """,
             (company_id,),
         )
@@ -87,12 +110,15 @@ def _validate_branch_creation(current_user: dict, company_id: int) -> None:
     max_branches = lic.get("max_branches")
     if max_branches is not None:  # NULL = unlimited
         with get_cursor() as cur:
-            cur.execute("SELECT COUNT(*) AS cnt FROM branches WHERE company_id = %s", (company_id,))
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM branches WHERE company_id = %s AND (status IS NULL OR LOWER(TRIM(status)) = 'active')",
+                (company_id,),
+            )
             current = (cur.fetchone() or {}).get("cnt") or 0
         if current >= max_branches:
             raise HTTPException(
                 status_code=400,
-                detail=f"Branch limit reached ({current}/{max_branches}). Delete a branch to add another, or upgrade your plan.",
+                detail=f"Branch limit reached ({current}/{max_branches}). Deactivate a branch to add another, or upgrade your plan.",
             )
 
 
@@ -111,21 +137,44 @@ def create_branch(
         raise HTTPException(status_code=400, detail="Branch name is required")
     with get_cursor() as cur:
         cur.execute(
+            "SELECT id FROM branches WHERE company_id = %s AND LOWER(TRIM(branch_name)) = LOWER(%s) LIMIT 1",
+            (company_id, name),
+        )
+        if cur.fetchone():
+            raise HTTPException(status_code=400, detail="Branch name already exists.")
+    if body.isHeadOffice:
+        with get_cursor() as cur:
+            cur.execute(
+                "SELECT id FROM branches WHERE company_id = %s AND is_head_office = true LIMIT 1",
+                (company_id,),
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Another branch is already set as head office. Only one branch can be the head office.",
+                )
+    with get_cursor() as cur:
+        cur.execute(
             """
             INSERT INTO branches (branch_name, branch_code, is_head_office, company_id,
-                                 address_city, address_state, contact_number, status,
+                                 address_apt_building, address_street, address_city, address_state, address_zip, address_country,
+                                 contact_number, status,
                                  geofence_latitude, geofence_longitude, geofence_radius, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'active', %s, %s, %s, NOW(), NOW())
-            RETURNING id, branch_name, branch_code, is_head_office, address_city, address_state, contact_number, status,
-                      geofence_latitude, geofence_longitude, geofence_radius
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'active', %s, %s, %s, NOW(), NOW())
+            RETURNING id, branch_name, branch_code, is_head_office, address_apt_building, address_street, address_city, address_state, address_zip, address_country,
+                      contact_number, status, geofence_latitude, geofence_longitude, geofence_radius, created_at
             """,
             (
                 name,
                 (body.branchCode or "").strip() or None,
                 body.isHeadOffice,
                 company_id,
+                (body.addressAptBuilding or "").strip() or None,
+                (body.addressStreet or "").strip() or None,
                 (body.addressCity or "").strip() or None,
                 (body.addressState or "").strip() or None,
+                (body.addressZip or "").strip() or None,
+                (body.addressCountry or "").strip() or None,
                 (body.contactNumber or "").strip() or None,
                 body.latitude,
                 body.longitude,
@@ -148,7 +197,11 @@ def get_branch(
         raise HTTPException(status_code=403, detail="Company context required")
     with get_cursor() as cur:
         cur.execute(
-            "SELECT id, branch_name, branch_code, is_head_office, address_city, address_state, contact_number, status FROM branches WHERE id = %s AND company_id = %s",
+            """SELECT id, branch_name, branch_code, is_head_office,
+                      address_apt_building, address_street, address_city, address_state, address_zip, address_country,
+                      contact_number, status,
+                      geofence_latitude, geofence_longitude, geofence_radius, created_at
+               FROM branches WHERE id = %s AND company_id = %s""",
             (branch_id, company_id),
         )
         row = cur.fetchone()
@@ -174,6 +227,24 @@ def update_branch(
         )
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Branch not found")
+        if body.branchName is not None:
+            name = body.branchName.strip()
+            cur.execute(
+                "SELECT id FROM branches WHERE company_id = %s AND LOWER(TRIM(branch_name)) = LOWER(%s) AND id != %s LIMIT 1",
+                (company_id, name, branch_id),
+            )
+            if cur.fetchone():
+                raise HTTPException(status_code=400, detail="Branch name already exists.")
+        if body.isHeadOffice is True:
+            cur.execute(
+                "SELECT id FROM branches WHERE company_id = %s AND is_head_office = true AND id != %s LIMIT 1",
+                (company_id, branch_id),
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Another branch is already set as head office. Only one branch can be the head office.",
+                )
         updates = []
         vals = []
         if body.branchName is not None:
@@ -185,18 +256,34 @@ def update_branch(
         if body.isHeadOffice is not None:
             updates.append("is_head_office = %s")
             vals.append(body.isHeadOffice)
+        if body.addressAptBuilding is not None:
+            updates.append("address_apt_building = %s")
+            vals.append(body.addressAptBuilding.strip() or None)
+        if body.addressStreet is not None:
+            updates.append("address_street = %s")
+            vals.append(body.addressStreet.strip() or None)
         if body.addressCity is not None:
             updates.append("address_city = %s")
             vals.append(body.addressCity.strip() or None)
         if body.addressState is not None:
             updates.append("address_state = %s")
             vals.append(body.addressState.strip() or None)
+        if body.addressZip is not None:
+            updates.append("address_zip = %s")
+            vals.append(body.addressZip.strip() or None)
+        if body.addressCountry is not None:
+            updates.append("address_country = %s")
+            vals.append(body.addressCountry.strip() or None)
         if body.contactNumber is not None:
             updates.append("contact_number = %s")
             vals.append(body.contactNumber.strip() or None)
         if body.status is not None:
+            new_status = body.status.strip().lower()
             updates.append("status = %s")
-            vals.append(body.status.lower())
+            vals.append(new_status)
+            # When deactivating the head office branch, clear head office so another can be set
+            if new_status == "inactive":
+                updates.append("is_head_office = false")
         if body.latitude is not None:
             updates.append("geofence_latitude = %s")
             vals.append(body.latitude)
@@ -216,32 +303,5 @@ def update_branch(
     return get_branch(branch_id, current_user)
 
 
-@router.delete("/{branch_id}")
-def delete_branch(
-    branch_id: int,
-    current_user: dict = Depends(require_permission("branch.delete")),
-):
-    """Delete a branch. Fails if any staff is assigned to it."""
-    company_id = current_user.get("company_id")
-    if not company_id:
-        raise HTTPException(status_code=403, detail="Company context required")
-    with get_cursor() as cur:
-        cur.execute(
-            "SELECT id FROM branches WHERE id = %s AND company_id = %s",
-            (branch_id, company_id),
-        )
-        if not cur.fetchone():
-            raise HTTPException(status_code=404, detail="Branch not found")
-        cur.execute(
-            "SELECT COUNT(*) AS cnt FROM staff WHERE (branch_id = %s OR branch_id = %s) AND company_id = %s",
-            (str(branch_id), branch_id, company_id),
-        )
-        cnt = (cur.fetchone() or {}).get("cnt") or 0
-        if cnt > 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot delete: {cnt} staff assigned to this branch. Reassign them first.",
-            )
-        cur.execute("DELETE FROM branches WHERE id = %s AND company_id = %s", (branch_id, company_id))
-    _audit_log(current_user["id"], company_id, "branch.delete", "branch", str(branch_id))
-    return {"ok": True}
+# No DELETE endpoint: use PATCH with status='inactive' to deactivate branches.
+# Branches are activated/deactivated only; rows are not deleted.

@@ -16,61 +16,75 @@ def get_company_dashboard_overview(
     if not company_id:
         return {"error": "Company ID not found"}
 
+    # Tenant schema uses business_id (VARCHAR); main DB may use company_id (BIGINT). Support both.
+    company_ref = str(company_id) if company_id is not None else None
     with get_cursor() as cur:
-        # Employee Analytics
-        cur.execute(
-            """
-            SELECT 
-                COUNT(*) FILTER (WHERE status = 'active') as active_employees,
-                COUNT(*) FILTER (WHERE status = 'inactive') as inactive_employees,
-                COUNT(*) FILTER (WHERE joining_date >= CURRENT_DATE - INTERVAL '30 days') as hired_last_30_days,
-                COUNT(*) as total_employees
-            FROM staff 
-            WHERE company_id = %s
-            """,
-            (company_id,),
-        )
-        employee_stats = cur.fetchone() or {}
+        # Employee Analytics (staff: business_id or company_id)
+        try:
+            cur.execute(
+                """
+                SELECT 
+                    COUNT(*) FILTER (WHERE status = 'active') as active_employees,
+                    COUNT(*) FILTER (WHERE status = 'inactive') as inactive_employees,
+                    COUNT(*) FILTER (WHERE joining_date >= CURRENT_DATE - INTERVAL '30 days') as hired_last_30_days,
+                    COUNT(*) as total_employees
+                FROM staff 
+                WHERE (business_id = %s OR company_id = %s)
+                """,
+                (company_ref, company_id),
+            )
+            employee_stats = cur.fetchone() or {}
+        except Exception:
+            employee_stats = {}
 
         # Today's Attendance (join staff to filter by company; attendances has date, punch_in, punch_out, status)
-        cur.execute(
-            """
-            SELECT 
-                COUNT(*) FILTER (WHERE a.status IN ('present', 'late', 'marked')) as present,
-                COUNT(*) FILTER (WHERE a.status = 'absent') as absent,
-                COUNT(*) FILTER (WHERE a.status = 'on_leave') as on_leave
-            FROM attendances a
-            LEFT JOIN staff s ON (s.id::text = a.employee_id OR s.mongo_id = a.employee_id OR a.employee_id::text = s.employee_id)
-            WHERE a.date = CURRENT_DATE AND s.company_id = %s
-            """,
-            (company_id,),
-        )
-        today_attendance = cur.fetchone() or {}
+        try:
+            cur.execute(
+                """
+                SELECT 
+                    COUNT(*) FILTER (WHERE a.status IN ('present', 'late', 'marked')) as present,
+                    COUNT(*) FILTER (WHERE a.status = 'absent') as absent,
+                    COUNT(*) FILTER (WHERE a.status = 'on_leave') as on_leave
+                FROM attendances a
+                LEFT JOIN staff s ON (s.id::text = a.employee_id OR s.mongo_id = a.employee_id OR a.employee_id::text = s.employee_id)
+                WHERE a.date = CURRENT_DATE AND (s.business_id = %s OR s.company_id = %s)
+                """,
+                (company_ref, company_id),
+            )
+            today_attendance = cur.fetchone() or {}
+        except Exception:
+            today_attendance = {}
 
-        # Total Exits (assuming we track this in status or a separate field)
-        cur.execute(
-            """
-            SELECT COUNT(*) as exits
-            FROM staff 
-            WHERE company_id = %s AND status = 'inactive'
-            """,
-            (company_id,),
-        )
-        exits = (cur.fetchone() or {}).get("exits", 0) or 0
+        # Total Exits
+        try:
+            cur.execute(
+                """
+                SELECT COUNT(*) as exits
+                FROM staff 
+                WHERE (business_id = %s OR company_id = %s) AND status = 'inactive'
+                """,
+                (company_ref, company_id),
+            )
+            exits = (cur.fetchone() or {}).get("exits", 0) or 0
+        except Exception:
+            exits = 0
 
         # Pending Approval Requests Count
-        cur.execute(
-            """
-            SELECT COUNT(*) as pending_requests
-            FROM attendances a
-            LEFT JOIN staff s ON (s.id::text = a.employee_id OR s.mongo_id = a.employee_id OR a.employee_id::text = s.employee_id)
-            WHERE a.date >= CURRENT_DATE - INTERVAL '7 days'
-            AND a.status = 'pending'
-            AND s.company_id = %s
-            """,
-            (company_id,),
-        )
-        pending_requests = (cur.fetchone() or {}).get("pending_requests", 0) or 0
+        try:
+            cur.execute(
+                """
+                SELECT COUNT(*) as pending_requests
+                FROM attendances a
+                LEFT JOIN staff s ON (s.id::text = a.employee_id OR s.mongo_id = a.employee_id OR a.employee_id::text = s.employee_id)
+                WHERE a.date >= CURRENT_DATE - INTERVAL '7 days'
+                AND a.status = 'pending'
+                AND (s.business_id = %s OR s.company_id = %s)
+                """,
+                (company_ref, company_id),
+            )
+            pending_requests = (cur.fetchone() or {}).get("pending_requests", 0) or 0
+        except Exception:
+            pending_requests = 0
 
     return {
         "employeeAnalytics": {
@@ -98,21 +112,24 @@ def get_upcoming_birthdays(
     if not company_id:
         return {"birthdays": []}
 
+    company_ref = str(company_id) if company_id is not None else None
     with get_cursor() as cur:
-        # Get staff with birthdays in the next N days
-        cur.execute(
-            """
-            SELECT id, name, dob, designation, avatar
-            FROM staff
-            WHERE company_id = %s
-            AND status = 'active'
-            AND dob IS NOT NULL
-            ORDER BY EXTRACT(MONTH FROM dob), EXTRACT(DAY FROM dob)
-            LIMIT 10
-            """,
-            (company_id,),
-        )
-        rows = cur.fetchall()
+        try:
+            cur.execute(
+                """
+                SELECT id, name, dob, designation, avatar
+                FROM staff
+                WHERE (business_id = %s OR company_id = %s)
+                AND status = 'active'
+                AND dob IS NOT NULL
+                ORDER BY EXTRACT(MONTH FROM dob), EXTRACT(DAY FROM dob)
+                LIMIT 10
+                """,
+                (company_ref, company_id),
+            )
+            rows = cur.fetchall()
+        except Exception:
+            rows = []
 
     birthdays = []
     for r in rows:
@@ -142,26 +159,27 @@ def get_upcoming_holidays(
     current_user: dict = Depends(get_current_company_admin),
     limit: int = Query(5, description="Number of holidays to return"),
 ):
-    """Get upcoming holidays for the company."""
+    """Get upcoming holidays for the company (office_holidays table; column is name, not holiday_name)."""
     company_id = current_user.get("company_id")
     if not company_id:
         return {"holidays": []}
 
     with get_cursor() as cur:
-        # First, get the holiday_modal_id for the company's staff
-        # Assuming we get the most common holiday modal used
-        cur.execute(
-            """
-            SELECT oh.id, oh.name as holiday_name, oh.date as holiday_date, 'office' as holiday_type
-            FROM office_holidays oh
-            WHERE oh.company_id = %s
-            AND oh.date >= CURRENT_DATE
-            ORDER BY oh.date
-            LIMIT %s
-            """,
-            (company_id, limit),
-        )
-        rows = cur.fetchall()
+        try:
+            cur.execute(
+                """
+                SELECT oh.id, oh.name as holiday_name, oh.date as holiday_date, 'office' as holiday_type
+                FROM office_holidays oh
+                WHERE oh.company_id = %s
+                AND oh.date >= CURRENT_DATE
+                ORDER BY oh.date
+                LIMIT %s
+                """,
+                (company_id, limit),
+            )
+            rows = cur.fetchall()
+        except Exception:
+            rows = []
 
     holidays = []
     for r in rows:
@@ -183,34 +201,35 @@ def get_upcoming_holidays(
 def get_shift_schedule(
     current_user: dict = Depends(get_current_company_admin),
 ):
-    """Get shift schedule information."""
+    """Get shift schedule information (shift_modals table; column is name)."""
     company_id = current_user.get("company_id")
-    user_id = current_user.get("id")
-
     if not company_id:
         return {"shifts": []}
 
+    company_ref = str(company_id)
     with get_cursor() as cur:
-        # Get shift information for the current user or company shifts
-        cur.execute(
-            """
-            SELECT 
-                sm.id, 
-                sm.name as shift_name,
-                sm.start_time,
-                sm.end_time,
-                'regular' as shift_type,
-                COUNT(s.id) as staff_count
-            FROM shift_modals sm
-            LEFT JOIN staff s ON s.shift_modal_id = sm.id AND s.company_id = %s
-            WHERE sm.company_id = %s
-            GROUP BY sm.id, sm.name, sm.start_time, sm.end_time
-            ORDER BY sm.start_time
-            LIMIT 5
-            """,
-            (company_id, company_id),
-        )
-        rows = cur.fetchall()
+        try:
+            cur.execute(
+                """
+                SELECT 
+                    sm.id, 
+                    sm.name as shift_name,
+                    sm.start_time,
+                    sm.end_time,
+                    'regular' as shift_type,
+                    COUNT(s.id) as staff_count
+                FROM shift_modals sm
+                LEFT JOIN staff s ON (s.shift_modal_id = sm.id OR s.attendance_template_id::text = sm.id::text) AND (s.business_id = %s OR s.company_id = %s)
+                WHERE sm.company_id = %s
+                GROUP BY sm.id, sm.name, sm.start_time, sm.end_time
+                ORDER BY sm.start_time
+                LIMIT 5
+                """,
+                (company_ref, company_id, company_id),
+            )
+            rows = cur.fetchall()
+        except Exception:
+            rows = []
 
     shifts = []
     for r in rows:
@@ -244,36 +263,53 @@ def get_my_leaves(
     if not company_id or not user_id:
         return {"leaves": []}
 
+    company_ref = str(company_id)
     with get_cursor() as cur:
-        # Get staff's leave modal to find available leave types
-        cur.execute(
-            """
-            SELECT leave_modal_id 
-            FROM staff 
-            WHERE id = %s AND company_id = %s
-            """,
-            (user_id, company_id),
-        )
-        staff_row = cur.fetchone()
-        leave_modal_id = (staff_row or {}).get("leave_modal_id") if staff_row else None
-
-        # Get leave categories for this modal
-        if leave_modal_id:
+        staff_row = None
+        try:
             cur.execute(
                 """
-                SELECT 
-                    lc.id,
-                    lc.category_name,
-                    lc.total_days,
-                    lc.carry_forward
-                FROM leave_categories lc
-                WHERE lc.leave_modal_id = %s
+                SELECT COALESCE(leave_modal_id, leave_template_id::bigint) as leave_modal_id
+                FROM staff
+                WHERE id = %s AND (business_id = %s OR company_id = %s)
                 """,
-                (leave_modal_id,),
+                (user_id, company_ref, company_id),
             )
-            leave_types = cur.fetchall()
-        else:
-            # Default leave types if no modal assigned
+            staff_row = cur.fetchone()
+        except Exception:
+            pass
+
+        leave_modal_id = (staff_row or {}).get("leave_modal_id") if staff_row else None
+        leave_types = []
+
+        if leave_modal_id:
+            try:
+                cur.execute(
+                    """
+                    SELECT lc.id, COALESCE(lc.category_name, lc.name) as category_name, lc.total_days, COALESCE(lc.carry_forward, FALSE) as carry_forward
+                    FROM leave_categories lc
+                    WHERE lc.leave_modal_id = %s OR lc.company_id = %s
+                    """,
+                    (leave_modal_id, company_id),
+                )
+                leave_types = cur.fetchall()
+            except Exception:
+                pass
+
+        if not leave_types:
+            try:
+                cur.execute(
+                    """
+                    SELECT id, COALESCE(name, '') as category_name, NULL::int as total_days, FALSE as carry_forward
+                    FROM leave_categories WHERE company_id = %s LIMIT 10
+                    """,
+                    (company_id,),
+                )
+                leave_types = cur.fetchall()
+            except Exception:
+                pass
+
+        if not leave_types:
             leave_types = [
                 {"id": 1, "category_name": "Casual Leave", "total_days": 12, "carry_forward": False},
                 {"id": 2, "category_name": "Unpaid Leave", "total_days": 0, "carry_forward": False},
@@ -306,32 +342,35 @@ def get_approval_requests(
     if not company_id:
         return {"requests": []}
 
+    company_ref = str(company_id)
     requests = []
     
     with get_cursor() as cur:
         if request_type == "attendance":
-            # Get attendance approval requests
-            cur.execute(
-                """
-                SELECT 
-                    a.id,
-                    a.employee_id,
-                    COALESCE(s.name, 'Unknown') as staff_name,
-                    a.date as attendance_date,
-                    a.punch_in as check_in_time,
-                    a.punch_out as check_out_time,
-                    a.status
-                FROM attendances a
-                LEFT JOIN staff s ON (s.id::text = a.employee_id OR s.mongo_id = a.employee_id OR a.employee_id::text = s.employee_id)
-                WHERE s.company_id = %s
-                AND a.date >= CURRENT_DATE - INTERVAL '7 days'
-                AND a.status = 'pending'
-                ORDER BY a.date DESC, a.punch_in DESC NULLS LAST
-                LIMIT 50
-                """,
-                (company_id,),
-            )
-            rows = cur.fetchall()
+            try:
+                cur.execute(
+                    """
+                    SELECT 
+                        a.id,
+                        a.employee_id,
+                        COALESCE(s.name, 'Unknown') as staff_name,
+                        a.date as attendance_date,
+                        a.punch_in as check_in_time,
+                        a.punch_out as check_out_time,
+                        a.status
+                    FROM attendances a
+                    LEFT JOIN staff s ON (s.id::text = a.employee_id OR s.mongo_id = a.employee_id OR a.employee_id::text = s.employee_id)
+                    WHERE (s.business_id = %s OR s.company_id = %s)
+                    AND a.date >= CURRENT_DATE - INTERVAL '7 days'
+                    AND a.status = 'pending'
+                    ORDER BY a.date DESC, a.punch_in DESC NULLS LAST
+                    LIMIT 50
+                    """,
+                    (company_ref, company_id),
+                )
+                rows = cur.fetchall()
+            except Exception:
+                rows = []
             
             for r in rows:
                 requests.append({

@@ -25,6 +25,7 @@ def _license_row(row, company_name: str | None) -> dict:
         "company": company_name,
         "plan": row.get("plan_name") or row.get("plan_code", "").title(),
         "maxUsers": row.get("max_users", 0),
+        "maxBranches": row.get("max_branches") if row.get("max_branches") is not None else 1,
         "status": row.get("status", "unassigned"),
         "validFrom": (row.get("valid_from") or "").__str__()[:10] if row.get("valid_from") else None,
         "validUntil": (row.get("valid_until") or "").__str__()[:10] if row.get("valid_until") else None,

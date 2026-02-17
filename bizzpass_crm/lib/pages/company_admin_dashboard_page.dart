@@ -101,7 +101,7 @@ class _CompanyAdminDashboardPageState extends State<CompanyAdminDashboardPage> {
       );
     }
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

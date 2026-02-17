@@ -18,17 +18,15 @@ const navItems = [
   NavItem(id: 'licenses', label: 'Licenses', icon: Icons.vpn_key_rounded),
   NavItem(id: 'payments', label: 'Payments', icon: Icons.credit_card_rounded),
   NavItem(
-      id: 'attendance',
-      label: 'Attendance',
-      icon: Icons.calendar_today_rounded),
-  NavItem(
-      id: 'visitors', label: 'Visitors', icon: Icons.person_pin_circle_rounded),
-  NavItem(
       id: 'notifications',
       label: 'Notifications',
       icon: Icons.notifications_rounded,
       badgeCount: 3),
   NavItem(id: 'plans', label: 'Plans', icon: Icons.layers_rounded),
+  NavItem(
+      id: 'integrations',
+      label: 'Integrations',
+      icon: Icons.integration_instructions_rounded),
   NavItem(id: 'settings', label: 'Settings', icon: Icons.settings_rounded),
 ];
 
